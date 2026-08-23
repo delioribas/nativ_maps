@@ -2,9 +2,9 @@
 
 import 'dart:async';
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// **Las 7 operaciones de Places**, cada una con su patrón de uso correcto.
@@ -31,7 +31,7 @@ class BusquedaDemo extends StatefulWidget {
 }
 
 class _BusquedaDemoState extends State<BusquedaDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   final _texto = TextEditingController();
 
   /// El antirrebote vive AQUÍ y no en el cliente a propósito: depende del
@@ -62,7 +62,7 @@ class _BusquedaDemoState extends State<BusquedaDemo> {
         _barraDeBusqueda(),
         if (_sugerencias.isNotEmpty) _listaDeSugerencias(),
         Expanded(
-          child: CompassMap(
+          child: NativMap(
             styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
             initialCameraPosition: CameraPosition(
               target: Config.defaultCenter,
@@ -429,7 +429,7 @@ class _BusquedaDemoState extends State<BusquedaDemo> {
     });
     try {
       await accion();
-    } on CompassMapsException catch (error) {
+    } on NativMapsException catch (error) {
       // Se captura el tipo raíz del paquete y no `Object`: así los errores de
       // programación de la app siguen llegando arriba, que es donde se ven.
       if (mounted) setState(() => _error = error);

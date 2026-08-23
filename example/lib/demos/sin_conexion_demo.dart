@@ -2,9 +2,9 @@
 
 import 'dart:async';
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// **Mapas sin conexión.** `google_maps_flutter` no puede dar esto.
@@ -41,7 +41,7 @@ class SinConexionDemo extends StatefulWidget {
 }
 
 class _SinConexionDemoState extends State<SinConexionDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   StreamSubscription<DownloadProgress>? _descarga;
 
   double _minZoom = 10;
@@ -61,7 +61,7 @@ class _SinConexionDemoState extends State<SinConexionDemo> {
     titulo: 'Sin conexión',
     error: _error,
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,

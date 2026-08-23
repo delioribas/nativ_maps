@@ -11,25 +11,25 @@
 ```diff
  dependencies:
 -  google_maps_flutter: ^2.12.0
-+  compass_maps_flutter: ^0.1.0
-+  compass_maps_google:
++  nativ_maps_flutter: ^0.2.0
++  nativ_maps_google:
 +    git:
-+      url: https://github.com/delioribas/compass_maps.git
-+      path: packages/compass_maps_google
-+      ref: v0.1.0
++      url: https://github.com/delioribas/nativ_maps.git
++      path: packages/nativ_maps_google
++      ref: v0.2.0
 ```
 
-`compass_maps_google` **no está en pub.dev a propósito**: es una capa de
+`nativ_maps_google` **no está en pub.dev a propósito**: es una capa de
 transición, y publicarla sería un cuarto paquete que mantener para siempre. Se
 consume por git con una **etiqueta**, nunca con una rama — una rama cambia bajo
 los pies y rompe compilaciones que ayer funcionaban.
 
 ```diff
 -import 'package:google_maps_flutter/google_maps_flutter.dart';
-+import 'package:compass_maps_google/compass_maps_google.dart';
++import 'package:nativ_maps_google/nativ_maps_google.dart';
 ```
 
-`compass_maps_google` **no depende de `google_maps_flutter`**, no llama a
+`nativ_maps_google` **no depende de `google_maps_flutter`**, no llama a
 ninguna API de Google y no necesita clave de Google. Solo toma prestado el
 vocabulario.
 
@@ -83,7 +83,7 @@ Estos nombres son **idénticos**, con la misma firma:
 -  polylines: _lineas,
 -  onMapCreated: (c) => _controlador = c,
 -)
-+CompassMap(
++NativMap(
 +  styleUrl: maps.maps.styleDescriptorUrl(MapStyle.standard)!,
 +  initialCameraPosition: CameraPosition(target: quito, zoom: 13),
 +  onMapCreated: (c) {
@@ -138,7 +138,7 @@ nombre, y dos iconos distintos con el mismo nombre se pisan.
 +)!,
 ```
 
-`MapType` existe en `compass_maps_google` con `asMapStyle` y `terrainOption`
+`MapType` existe en `nativ_maps_google` con `asMapStyle` y `terrainOption`
 para hacer justo esta traducción.
 
 | `MapType` de Google | Aquí | |
@@ -251,7 +251,7 @@ sabe qué falta.
 ### Cuándo llamarlo
 
 ```dart
-CompassMap(
+NativMap(
   styleUrl: url,
   onMapCreated: (c) => _controlador = c,
   // En onStyleLoaded, NO en onMapCreated: un cambio de styleUrl recarga el
@@ -288,9 +288,9 @@ disponibles el mismo día que cambias el `import`:
 ## Lista de comprobación
 
 ```text
-[ ] Cambiado el import a compass_maps_google
+[ ] Cambiado el import a nativ_maps_google
 [ ] Quitadas las claves de Google de AndroidManifest.xml y AppDelegate.swift
-[ ] GoogleMap → CompassMap, con styleUrl
+[ ] GoogleMap → NativMap, con styleUrl
 [ ] markers:/polylines:/… → controlador.setMarkers(...)/setPolylines(...)
 [ ] BitmapDescriptor.fromAssetImage → .fromBytes con nombre único
 [ ] mapType → styleUrl con el estilo y el relieve
@@ -299,5 +299,5 @@ disponibles el mismo día que cambias el `import`:
 [ ] android/settings.gradle.kts con AGP 8.x, no 9.x
 [ ] JDK 21 configurado (flutter config --jdk-dir)
 [ ] La atribución se ve en pantalla
-[ ] Presupuesto puesto en CompassMaps
+[ ] Presupuesto puesto en NativMaps
 ```

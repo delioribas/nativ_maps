@@ -6,9 +6,9 @@ la explicación de por qué así y no de otra forma.
 Todas dan por hecho:
 
 ```dart
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: const ApiKeyCredentials('tu-clave'),
   language: 'es',
@@ -50,11 +50,11 @@ class Pantalla extends StatefulWidget {
 }
 
 class _PantallaState extends State<Pantalla> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: CompassMap(
+        body: NativMap(
           styleUrl: maps.maps.styleDescriptorUrl(MapStyle.standard)!,
           initialCameraPosition: CameraPosition(
             target: LatLng(-0.1807, -78.4678),
@@ -80,7 +80,7 @@ el controlador.
 ```dart
 final estilos = maps.maps.dayNightStyleUrls(MapStyle.standard);
 
-CompassMap(
+NativMap(
   styleUrl: Theme.of(context).brightness == Brightness.dark
       ? estilos.dark!
       : estilos.light!,
@@ -189,7 +189,7 @@ infinitos. `padded(500)` añade 500 m por lado y se recorta solo en los polos.
 ## 7 · Retocar el estilo en caliente
 
 ```dart
-CompassMap(
+NativMap(
   ...
   // En onStyleLoaded, no en onMapCreated: un cambio de styleUrl recarga el
   // estilo desde el servidor y deshace todo esto.
@@ -987,7 +987,7 @@ calle— en vez de fallar.
 ## 36 · Mapa sin conexión
 
 ```dart
-CompassMap(
+NativMap(
   ...
   offlineEnabled: true,   // sin esto, `offline` es null
 );
@@ -1028,7 +1028,7 @@ datos móviles. Para rastreo de vehículos, z10–z15 basta.
 ## 37 · Proxy que firma (recomendado)
 
 ```dart
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: ProxyCredentials(
     baseUrl: Uri.parse('https://api.miempresa.com/geo'),
@@ -1044,8 +1044,8 @@ Tu proxy recibe la ruta tal cual (`POST /geo/v2/search-text`) y dos cabeceras
 que le dicen qué firmar:
 
 ```
-X-Compass-Service: geo-places
-X-Compass-Region:  us-east-1
+X-Nativ-Service: geo-places
+X-Nativ-Region:  us-east-1
 ```
 
 Con eso, el proxy es un reenviador transparente de unas veinte líneas.
@@ -1053,7 +1053,7 @@ Con eso, el proxy es un reenviador transparente de unas veinte líneas.
 Para las **teselas**:
 
 ```dart
-CompassMap(
+NativMap(
   styleUrl: 'https://api.miempresa.com/geo/v2/styles/Standard/descriptor',
   customHeaders: {'Authorization': 'Bearer ${sesion.token}'},
   ...
@@ -1065,7 +1065,7 @@ CompassMap(
 ## 38 · SigV4 en el dispositivo
 
 ```dart
-import 'package:compass_maps_sigv4/compass_maps_sigv4.dart';
+import 'package:nativ_maps_sigv4/nativ_maps_sigv4.dart';
 
 final credenciales = SigV4Credentials(
   provider: () async {
@@ -1079,13 +1079,13 @@ final credenciales = SigV4Credentials(
   },
 );
 
-final maps = CompassMaps(region: 'us-east-1', credentials: credenciales);
+final maps = NativMaps(region: 'us-east-1', credentials: credenciales);
 ```
 
 Y para las teselas:
 
 ```dart
-CompassMap(
+NativMap(
   styleUrl: url,
   customHeaders: await credenciales.mapHeaders(
     styleUrl: url,
@@ -1123,12 +1123,12 @@ try {
 } on AlsTransportException {
   // El servicio no llegó a responder → no se ha facturado nada.
   mostrar('Sin conexión.');
-} on CompassMapsConfigurationException {
+} on NativMapsConfigurationException {
   mostrar('Falta la clave de Amazon Location.');
 }
 ```
 
-Captura `CompassMapsException` para atrapar las cinco de golpe **sin** atrapar
+Captura `NativMapsException` para atrapar las cinco de golpe **sin** atrapar
 los errores de programación de tu app, que es lo que hace un `catch (e)`
 genérico.
 
@@ -1137,7 +1137,7 @@ genérico.
 ## 40 · No llevarse un susto en la factura
 
 ```dart
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: const ApiKeyCredentials(clave),
   budget: Budget(
@@ -1177,14 +1177,14 @@ está en su peor momento.
 >
 > 1. **Hay que crear un recurso** —una colección o un rastreador—.
 > 2. **No admiten clave de API.** Hacen falta `ProxyCredentials` o
->    `compass_maps_sigv4`. El paquete lo **corta antes de enviar**, con un
+>    `nativ_maps_sigv4`. El paquete lo **corta antes de enviar**, con un
 >    mensaje que dice qué hacer.
 > 3. Sí usan `DistanceUnit`; el paquete pide kilómetros y **convierte a
 >    metros**, para que todo siga en unidades del SI.
 
 ```dart
 // Las nueve recetas dan por hecho esto:
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: ProxyCredentials(
     baseUrl: Uri.parse('https://api.miempresa.com/geo'),

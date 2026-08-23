@@ -1,4 +1,4 @@
-name: compass_maps
+name: nativ_maps
 
 # Melos 8 lee la lista de paquetes del `workspace:` del pubspec raíz.
 # Aquí solo viven las órdenes.
@@ -44,7 +44,7 @@ scripts:
     description: Cobertura del núcleo, que es donde vive la lógica.
     run: dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
     packageFilters:
-      scope: compass_maps
+      scope: nativ_maps
 
   publish:dry:
     description: Ensayo de publicación de los paquetes públicos.
@@ -52,8 +52,8 @@ scripts:
     packageFilters:
       published: false
       scope:
-        - compass_maps
-        - compass_maps_flutter
+        - nativ_maps
+        - nativ_maps_flutter
 
   doc:
     description: Genera la documentación de la API.

@@ -1,30 +1,30 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/demos/busqueda_demo.dart';
-import 'package:compass_maps_example/demos/isocronas_demo.dart';
-import 'package:compass_maps_example/demos/mapa_basico_demo.dart';
-import 'package:compass_maps_example/demos/matriz_demo.dart';
-import 'package:compass_maps_example/demos/rutas_demo.dart';
-import 'package:compass_maps_example/demos/sin_conexion_demo.dart';
-import 'package:compass_maps_example/demos/snap_demo.dart';
-import 'package:compass_maps_example/demos/superposiciones_demo.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/demos/busqueda_demo.dart';
+import 'package:nativ_maps_example/demos/isocronas_demo.dart';
+import 'package:nativ_maps_example/demos/mapa_basico_demo.dart';
+import 'package:nativ_maps_example/demos/matriz_demo.dart';
+import 'package:nativ_maps_example/demos/rutas_demo.dart';
+import 'package:nativ_maps_example/demos/sin_conexion_demo.dart';
+import 'package:nativ_maps_example/demos/snap_demo.dart';
+import 'package:nativ_maps_example/demos/superposiciones_demo.dart';
 import 'package:flutter/material.dart';
 
-void main() => runApp(const CompassMapsExampleApp());
+void main() => runApp(const NativMapsExampleApp());
 
 /// La app de ejemplo.
 ///
 /// Ejercita **las 17 operaciones** de Amazon Location v2 y todo lo que el
 /// widget del mapa sabe hacer. Es a la vez la demostración y la prueba de que
 /// la matriz de plataformas declarada —Android e iOS— es cierta.
-class CompassMapsExampleApp extends StatelessWidget {
+class NativMapsExampleApp extends StatelessWidget {
   /// Crea la app.
-  const CompassMapsExampleApp({super.key});
+  const NativMapsExampleApp({super.key});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'compass_maps',
+    title: 'nativ_maps',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       colorSchemeSeed: const Color(0xFF1E88E5),
@@ -149,7 +149,7 @@ class _Inicio extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('compass_maps'),
+        title: const Text('nativ_maps'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(28),
           child: Padding(
@@ -190,9 +190,9 @@ class _Inicio extends StatelessWidget {
             ),
             isThreeLine: demo.operaciones.isNotEmpty,
             trailing: const Icon(Icons.chevron_right),
-            onTap: () =>
-                Navigator.of(context)
-                    .push(MaterialPageRoute<void>(builder: demo.constructor)),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: demo.constructor)),
           );
         },
       ),

@@ -1,4 +1,4 @@
-# AGENTS.md — cómo usar `compass_maps` sin leer el código fuente
+# AGENTS.md — cómo usar `nativ_maps` sin leer el código fuente
 
 Este archivo está escrito para **agentes de IA** que tengan que escribir código
 contra este paquete. Es denso a propósito: todo lo que hace falta para acertar a
@@ -14,28 +14,28 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
-  compass_maps_flutter: ^0.1.0
+  nativ_maps_flutter: ^0.2.0
 
   # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
   # nunca con una rama. Añádelos solo si los necesitas.
-  compass_maps_sigv4:      # SOLO si usas geovallas o rastreo (exigen SigV4)
+  nativ_maps_sigv4:      # SOLO si usas geovallas o rastreo (exigen SigV4)
     git:
-      url: https://github.com/delioribas/compass_maps.git
-      path: packages/compass_maps_sigv4
-      ref: v0.1.0
-  compass_maps_google:     # SOLO si migras de google_maps_flutter
+      url: https://github.com/delioribas/nativ_maps.git
+      path: packages/nativ_maps_sigv4
+      ref: v0.2.0
+  nativ_maps_google:     # SOLO si migras de google_maps_flutter
     git:
-      url: https://github.com/delioribas/compass_maps.git
-      path: packages/compass_maps_google
-      ref: v0.1.0
+      url: https://github.com/delioribas/nativ_maps.git
+      path: packages/nativ_maps_google
+      ref: v0.2.0
 ```
 
 ```dart
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 ```
 
-**Un solo import.** `compass_maps_flutter` reexporta el núcleo entero. Nunca
-importes `package:compass_maps/compass_maps.dart` en una app Flutter: no hace
+**Un solo import.** `nativ_maps_flutter` reexporta el núcleo entero. Nunca
+importes `package:nativ_maps/nativ_maps.dart` en una app Flutter: no hace
 falta y duplica los símbolos.
 
 ---
@@ -58,7 +58,7 @@ produce un fallo **silencioso**.
 | 9 | Un `Place` de `autocomplete` **no trae posición** | Llama a `getPlace(placeId)` solo con la que el usuario elija |
 | 10 | Comprueba `MatrixCell.isValid` antes de usar los números | Una celda con error trae **ceros**, y un cero parece «lo más cerca posible» |
 | 11 | Comprueba `PlaceType.isPrecise` en `reverseGeocode` | Un `locality` significa «no encontré el portal, te doy la ciudad» — kilómetros de diferencia |
-| 12 | **Geovallas y rastreo NO aceptan clave de API** | Se corta antes de enviar. Hacen falta `ProxyCredentials` o `compass_maps_sigv4` |
+| 12 | **Geovallas y rastreo NO aceptan clave de API** | Se corta antes de enviar. Hacen falta `ProxyCredentials` o `nativ_maps_sigv4` |
 | 13 | `batchEvaluateGeofences` **devuelve vacío a propósito** | Los eventos salen por **EventBridge**, no por la respuesta. Para saberlo ahora, `GeofenceGeometry.contains` (local, gratis) |
 | 14 | Mira `BatchResult.errors` siempre | Estas operaciones responden 200 aunque falle la mitad |
 | 15 | En rastreo, `sampleTime` es **la hora del GPS** | La de envío desordena el histórico y engaña al filtrado del rastreador |
@@ -70,7 +70,7 @@ produce un fallo **silencioso**.
 ### Punto de entrada
 
 ```dart
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',                              // requerido
   credentials: const ApiKeyCredentials('clave'),    // requerido
   language: 'es',                                   // opcional, BCP 47
@@ -273,7 +273,7 @@ String? staticMapUrl({...});         // ⚠️ la URL LLEVA LA CLAVE: no la regi
 ### `maps.geofencing` — firmas exactas
 
 ⚠️ **Exige SigV4.** Con `ApiKeyCredentials` lanza
-`CompassMapsConfigurationException` **antes de enviar**.
+`NativMapsConfigurationException` **antes de enviar**.
 
 ```dart
 Future<Geofence> putGeofence({
@@ -399,7 +399,7 @@ Future<TrackingPage<String>> listConsumers({required String trackerName,
 
 **AWS borra el histórico a los 30 días.** No es configurable.
 
-### `CompassMapController` — lo que se usa de verdad
+### `NativMapController` — lo que se usa de verdad
 
 ```dart
 // Cámara — nombres idénticos a google_maps_flutter
@@ -429,7 +429,7 @@ Future<void> addHeatmap(Heatmap h);
 Future<void> removeHeatmap(HeatmapId id);
 Future<void> addClusterManager(ClusterManager m);   // ANTES de los marcadores
 Future<double> getClusterExpansionZoom(Cluster c);
-CompassOfflineManager? get offline;   // null si offlineEnabled: false
+NativOfflineManager? get offline;   // null si offlineEnabled: false
 StyleEditor get style;                // retocar capas en caliente
 
 // Estilo y capturas
@@ -442,10 +442,10 @@ Future<void> clearTileCache();
 ### El widget
 
 ```dart
-CompassMap(
+NativMap(
   styleUrl: ...,                        // requerido
   initialCameraPosition: ...,           // requerido, SOLO al crear
-  onMapCreated: (CompassMapController c) {},
+  onMapCreated: (NativMapController c) {},
   onStyleLoaded: () {},                 // en CADA carga, no solo la primera
   onStyleError: (Object e) {},          // ENGÁNCHALO
   onTap: (LatLng p) {},
@@ -482,12 +482,12 @@ CompassMap(
 |---|---|---|
 | `markers: {…}` como parámetro del widget | `controller.addMarker(...)` | Mover un vehículo no debe reconstruir el árbol de widgets |
 | `BitmapDescriptor.fromAssetImage` | `BitmapDescriptor.fromBytes(nombre, bytes)` | MapLibre registra la imagen **una vez** por nombre y la referencia muchas |
-| `GoogleMapController` | `CompassMapController` | — |
+| `GoogleMapController` | `NativMapController` | — |
 | `MapType.terrain` | `MapStyle.standard` + `terrain:` | Aquí el relieve es un parámetro, no un estilo cerrado |
-| `setMapStyle(json)` (Google JSON) | `setGoogleMapStyle(json)` en `compass_maps_google` | Traducción **aproximada**, con informe |
+| `setMapStyle(json)` (Google JSON) | `setGoogleMapStyle(json)` en `nativ_maps_google` | Traducción **aproximada**, con informe |
 | `tilt` | `tilt` (MapLibre lo llama *pitch*) | Se mantiene el nombre de Google |
 
-**Con `compass_maps_google` importado, `animateCamera`, `moveCamera`,
+**Con `nativ_maps_google` importado, `animateCamera`, `moveCamera`,
 `getVisibleRegion`, `getZoomLevel`, `updateMarkers`, `getStyleError` y las nueve
 fábricas de `CameraUpdate` ya se llaman igual.**
 
@@ -509,14 +509,14 @@ try {
   e.resetsAt;               // cuándo vuelve a haber presupuesto
 } on AlsTransportException {
   // No llegó a haber respuesta → NO se ha facturado nada
-} on CompassMapsConfigurationException {
+} on NativMapsConfigurationException {
   // Falta la clave. Se lanza ANTES de enviar
 } on AlsParseException {
   // 200 pero la forma cambió. No reintentes: mira el cuerpo real
 }
 ```
 
-`CompassMapsException` es la raíz **sellada** de las cinco. Capturarla atrapa
+`NativMapsException` es la raíz **sellada** de las cinco. Capturarla atrapa
 todo lo del framework sin atrapar los errores de programación de tu app.
 
 `ArgumentError` se lanza **antes de enviar** en los límites duros (matriz,
@@ -608,7 +608,7 @@ await maps.geofencing.batchEvaluateGeofences(
 
 ```dart
 final estilos = maps.maps.dayNightStyleUrls(MapStyle.standard);
-CompassMap(
+NativMap(
   styleUrl: esDeNoche ? estilos.dark! : estilos.light!,
   // Cambiar esta cadena recarga el estilo y reinstala las superposiciones solo.
   ...
@@ -642,7 +642,7 @@ onCameraMove: (p) => maps.places.searchNearby(position: p.target),
 onCameraIdle: () => _buscarEnLaVistaActual(),
 
 // ❌ Un cliente por pantalla → cada uno con sus cachías vacías
-Widget build(_) { final maps = CompassMaps(...); }
+Widget build(_) { final maps = NativMaps(...); }
 // ✅ uno compartido en toda la app
 
 // ❌ La celda con error trae ceros, y un cero parece «lo más cerca»

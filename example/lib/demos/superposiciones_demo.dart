@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// Todas las superposiciones, incluidas las dos que Google hace peor.
@@ -36,7 +36,7 @@ class SuperposicionesDemo extends StatefulWidget {
 }
 
 class _SuperposicionesDemoState extends State<SuperposicionesDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   Timer? _animacion;
   String _ultimoToque = '—';
   int _marcadores = 0;
@@ -75,7 +75,7 @@ class _SuperposicionesDemoState extends State<SuperposicionesDemo> {
         ),
       ],
     ),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 
 /// Configuración de la app de ejemplo.
 ///
@@ -47,7 +47,7 @@ abstract final class Config {
   /// El presupuesto está deliberadamente apretado —200 unidades por minuto—
   /// porque esta app existe para probar, y una pantalla de pruebas con un
   /// bucle es exactamente el caso que el tope tiene que atrapar.
-  static final CompassMaps maps = CompassMaps(
+  static final NativMaps maps = NativMaps(
     region: region,
     credentials: const ApiKeyCredentials(apiKey),
     language: language,

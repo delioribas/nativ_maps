@@ -2,9 +2,9 @@
 
 import 'dart:async';
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// **Isócronas: hasta dónde se llega en X minutos.** Google no tiene esto.
@@ -40,7 +40,7 @@ class IsocronasDemo extends StatefulWidget {
 }
 
 class _IsocronasDemoState extends State<IsocronasDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   LatLng _punto = Config.defaultCenter;
   bool _haciaDentro = false;
   TravelMode _modo = TravelMode.car;
@@ -65,7 +65,7 @@ class _IsocronasDemoState extends State<IsocronasDemo> {
     cargando: _cargando,
     error: _error,
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(
         MapStyle.standard,
         colorScheme: MapColorScheme.dark,
@@ -129,7 +129,7 @@ class _IsocronasDemoState extends State<IsocronasDemo> {
 
       setState(() => _respuesta = respuesta);
       await _pintar(respuesta);
-    } on CompassMapsException catch (error) {
+    } on NativMapsException catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _cargando = false);

@@ -6,17 +6,17 @@
 # cada dependencia transitiva y, sobre todo, ninguna posibilidad de que el
 # ejemplo se compile contra una versión del núcleo distinta de la que se
 # publica.
-name: compass_maps_workspace
+name: nativ_maps_workspace
 publish_to: none
 
 environment:
   sdk: ^3.9.0
 
 workspace:
-  - packages/compass_maps
-  - packages/compass_maps_flutter
-  - packages/compass_maps_google
-  - packages/compass_maps_sigv4
+  - packages/nativ_maps
+  - packages/nativ_maps_flutter
+  - packages/nativ_maps_google
+  - packages/nativ_maps_sigv4
   - example
 
 dev_dependencies:

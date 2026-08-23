@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// **Pegar un rastro GPS a la calle real.** Google no tiene esto.
@@ -41,7 +41,7 @@ class SnapDemo extends StatefulWidget {
 }
 
 class _SnapDemoState extends State<SnapDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   final _rng = math.Random(11);
 
   late List<TracePoint> _rastro;
@@ -85,7 +85,7 @@ class _SnapDemoState extends State<SnapDemo> {
     cargando: _cargando,
     error: _error,
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,
@@ -141,7 +141,7 @@ class _SnapDemoState extends State<SnapDemo> {
 
       setState(() => _respuesta = respuesta);
       await _pintarPegado(respuesta);
-    } on CompassMapsException catch (error) {
+    } on NativMapsException catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _cargando = false);

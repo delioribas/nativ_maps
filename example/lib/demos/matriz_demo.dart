@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// **Matriz de rutas y optimización de paradas.**
@@ -40,7 +40,7 @@ class MatrizDemo extends StatefulWidget {
 }
 
 class _MatrizDemoState extends State<MatrizDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   final _rng = math.Random(7);
 
   late List<LatLng> _unidades;
@@ -68,7 +68,7 @@ class _MatrizDemoState extends State<MatrizDemo> {
     cargando: _cargando,
     error: _error,
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,
@@ -360,7 +360,7 @@ class _MatrizDemoState extends State<MatrizDemo> {
     });
     try {
       await accion();
-    } on CompassMapsException catch (error) {
+    } on NativMapsException catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _cargando = false);

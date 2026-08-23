@@ -1,0 +1,25 @@
+name: nativ_maps
+description: "Amazon Location Service in pure Dart with the shape of Google Maps. 44 typed operations for places, routes, maps, geofences and device tracking."
+version: 0.2.0
+repository: https://github.com/delioribas/nativ_maps
+issue_tracker: https://github.com/delioribas/nativ_maps/issues
+documentation: https://github.com/delioribas/nativ_maps#readme
+topics:
+  - aws
+  - maps
+  - geocoding
+  - routing
+  - location
+
+environment:
+  sdk: ^3.8.0
+
+resolution: workspace
+
+dependencies:
+  http: ^1.1.0
+  meta: ^1.16.0
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.25.0

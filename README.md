@@ -1,4 +1,4 @@
-# compass_maps
+# nativ_maps
 
 > **Amazon Location Service con la forma de Google Maps.**
 > Un framework de Flutter reutilizable, publicable en pub.dev.
@@ -39,19 +39,19 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  compass_maps_flutter: ^0.1.0
+  nativ_maps_flutter: ^0.2.0
 ```
 
 ```dart
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: const ApiKeyCredentials('tu-clave'),
   language: 'es',
 );
 
-CompassMap(
+NativMap(
   styleUrl: maps.maps.styleDescriptorUrl(MapStyle.standard)!,
   initialCameraPosition: CameraPosition(
     target: LatLng(-0.1807, -78.4678),
@@ -61,7 +61,7 @@ CompassMap(
 );
 ```
 
-**Instalando solo `compass_maps_flutter` ya tienes las 44 operaciones**: el
+**Instalando solo `nativ_maps_flutter` ya tienes las 44 operaciones**: el
 paquete reexporta el núcleo entero.
 
 > **La regla que lo resume:** si sabes usar `google_maps_flutter`, ya sabes usar
@@ -85,18 +85,18 @@ paquete reexporta el núcleo entero.
 
 ```
 packages/
-├── compass_maps/            ① núcleo · Dart puro · sin Flutter
-├── compass_maps_flutter/    ② EL QUE SE INSTALA · widget + reexporta ①
-├── compass_maps_google/     ③ compatibilidad · typedef + extension
-└── compass_maps_sigv4/      ④ firma SigV4 · opcional
+├── nativ_maps/            ① núcleo · Dart puro · sin Flutter
+├── nativ_maps_flutter/    ② EL QUE SE INSTALA · widget + reexporta ①
+├── nativ_maps_google/     ③ compatibilidad · typedef + extension
+└── nativ_maps_sigv4/      ④ firma SigV4 · opcional
 ```
 
 | Paquete | Por qué está separado |
 |---|---|
-| `compass_maps` | No depende de Flutter → se prueba **sin emulador** y sirve en una herramienta de línea de órdenes o un servidor Dart |
-| `compass_maps_flutter` | La puerta de entrada. Reexporta el núcleo entero |
-| `compass_maps_google` | Opcional. Solo lo añade quien viene de Google |
-| `compass_maps_sigv4` | Aparte **a propósito**: quien solo usa clave de API no debe pagar sus dependencias |
+| `nativ_maps` | No depende de Flutter → se prueba **sin emulador** y sirve en una herramienta de línea de órdenes o un servidor Dart |
+| `nativ_maps_flutter` | La puerta de entrada. Reexporta el núcleo entero |
+| `nativ_maps_google` | Opcional. Solo lo añade quien viene de Google |
+| `nativ_maps_sigv4` | Aparte **a propósito**: quien solo usa clave de API no debe pagar sus dependencias |
 
 ---
 
@@ -194,7 +194,7 @@ packages/
 Amazon Location **se factura por petición**, y algunas cobran más de una.
 
 ```dart
-final maps = CompassMaps(
+final maps = NativMaps(
   region: 'us-east-1',
   credentials: const ApiKeyCredentials(clave),
   budget: Budget(maxUnits: 500, window: const Duration(minutes: 1)),
@@ -234,7 +234,7 @@ await maps.routes.calculateRouteMatrix(
 |---|---|---|
 | **A · Clave de API** | `ApiKeyCredentials` | **se extrae de un APK.** Solo desarrollo |
 | **B · Proxy que firma** | `ProxyCredentials` | un endpoint nuevo. **Recomendado en producción** |
-| **C · SigV4 en el móvil** | `compass_maps_sigv4` | configurar Cognito y la política IAM |
+| **C · SigV4 en el móvil** | `nativ_maps_sigv4` | configurar Cognito y la política IAM |
 
 Cambiar de camino es cambiar el objeto que se pasa al constructor. Nada más
 arriba se entera.
