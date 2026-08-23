@@ -2,9 +2,9 @@
 
 import 'dart:typed_data';
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// El mapa, sus cuatro estilos y los rasgos que Google no tiene.
@@ -27,7 +27,7 @@ class MapaBasicoDemo extends StatefulWidget {
 }
 
 class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
 
   MapStyle _estilo = MapStyle.standard;
   MapColorScheme _esquema = MapColorScheme.light;
@@ -63,7 +63,7 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
       ),
     ],
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: _styleUrl,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,
@@ -74,8 +74,9 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
       // carga deja un rectángulo gris sin ninguna explicación.
       onStyleError: (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
       },
       zoomControlsEnabled: true,
       myLocationEnabled: false,

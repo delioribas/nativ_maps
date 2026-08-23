@@ -1,10 +1,10 @@
-name: compass_maps_example
+name: nativ_maps_example
 description: >-
   App que ejercita las 17 operaciones de Amazon Location v2 y todo lo que el
   widget del mapa sabe hacer. Es a la vez la demostración y la prueba de que
   la matriz de plataformas declarada es cierta.
 publish_to: none
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.8.0
@@ -13,8 +13,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  compass_maps_flutter: ^0.1.1
-  compass_maps_google: ^0.1.1
+  nativ_maps_flutter: ^0.2.0
+  nativ_maps_google: ^0.2.0
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter

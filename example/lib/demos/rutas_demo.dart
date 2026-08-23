@@ -2,9 +2,9 @@
 
 import 'dart:async';
 
-import 'package:compass_maps_example/config.dart';
-import 'package:compass_maps_example/widgets/demo_scaffold.dart';
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_example/config.dart';
+import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// Rutas con indicaciones, alternativas y **coste de peaje**.
@@ -36,7 +36,7 @@ class RutasDemo extends StatefulWidget {
 }
 
 class _RutasDemoState extends State<RutasDemo> {
-  CompassMapController? _mapa;
+  NativMapController? _mapa;
   LatLng? _origen;
   LatLng? _destino;
   RouteResponse? _respuesta;
@@ -53,7 +53,7 @@ class _RutasDemoState extends State<RutasDemo> {
     cargando: _cargando,
     error: _error,
     panel: _panel(),
-    child: CompassMap(
+    child: NativMap(
       styleUrl: Config.maps.maps.styleDescriptorUrl(
         MapStyle.standard,
         // El tráfico dentro del propio estilo: es el equivalente real de
@@ -134,7 +134,7 @@ class _RutasDemoState extends State<RutasDemo> {
         _elegida = 0;
       });
       await _pintar();
-    } on CompassMapsException catch (error) {
+    } on NativMapsException catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _cargando = false);

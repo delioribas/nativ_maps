@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
-import 'package:compass_maps_flutter/compass_maps_flutter.dart';
+import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 /// El armazón compartido por todas las demostraciones.
@@ -23,7 +23,7 @@ class DemoScaffold extends StatelessWidget {
   /// El título de la barra.
   final String titulo;
 
-  /// El contenido, normalmente un [CompassMap].
+  /// El contenido, normalmente un [NativMap].
   final Widget child;
 
   /// Botones de la barra superior.
@@ -84,10 +84,7 @@ class _TarjetaDeError extends StatelessWidget {
       ),
       final BudgetExhaustedException e => ('Presupuesto agotado', e.toString()),
       final AlsTransportException e => ('Sin conexión', e.message),
-      final CompassMapsConfigurationException e => (
-        'Sin configurar',
-        e.message,
-      ),
+      final NativMapsConfigurationException e => ('Sin configurar', e.message),
       _ => ('Error', error.toString()),
     };
 
