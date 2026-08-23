@@ -1,174 +1,175 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
+// `FareAdvisor` está obsoleto en favor de `PriceAdvisor`, pero sigue
+// funcionando hasta la 1.0.0 y por tanto sigue probándose: retirar las pruebas
+// de algo que aún se puede llamar es cómo se rompe a quien todavía lo usa.
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'package:nativ_maps/nativ_maps.dart';
 import 'package:test/test.dart';
 
 void main() {
   final quito = LatLng(-0.1807, -78.4678);
-  final ahora = DateTime.utc(2026, 8, 23, 10);
+  final now = DateTime.utc(2026, 8, 23, 10);
 
-  RideRequest peticion() => RideRequest(
+  RideRequest request() => RideRequest(
     id: 'c-1',
     pickup: quito,
     dropoff: quito.offset(4200, 90),
     proposedFare: 500,
     currency: 'USD',
-    createdAt: ahora,
+    createdAt: now,
   );
 
-  DriverBid oferta(
-    String conductor,
-    int importe, {
+  DriverBid offer(
+    String driver,
+    int amount, {
     int minutos = 4,
-    double? nota,
+    double? score,
     DateTime? cuando,
   }) => DriverBid(
-    driverId: conductor,
+    driverId: driver,
     requestId: 'c-1',
-    amount: importe,
+    amount: amount,
     etaToPickup: Duration(minutes: minutos),
-    createdAt: cuando ?? ahora,
-    driverRating: nota,
+    createdAt: cuando ?? now,
+    driverRating: score,
   );
 
   group('RideAuction', () {
     test('recoge ofertas y las devuelve vivas', () {
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 500), now: ahora)
-        ..bid(oferta('b', 650), now: ahora);
-      expect(subasta.liveBids(ahora), hasLength(2));
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 500), now: now)
+        ..bid(offer('b', 650), now: now);
+      expect(auction.liveBids(now), hasLength(2));
     });
 
     test('volver a ofertar sustituye, no acumula', () {
       // Es lo que hace falta para poder bajar el precio: si se acumulase, el
       // pasajero vería dos ofertas del mismo conductor.
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 650), now: ahora)
-        ..bid(oferta('a', 550), now: ahora);
-      final vivas = subasta.liveBids(ahora);
-      expect(vivas, hasLength(1));
-      expect(vivas.single.amount, 550);
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 650), now: now)
+        ..bid(offer('a', 550), now: now);
+      final live = auction.liveBids(now);
+      expect(live, hasLength(1));
+      expect(live.single.amount, 550);
     });
 
     test('una oferta caducada deja de contar', () {
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 500), now: ahora);
-      final tarde = ahora.add(const Duration(minutes: 3));
-      expect(subasta.liveBids(tarde), isEmpty);
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 500), now: now);
+      final later = now.add(const Duration(minutes: 3));
+      expect(auction.liveBids(later), isEmpty);
     });
 
     test('no se acepta una oferta caducada', () {
       // Aceptarla sería prometerle al pasajero un tiempo de llegada que el
       // conductor ya no puede cumplir: lleva tres minutos conduciendo.
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 500), now: ahora);
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 500), now: now);
       expect(
-        () => subasta.accept('a', now: ahora.add(const Duration(minutes: 3))),
+        () => auction.accept('a', now: now.add(const Duration(minutes: 3))),
         throwsStateError,
       );
     });
 
     test('aceptar cierra la subasta', () {
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 500), now: ahora);
-      final ganadora = subasta.accept('a', now: ahora);
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 500), now: now);
+      final winner = auction.accept('a', now: now);
 
-      expect(ganadora.driverId, 'a');
-      expect(subasta.winner, isNotNull);
-      expect(subasta.stateAt(ahora), AuctionState.accepted);
-      expect(() => subasta.bid(oferta('b', 400), now: ahora), throwsStateError);
+      expect(winner.driverId, 'a');
+      expect(auction.winner, isNotNull);
+      expect(auction.stateAt(now), AuctionState.accepted);
+      expect(() => auction.bid(offer('b', 400), now: now), throwsStateError);
     });
 
     test('caduca sola al pasar su tiempo', () {
-      final subasta = RideAuction(
-        request: peticion(),
+      final auction = RideAuction(
+        request: request(),
         duration: const Duration(minutes: 5),
       );
-      expect(subasta.stateAt(ahora), AuctionState.open);
+      expect(auction.stateAt(now), AuctionState.open);
       expect(
-        subasta.stateAt(ahora.add(const Duration(minutes: 6))),
+        auction.stateAt(now.add(const Duration(minutes: 6))),
         AuctionState.expired,
       );
     });
 
     test('rechaza una oferta de otra petición', () {
-      final subasta = RideAuction(request: peticion());
+      final auction = RideAuction(request: request());
       expect(
-        () => subasta.bid(
+        () => auction.bid(
           DriverBid(
             driverId: 'a',
             requestId: 'OTRA',
             amount: 500,
             etaToPickup: const Duration(minutes: 3),
-            createdAt: ahora,
+            createdAt: now,
           ),
-          now: ahora,
+          now: now,
         ),
         throwsArgumentError,
       );
     });
 
     test('retirar quita la oferta', () {
-      final subasta = RideAuction(request: peticion())
-        ..bid(oferta('a', 500), now: ahora);
-      expect(subasta.withdraw('a'), isTrue);
-      expect(subasta.withdraw('a'), isFalse);
-      expect(subasta.liveBids(ahora), isEmpty);
+      final auction = RideAuction(request: request())
+        ..bid(offer('a', 500), now: now);
+      expect(auction.withdraw('a'), isTrue);
+      expect(auction.withdraw('a'), isFalse);
+      expect(auction.liveBids(now), isEmpty);
     });
 
     test('cancelar impide seguir ofertando', () {
-      final subasta = RideAuction(request: peticion())..cancel();
-      expect(subasta.stateAt(ahora), AuctionState.cancelled);
+      final auction = RideAuction(request: request())..cancel();
+      expect(auction.stateAt(now), AuctionState.cancelled);
     });
   });
 
   group('BidRanking', () {
     test('solo por precio ordena de más barata a más cara', () {
-      const criterio = BidRanking(
-        priceWeight: 1,
-        etaWeight: 0,
-        ratingWeight: 0,
-      );
-      final orden = criterio.sort(<DriverBid>[
-        oferta('caro', 900),
-        oferta('barato', 500),
-        oferta('medio', 700),
-      ], now: ahora);
-      expect(orden.map((o) => o.driverId), <String>['barato', 'medio', 'caro']);
+      const ranking = BidRanking(priceWeight: 1, etaWeight: 0, ratingWeight: 0);
+      final ordered = ranking.sort(<DriverBid>[
+        offer('caro', 900),
+        offer('barato', 500),
+        offer('medio', 700),
+      ], now: now);
+      expect(ordered.map((o) => o.driverId), <String>[
+        'barato',
+        'medio',
+        'caro',
+      ]);
     });
 
     test('la espera puede ganarle al precio', () {
-      const criterio = BidRanking(
-        priceWeight: 1,
-        etaWeight: 3,
-        ratingWeight: 0,
-      );
-      final orden = criterio.sort(<DriverBid>[
-        oferta('lento', 500, minutos: 20),
-        oferta('rapido', 700, minutos: 2),
-      ], now: ahora);
-      expect(orden.first.driverId, 'rapido');
+      const ranking = BidRanking(priceWeight: 1, etaWeight: 3, ratingWeight: 0);
+      final ordered = ranking.sort(<DriverBid>[
+        offer('lento', 500, minutos: 20),
+        offer('rapido', 700, minutos: 2),
+      ], now: now);
+      expect(ordered.first.driverId, 'rapido');
     });
 
     test('quita las caducadas antes de ordenar', () {
-      const criterio = BidRanking();
-      final orden = criterio.sort(<DriverBid>[
-        oferta('vieja', 400, cuando: ahora.subtract(const Duration(hours: 1))),
-        oferta('viva', 800),
-      ], now: ahora);
-      expect(orden.map((o) => o.driverId), <String>['viva']);
+      const ranking = BidRanking();
+      final ordered = ranking.sort(<DriverBid>[
+        offer('vieja', 400, cuando: now.subtract(const Duration(hours: 1))),
+        offer('viva', 800),
+      ], now: now);
+      expect(ordered.map((o) => o.driverId), <String>['viva']);
     });
 
     test('con una sola oferta no hay nada que normalizar', () {
       expect(
-        const BidRanking().sort(<DriverBid>[oferta('a', 500)], now: ahora),
+        const BidRanking().sort(<DriverBid>[offer('a', 500)], now: now),
         hasLength(1),
       );
     });
   });
 
   group('BidAdvisor', () {
-    const asesor = BidAdvisor(
+    const advisor = BidAdvisor(
       currency: 'EUR',
       minorUnitDigits: 2,
       economics: DriverEconomics(costPerKilometer: 20, minimumNetPerHour: 1500),
@@ -176,14 +177,14 @@ void main() {
 
     test('la carrera que paga menos puede rendir más por hora', () {
       // La tabla que sale en la documentación de BidAdvisor, comprobada.
-      final a = asesor.evaluate(
+      final a = advisor.evaluate(
         fare: 800,
         deadheadMeters: 5000,
         deadheadDuration: const Duration(minutes: 12),
         tripMeters: 6000,
         tripDuration: const Duration(minutes: 10),
       );
-      final b = asesor.evaluate(
+      final b = advisor.evaluate(
         fare: 500,
         deadheadMeters: 800,
         deadheadDuration: const Duration(minutes: 2),
@@ -205,24 +206,24 @@ void main() {
     });
 
     test('marca como no rentable la que no llega al mínimo por hora', () {
-      final mala = asesor.evaluate(
+      final poor = advisor.evaluate(
         fare: 400,
         deadheadMeters: 5000,
         deadheadDuration: const Duration(minutes: 12),
         tripMeters: 6000,
         tripDuration: const Duration(minutes: 10),
       );
-      expect(mala.worthIt, isFalse);
-      expect(mala.deadheadShare, closeTo(0.4545, 0.001));
+      expect(poor.worthIt, isFalse);
+      expect(poor.deadheadShare, closeTo(0.4545, 0.001));
     });
 
     test('descuenta la comisión de la plataforma', () {
-      const conComision = BidAdvisor(
+      const withCommission = BidAdvisor(
         currency: 'EUR',
         minorUnitDigits: 2,
         economics: DriverEconomics(costPerKilometer: 20, commissionRate: 0.25),
       );
-      final r = conComision.evaluate(
+      final r = withCommission.evaluate(
         fare: 1000,
         deadheadMeters: 0,
         deadheadDuration: Duration.zero,
@@ -234,31 +235,31 @@ void main() {
     });
 
     test('breakEvenFare da el importe que hay que contraofertar', () {
-      final minimo = asesor.breakEvenFare(
+      final floorPrice = advisor.breakEvenFare(
         deadheadMeters: 5000,
         deadheadDuration: const Duration(minutes: 12),
         tripMeters: 6000,
         tripDuration: const Duration(minutes: 10),
       );
       // Y a ese importe la carrera ya compensa.
-      final r = asesor.evaluate(
-        fare: minimo,
+      final r = advisor.evaluate(
+        fare: floorPrice,
         deadheadMeters: 5000,
         deadheadDuration: const Duration(minutes: 12),
         tripMeters: 6000,
         tripDuration: const Duration(minutes: 10),
       );
       expect(r.worthIt, isTrue);
-      expect(minimo, 770);
+      expect(floorPrice, 770);
     });
 
     test('el factor de vuelta encarece las carreras a las afueras', () {
-      const conVuelta = BidAdvisor(
+      const withReturnLeg = BidAdvisor(
         currency: 'EUR',
         minorUnitDigits: 2,
         economics: DriverEconomics(costPerKilometer: 20, returnFactor: 1.0),
       );
-      final r = conVuelta.evaluate(
+      final r = withReturnLeg.evaluate(
         fare: 800,
         deadheadMeters: 5000,
         deadheadDuration: const Duration(minutes: 12),
@@ -271,7 +272,7 @@ void main() {
   });
 
   group('FareAdvisor', () {
-    const asesor = FareAdvisor(
+    const advisor = FareAdvisor(
       tariff: Tariff(
         currency: 'EUR',
         baseFare: 250,
@@ -281,7 +282,7 @@ void main() {
     );
 
     test('sugiere un rango alrededor de la referencia', () {
-      final s = asesor.suggest(
+      final s = advisor.suggest(
         distanceMeters: 10000,
         duration: const Duration(minutes: 20),
         departure: DateTime(2026, 8, 23, 12),
@@ -293,24 +294,24 @@ void main() {
     });
 
     test('la demanda sube todo el rango', () {
-      final normal = asesor.suggest(
+      final baseline = advisor.suggest(
         distanceMeters: 10000,
         duration: const Duration(minutes: 20),
         departure: DateTime(2026, 8, 23, 12),
       );
-      final punta = asesor.suggest(
+      final peak = advisor.suggest(
         distanceMeters: 10000,
         duration: const Duration(minutes: 20),
         departure: DateTime(2026, 8, 23, 12),
         demandFactor: 1.5,
       );
-      expect(punta.recommended, (normal.reference * 1.5).round());
-      expect(punta.minimum, greaterThan(normal.minimum));
+      expect(peak.recommended, (baseline.reference * 1.5).round());
+      expect(peak.minimum, greaterThan(baseline.minimum));
     });
 
     test('la probabilidad de aceptación crece con el importe', () {
-      double p(int importe) =>
-          asesor.acceptanceProbability(offered: importe, reference: 2000);
+      double p(int amount) =>
+          advisor.acceptanceProbability(offered: amount, reference: 2000);
 
       expect(p(1200), lessThan(p(2000)));
       expect(p(2000), lessThan(p(3000)));
@@ -320,7 +321,7 @@ void main() {
 
     test('rechaza una demanda no positiva', () {
       expect(
-        () => asesor.suggest(
+        () => advisor.suggest(
           distanceMeters: 1000,
           duration: const Duration(minutes: 5),
           demandFactor: 0,

@@ -114,12 +114,12 @@ class RouteTracker {
       throw ArgumentError.value(
         route,
         'route',
-        'La ruta no trae geometría: pide RouteFeature con la geometría o '
-            'usa una respuesta que la incluya',
+        'The route carries no geometry: request RouteFeature with geometry, '
+            'or use a response that includes it',
       );
     }
     _cumulative = cumulativeDistances(_path);
-    _stepEnds = _acumularManiobras();
+    _stepEnds = _accumulateSteps();
   }
 
   /// La ruta que se sigue.
@@ -167,7 +167,7 @@ class RouteTracker {
 
   /// Calcula el progreso para una posición.
   RouteProgress update(LatLng position, {DateTime? now}) {
-    var emparejamiento = nearestPointOnPath(
+    var match = nearestPointOnPath(
       _path,
       position,
       fromIndex: _lastSegment,
@@ -178,20 +178,20 @@ class RouteTracker {
     // Si dentro de la ventana no hay nada cerca, puede ser un desvío de verdad
     // o que el vehículo reapareciese lejos. Se comprueba mirando toda la ruta
     // antes de declarar nada.
-    if (emparejamiento.distanceMeters > offRouteThresholdMeters) {
-      final completo = nearestPointOnPath(
+    if (match.distanceMeters > offRouteThresholdMeters) {
+      final fullScan = nearestPointOnPath(
         _path,
         position,
         cumulative: _cumulative,
       );
-      if (completo.distanceMeters < emparejamiento.distanceMeters) {
-        emparejamiento = completo;
+      if (fullScan.distanceMeters < match.distanceMeters) {
+        match = fullScan;
       }
     }
 
-    _lastSegment = emparejamiento.segmentIndex;
+    _lastSegment = match.segmentIndex;
 
-    if (emparejamiento.distanceMeters > offRouteThresholdMeters) {
+    if (match.distanceMeters > offRouteThresholdMeters) {
       _strikes++;
       if (_strikes >= offRouteStrikes) _offRoute = true;
     } else {
@@ -199,28 +199,23 @@ class RouteTracker {
       _offRoute = false;
     }
 
-    final restante = math.max(
-      0.0,
-      _cumulative.last - emparejamiento.alongMeters,
-    );
-    final falta = _tiempoRestante(emparejamiento.alongMeters);
-    final instante = now ?? DateTime.now();
+    final metersLeft = math.max(0.0, _cumulative.last - match.alongMeters);
+    final timeLeft = _remainingFrom(match.alongMeters);
+    final moment = now ?? DateTime.now();
 
-    final (indice, actual, siguiente, hastaManiobra) = _maniobras(
-      emparejamiento.alongMeters,
-    );
+    final (index, current, next, toManeuver) = _maneuversAt(match.alongMeters);
 
     return RouteProgress(
-      match: emparejamiento,
-      traveledMeters: emparejamiento.alongMeters,
-      remainingMeters: restante,
-      remainingDuration: falta,
-      eta: instante.add(falta),
+      match: match,
+      traveledMeters: match.alongMeters,
+      remainingMeters: metersLeft,
+      remainingDuration: timeLeft,
+      eta: moment.add(timeLeft),
       offRoute: _offRoute,
-      stepIndex: indice,
-      currentStep: actual,
-      nextStep: siguiente,
-      distanceToNextManeuverMeters: hastaManiobra,
+      stepIndex: index,
+      currentStep: current,
+      nextStep: next,
+      distanceToNextManeuverMeters: toManeuver,
     );
   }
 
@@ -229,70 +224,70 @@ class RouteTracker {
   /// Se escala para que la suma coincida con la longitud real de la
   /// geometría: las dos cifras vienen del servicio y difieren en unos metros
   /// por redondeo, y sin escalar el progreso se descuadra al final.
-  List<double> _acumularManiobras() {
-    final pasos = route.steps;
-    if (pasos.isEmpty) return const <double>[];
-    final total = pasos.fold<double>(0, (s, p) => s + p.distanceMeters);
+  List<double> _accumulateSteps() {
+    final steps = route.steps;
+    if (steps.isEmpty) return const <double>[];
+    final total = steps.fold<double>(0, (s, p) => s + p.distanceMeters);
     if (total <= 0) return const <double>[];
-    final escala = _cumulative.last / total;
-    final fines = <double>[];
-    var acumulado = 0.0;
-    for (final paso in pasos) {
-      acumulado += paso.distanceMeters * escala;
-      fines.add(acumulado);
+    final scale = _cumulative.last / total;
+    final ends = <double>[];
+    var cumulative = 0.0;
+    for (final step in steps) {
+      cumulative += step.distanceMeters * scale;
+      ends.add(cumulative);
     }
-    return fines;
+    return ends;
   }
 
-  Duration _tiempoRestante(double recorrido) {
-    final pasos = route.steps;
-    if (pasos.isEmpty || _stepEnds.isEmpty) {
+  Duration _remainingFrom(double travelled) {
+    final steps = route.steps;
+    if (steps.isEmpty || _stepEnds.isEmpty) {
       // Sin indicaciones no queda más que el reparto proporcional.
       final total = _cumulative.last;
       if (total <= 0) return Duration.zero;
-      final fraccion = 1 - (recorrido / total).clamp(0.0, 1.0);
+      final fraction = 1 - (travelled / total).clamp(0.0, 1.0);
       return Duration(
-        microseconds: (route.duration.inMicroseconds * fraccion).round(),
+        microseconds: (route.duration.inMicroseconds * fraction).round(),
       );
     }
 
-    final indice = _indiceDeManiobra(recorrido);
-    final inicioPaso = indice == 0 ? 0.0 : _stepEnds[indice - 1];
-    final largoPaso = _stepEnds[indice] - inicioPaso;
-    final hechoDelPaso = largoPaso <= 0
+    final index = _stepIndexAt(travelled);
+    final stepStart = index == 0 ? 0.0 : _stepEnds[index - 1];
+    final stepLength = _stepEnds[index] - stepStart;
+    final stepDone = stepLength <= 0
         ? 1.0
-        : ((recorrido - inicioPaso) / largoPaso).clamp(0.0, 1.0);
+        : ((travelled - stepStart) / stepLength).clamp(0.0, 1.0);
 
-    var microsegundos =
-        (pasos[indice].duration.inMicroseconds * (1 - hechoDelPaso)).round();
-    for (var i = indice + 1; i < pasos.length; i++) {
-      microsegundos += pasos[i].duration.inMicroseconds;
+    var micros = (steps[index].duration.inMicroseconds * (1 - stepDone))
+        .round();
+    for (var i = index + 1; i < steps.length; i++) {
+      micros += steps[i].duration.inMicroseconds;
     }
-    return Duration(microseconds: microsegundos);
+    return Duration(microseconds: micros);
   }
 
-  int _indiceDeManiobra(double recorrido) {
-    var bajo = 0;
-    var alto = _stepEnds.length - 1;
-    while (bajo < alto) {
-      final medio = (bajo + alto) >> 1;
-      if (_stepEnds[medio] <= recorrido) {
-        bajo = medio + 1;
+  int _stepIndexAt(double travelled) {
+    var low = 0;
+    var high = _stepEnds.length - 1;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (_stepEnds[mid] <= travelled) {
+        low = mid + 1;
       } else {
-        alto = medio;
+        high = mid;
       }
     }
-    return bajo;
+    return low;
   }
 
-  (int, TravelStep?, TravelStep?, double?) _maniobras(double recorrido) {
-    final pasos = route.steps;
-    if (pasos.isEmpty || _stepEnds.isEmpty) {
+  (int, TravelStep?, TravelStep?, double?) _maneuversAt(double travelled) {
+    final steps = route.steps;
+    if (steps.isEmpty || _stepEnds.isEmpty) {
       return (0, null, null, null);
     }
-    final indice = _indiceDeManiobra(recorrido);
-    final siguiente = indice + 1 < pasos.length ? pasos[indice + 1] : null;
-    final hasta = math.max(0.0, _stepEnds[indice] - recorrido);
-    return (indice, pasos[indice], siguiente, hasta);
+    final index = _stepIndexAt(travelled);
+    final next = index + 1 < steps.length ? steps[index + 1] : null;
+    final to = math.max(0.0, _stepEnds[index] - travelled);
+    return (index, steps[index], next, to);
   }
 }

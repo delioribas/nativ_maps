@@ -78,33 +78,33 @@ class TariffBand {
 
   /// ¿Está activa esta franja en ese instante?
   bool appliesAt(DateTime moment) {
-    final desdeMedianoche = Duration(
+    final sinceMidnight = Duration(
       hours: moment.hour,
       minutes: moment.minute,
       seconds: moment.second,
     );
-    final cruzaMedianoche = endOfDay <= startOfDay;
+    final wrapsMidnight = endOfDay <= startOfDay;
 
     // Cuando la franja cruza la medianoche, el tramo que cae después de las
     // 00:00 pertenece al día anterior. Una nocturna de viernes que se
     // configuró solo para viernes tiene que seguir activa a la 01:00 del
     // sábado, o el pasajero paga tarifa diurna a esa hora.
-    if (cruzaMedianoche) {
-      if (desdeMedianoche >= startOfDay) {
+    if (wrapsMidnight) {
+      if (sinceMidnight >= startOfDay) {
         return weekdays.contains(moment.weekday);
       }
-      if (desdeMedianoche < endOfDay) {
-        final diaAnterior = moment.weekday == DateTime.monday
+      if (sinceMidnight < endOfDay) {
+        final previousDay = moment.weekday == DateTime.monday
             ? DateTime.sunday
             : moment.weekday - 1;
-        return weekdays.contains(diaAnterior);
+        return weekdays.contains(previousDay);
       }
       return false;
     }
 
     return weekdays.contains(moment.weekday) &&
-        desdeMedianoche >= startOfDay &&
-        desdeMedianoche < endOfDay;
+        sinceMidnight >= startOfDay &&
+        sinceMidnight < endOfDay;
   }
 
   @override
@@ -207,18 +207,18 @@ class FareBreakdown {
   String formatAmount(int minorUnits) {
     if (minorUnitDigits == 0) return '$minorUnits';
     final divisor = math.pow(10, minorUnitDigits).toInt();
-    final entero = minorUnits ~/ divisor;
-    final resto = (minorUnits % divisor).abs();
-    return '$entero,${resto.toString().padLeft(minorUnitDigits, '0')}';
+    final whole = minorUnits ~/ divisor;
+    final remainder = (minorUnits % divisor).abs();
+    return '$whole,${remainder.toString().padLeft(minorUnitDigits, '0')}';
   }
 
   /// El desglose completo en texto, listo para un recibo o un registro.
   String toReceipt() {
     final buffer = StringBuffer();
-    for (final linea in lines) {
-      buffer.write(linea.label.padRight(28));
-      buffer.write(formatAmount(linea.amount).padLeft(10));
-      if (linea.detail.isNotEmpty) buffer.write('   ${linea.detail}');
+    for (final line in lines) {
+      buffer.write(line.label.padRight(28));
+      buffer.write(formatAmount(line.amount).padLeft(10));
+      if (line.detail.isNotEmpty) buffer.write('   ${line.detail}');
       buffer.writeln();
     }
     buffer
@@ -232,7 +232,7 @@ class FareBreakdown {
   @override
   String toString() =>
       'FareBreakdown($formattedTotal $currency, '
-      '${lines.length} línea(s))';
+      '${lines.length} line(s))';
 }
 
 /// La tarifa de un taxi o un VTC, y el motor que la aplica.
@@ -359,80 +359,80 @@ class Tariff {
       throw ArgumentError.value(
         surgeMultiplier,
         'surgeMultiplier',
-        'Tiene que ser mayor que cero',
+        'Must be greater than zero',
       );
     }
 
-    final lineas = <FareLine>[];
-    final tramos = _partirEnFranjas(trip);
+    final lines = <FareLine>[];
+    final segments = _splitByBands(trip);
 
     // ── Bajada de bandera, con el multiplicador de la franja de salida
-    final franjaInicial = _franjaEn(trip.start);
-    final multiplicadorInicial = franjaInicial?.multiplier ?? 1.0;
-    final bandera = (baseFare * multiplicadorInicial).round();
-    if (bandera != 0) {
-      lineas.add(
+    final startBand = _bandAt(trip.start);
+    final startMultiplier = startBand?.multiplier ?? 1.0;
+    final flagfall = (baseFare * startMultiplier).round();
+    if (flagfall != 0) {
+      lines.add(
         FareLine(
-          label: 'Bajada de bandera',
-          amount: bandera,
-          detail: franjaInicial == null
+          label: 'Flagfall',
+          amount: flagfall,
+          detail: startBand == null
               ? ''
-              : '${franjaInicial.name} ×${franjaInicial.multiplier}',
+              : '${startBand.name} ×${startBand.multiplier}',
         ),
       );
     }
 
     // ── Espera gratuita, descontada del total y no de cada parada
-    var cortesiaRestante = waitingGrace;
+    var graceLeft = waitingGrace;
 
-    for (final tramo in tramos) {
-      final multiplicador = tramo.band?.multiplier ?? 1.0;
-      final etiqueta = tramo.band?.name ?? 'Tarifa';
+    for (final segment in segments) {
+      final multiplier = segment.band?.multiplier ?? 1.0;
+      final label = segment.band?.name ?? 'Standard';
 
-      if (perKilometer != 0 && tramo.distanceMeters > 0) {
-        final km = tramo.distanceMeters / 1000;
-        lineas.add(
+      if (perKilometer != 0 && segment.distanceMeters > 0) {
+        final km = segment.distanceMeters / 1000;
+        lines.add(
           FareLine(
-            label: '$etiqueta · distancia',
-            amount: (km * perKilometer * multiplicador).round(),
+            label: '$label · distance',
+            amount: (km * perKilometer * multiplier).round(),
             detail:
                 '${km.toStringAsFixed(2)} km × '
                 '${formatMinor(perKilometer)}'
-                '${multiplicador == 1.0 ? '' : ' ×$multiplicador'}',
+                '${multiplier == 1.0 ? '' : ' ×$multiplier'}',
           ),
         );
       }
 
-      if (perMinute != 0 && tramo.moving > Duration.zero) {
-        final minutos = tramo.moving.inMicroseconds / 6e7;
-        lineas.add(
+      if (perMinute != 0 && segment.moving > Duration.zero) {
+        final minutos = segment.moving.inMicroseconds / 6e7;
+        lines.add(
           FareLine(
-            label: '$etiqueta · tiempo',
-            amount: (minutos * perMinute * multiplicador).round(),
+            label: '$label · time',
+            amount: (minutos * perMinute * multiplier).round(),
             detail:
                 '${minutos.toStringAsFixed(1)} min × '
                 '${formatMinor(perMinute)}'
-                '${multiplicador == 1.0 ? '' : ' ×$multiplicador'}',
+                '${multiplier == 1.0 ? '' : ' ×$multiplier'}',
           ),
         );
       }
 
-      if (waitingPerMinute != 0 && tramo.stopped > Duration.zero) {
-        final cobrable = tramo.stopped - cortesiaRestante;
-        cortesiaRestante = cortesiaRestante - tramo.stopped;
-        if (cortesiaRestante < Duration.zero) {
-          cortesiaRestante = Duration.zero;
+      if (waitingPerMinute != 0 && segment.stopped > Duration.zero) {
+        final billable = segment.stopped - graceLeft;
+        graceLeft = graceLeft - segment.stopped;
+        if (graceLeft < Duration.zero) {
+          graceLeft = Duration.zero;
         }
-        if (cobrable > Duration.zero) {
-          final minutos = cobrable.inMicroseconds / 6e7;
-          lineas.add(
+        if (billable > Duration.zero) {
+          final minutos = billable.inMicroseconds / 6e7;
+          lines.add(
             FareLine(
-              label: '$etiqueta · espera',
-              amount: (minutos * waitingPerMinute * multiplicador).round(),
+              label: '$label · waiting',
+              amount: (minutos * waitingPerMinute * multiplier).round(),
               detail:
                   '${minutos.toStringAsFixed(1)} min × '
                   '${formatMinor(waitingPerMinute)}'
-                  '${multiplicador == 1.0 ? '' : ' ×$multiplicador'}',
+                  '${multiplier == 1.0 ? '' : ' ×$multiplier'}',
             ),
           );
         }
@@ -440,36 +440,36 @@ class Tariff {
     }
 
     // ── Cargos que sí multiplica la demanda, antes de aplicarla
-    final todosLosCargos = <Surcharge>[...surcharges, ...extraSurcharges];
-    for (final cargo in todosLosCargos) {
-      if (cargo.surgeable && cargo.amount != 0) {
-        lineas.add(FareLine(label: cargo.name, amount: cargo.amount));
+    final allSurcharges = <Surcharge>[...surcharges, ...extraSurcharges];
+    for (final surcharge in allSurcharges) {
+      if (surcharge.surgeable && surcharge.amount != 0) {
+        lines.add(FareLine(label: surcharge.name, amount: surcharge.amount));
       }
     }
 
-    var variable = lineas.fold<int>(0, (suma, l) => suma + l.amount);
+    var variable = lines.fold<int>(0, (sum, l) => sum + l.amount);
 
     // ── Demanda
     if (surgeMultiplier != 1.0) {
-      final incremento = (variable * (surgeMultiplier - 1)).round();
-      lineas.add(
+      final increase = (variable * (surgeMultiplier - 1)).round();
+      lines.add(
         FareLine(
-          label: 'Demanda',
-          amount: incremento,
+          label: 'Surge',
+          amount: increase,
           detail: '×${surgeMultiplier.toStringAsFixed(2)}',
         ),
       );
-      variable += incremento;
+      variable += increase;
     }
 
     // ── Mínimo, antes de sumar lo que no debe verse afectado por él
     if (minimumFare > 0 && variable < minimumFare) {
-      final ajuste = minimumFare - variable;
-      lineas.add(
+      final fit = minimumFare - variable;
+      lines.add(
         FareLine(
-          label: 'Ajuste al mínimo',
-          amount: ajuste,
-          detail: 'mínimo ${formatMinor(minimumFare)}',
+          label: 'Minimum fare',
+          amount: fit,
+          detail: 'minimum ${formatMinor(minimumFare)}',
         ),
       );
       variable = minimumFare;
@@ -477,23 +477,23 @@ class Tariff {
 
     // ── Cargos fijos que no multiplica la demanda, y peajes
     var total = variable;
-    for (final cargo in todosLosCargos) {
-      if (cargo.surgeable || cargo.amount == 0) continue;
-      lineas.add(FareLine(label: cargo.name, amount: cargo.amount));
-      total += cargo.amount;
+    for (final surcharge in allSurcharges) {
+      if (surcharge.surgeable || surcharge.amount == 0) continue;
+      lines.add(FareLine(label: surcharge.name, amount: surcharge.amount));
+      total += surcharge.amount;
     }
     if (tolls != 0) {
-      lineas.add(FareLine(label: 'Peajes', amount: tolls));
+      lines.add(FareLine(label: 'Tolls', amount: tolls));
       total += tolls;
     }
 
     // ── Redondeo, una sola vez y al final
-    final redondeado = _redondear(total);
-    if (redondeado != total) {
-      lineas.add(
+    final rounded = _applyRounding(total);
+    if (rounded != total) {
+      lines.add(
         FareLine(
-          label: 'Redondeo',
-          amount: redondeado - total,
+          label: 'Rounding',
+          amount: rounded - total,
           detail: rounding.name,
         ),
       );
@@ -502,8 +502,8 @@ class Tariff {
     return FareBreakdown(
       currency: currency,
       minorUnitDigits: minorUnitDigits,
-      lines: List<FareLine>.unmodifiable(lineas),
-      total: redondeado,
+      lines: List<FareLine>.unmodifiable(lines),
+      total: rounded,
     );
   }
 
@@ -511,9 +511,9 @@ class Tariff {
   String formatMinor(int minorUnits) {
     if (minorUnitDigits == 0) return '$minorUnits';
     final divisor = math.pow(10, minorUnitDigits).toInt();
-    final resto = (minorUnits % divisor).abs();
+    final remainder = (minorUnits % divisor).abs();
     return '${minorUnits ~/ divisor},'
-        '${resto.toString().padLeft(minorUnitDigits, '0')}';
+        '${remainder.toString().padLeft(minorUnitDigits, '0')}';
   }
 
   /// Una estimación **antes** de empezar, a partir de una ruta calculada.
@@ -528,11 +528,11 @@ class Tariff {
     double surgeMultiplier = 1.0,
     int tolls = 0,
   }) {
-    final salida = departure ?? DateTime.now();
+    final start = departure ?? DateTime.now();
     return quote(
       TripSummary(
-        start: salida,
-        end: salida.add(duration),
+        start: start,
+        end: start.add(duration),
         distanceMeters: distanceMeters,
         movingDuration: duration,
         stoppedDuration: Duration.zero,
@@ -547,28 +547,28 @@ class Tariff {
     );
   }
 
-  TariffBand? _franjaEn(DateTime momento) {
-    for (final franja in bands) {
-      if (franja.appliesAt(momento)) return franja;
+  TariffBand? _bandAt(DateTime moment) {
+    for (final band in bands) {
+      if (band.appliesAt(moment)) return band;
     }
     return null;
   }
 
-  int _redondear(int importe) {
-    final mayor = math.pow(10, minorUnitDigits).toInt();
+  int _applyRounding(int amount) {
+    final majorUnit = math.pow(10, minorUnitDigits).toInt();
     return switch (rounding) {
-      FareRounding.none => importe,
-      FareRounding.nearest5 => (importe / 5).round() * 5,
-      FareRounding.nearest10 => (importe / 10).round() * 10,
-      FareRounding.nearest50 => (importe / 50).round() * 50,
-      FareRounding.nearestMajor => (importe / mayor).round() * mayor,
-      FareRounding.upToMajor => (importe / mayor).ceil() * mayor,
+      FareRounding.none => amount,
+      FareRounding.nearest5 => (amount / 5).round() * 5,
+      FareRounding.nearest10 => (amount / 10).round() * 10,
+      FareRounding.nearest50 => (amount / 50).round() * 50,
+      FareRounding.nearestMajor => (amount / majorUnit).round() * majorUnit,
+      FareRounding.upToMajor => (amount / majorUnit).ceil() * majorUnit,
     };
   }
 
   /// Parte el viaje por los límites de las franjas horarias.
-  List<_Segment> _partirEnFranjas(TripSummary trip) {
-    final cortes = <DateTime>{trip.start, trip.end};
+  List<_Segment> _splitByBands(TripSummary trip) {
+    final boundaries = <DateTime>{trip.start, trip.end};
 
     if (bands.isNotEmpty) {
       // Los límites candidatos son las horas de inicio y fin de cada franja,
@@ -578,70 +578,70 @@ class Tariff {
       // cuando las marcas vienen en UTC pondría el corte de la nocturna a las
       // 22:00 de la máquina, no a las 22:00 del viaje: en un servidor en otro
       // huso la tarifa cambiaría de hora sin que nadie tocase nada.
-      var dia = _medianoche(trip.start);
-      final ultimo = _medianoche(trip.end).add(const Duration(days: 1));
-      while (!dia.isAfter(ultimo)) {
-        for (final franja in bands) {
-          for (final hora in <Duration>[franja.startOfDay, franja.endOfDay]) {
-            final corte = dia.add(hora);
-            if (corte.isAfter(trip.start) && corte.isBefore(trip.end)) {
-              cortes.add(corte);
+      var day = _midnight(trip.start);
+      final lastDay = _midnight(trip.end).add(const Duration(days: 1));
+      while (!day.isAfter(lastDay)) {
+        for (final band in bands) {
+          for (final timeOfDay in <Duration>[band.startOfDay, band.endOfDay]) {
+            final boundary = day.add(timeOfDay);
+            if (boundary.isAfter(trip.start) && boundary.isBefore(trip.end)) {
+              boundaries.add(boundary);
             }
           }
         }
-        dia = dia.add(const Duration(days: 1));
+        day = day.add(const Duration(days: 1));
       }
     }
 
-    final ordenados = cortes.toList()..sort();
-    final movimientoTotal = trip.movingDuration.inMicroseconds;
+    final sorted = boundaries.toList()..sort();
+    final totalMoving = trip.movingDuration.inMicroseconds;
 
     return <_Segment>[
-      for (var i = 0; i < ordenados.length - 1; i++)
-        _segmento(trip, ordenados[i], ordenados[i + 1], movimientoTotal),
+      for (var i = 0; i < sorted.length - 1; i++)
+        _segmentBetween(trip, sorted[i], sorted[i + 1], totalMoving),
     ];
   }
 
-  _Segment _segmento(
+  _Segment _segmentBetween(
     TripSummary trip,
-    DateTime desde,
-    DateTime hasta,
-    int movimientoTotal,
+    DateTime from,
+    DateTime to,
+    int totalMoving,
   ) {
-    final duracion = hasta.difference(desde);
-    var parado = Duration.zero;
-    for (final parada in trip.stops) {
-      parado += _solape(desde, hasta, parada.start, parada.end);
+    final duration = to.difference(from);
+    var stopped = Duration.zero;
+    for (final stop in trip.stops) {
+      stopped += _overlap(from, to, stop.start, stop.end);
     }
-    var moviendo = duracion - parado;
-    if (moviendo < Duration.zero) moviendo = Duration.zero;
+    var moving = duration - stopped;
+    if (moving < Duration.zero) moving = Duration.zero;
 
     // La distancia se reparte en proporción al tiempo en marcha.
-    final distancia = movimientoTotal <= 0
+    final distance = totalMoving <= 0
         ? 0.0
-        : trip.distanceMeters * moviendo.inMicroseconds / movimientoTotal;
+        : trip.distanceMeters * moving.inMicroseconds / totalMoving;
 
     return _Segment(
-      band: _franjaEn(desde),
-      moving: moviendo,
-      stopped: parado,
-      distanceMeters: distancia,
+      band: _bandAt(from),
+      moving: moving,
+      stopped: stopped,
+      distanceMeters: distance,
     );
   }
 
-  static DateTime _medianoche(DateTime momento) => momento.isUtc
-      ? DateTime.utc(momento.year, momento.month, momento.day)
-      : DateTime(momento.year, momento.month, momento.day);
+  static DateTime _midnight(DateTime moment) => moment.isUtc
+      ? DateTime.utc(moment.year, moment.month, moment.day)
+      : DateTime(moment.year, moment.month, moment.day);
 
-  static Duration _solape(
+  static Duration _overlap(
     DateTime aDesde,
     DateTime aHasta,
     DateTime bDesde,
     DateTime bHasta,
   ) {
-    final inicio = aDesde.isAfter(bDesde) ? aDesde : bDesde;
-    final fin = aHasta.isBefore(bHasta) ? aHasta : bHasta;
-    final d = fin.difference(inicio);
+    final start = aDesde.isAfter(bDesde) ? aDesde : bDesde;
+    final end = aHasta.isBefore(bHasta) ? aHasta : bHasta;
+    final d = end.difference(start);
     return d < Duration.zero ? Duration.zero : d;
   }
 }

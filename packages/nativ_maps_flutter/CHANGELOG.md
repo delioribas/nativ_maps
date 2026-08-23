@@ -1,5 +1,97 @@
 # Changelog
 
+## 0.4.0
+
+**Precio sugerido para mercados de puja**, con la forma de inDrive y apoyado
+en los datos que ya devuelve Amazon Location.
+
+### Añadido
+
+| Clase | Qué resuelve |
+|---|---|
+| `PriceAdvisor` | el precio sugerido, con el porqué de cada factor |
+| `SuggestedPrice` | mínimo de puja · recomendado · precio de la prisa |
+| `MarketConditions` | oferta, demanda, lluvia, atasco, vuelta de vacío |
+| `AcceptanceForecast` | cuántos aceptarían y quién llegaría antes |
+| `DemandSignal` | presiones con nombre, para poder explicarlas |
+| `TariffCalibration` | **ajusta tu tarifa a los precios reales de tu ciudad** |
+
+### La forma es la de inDrive
+
+Su ayuda oficial describe dos números —precio recomendado y **mínimo
+recomendado de puja**— y deja **peajes y tasas de aeropuerto fuera de la
+tarifa**, a cargo del pasajero. `SuggestedPrice` tiene exactamente esa forma:
+`minimum`, `recommended` y `extrasPaidSeparately` aparte, más un tercer número
+que ellos no dan, `fast`: lo que cuesta que venga el conductor más cercano.
+
+### Por qué la previsión de aceptación no es una curva inventada
+
+Lo difícil de un mercado de pujas es saber a qué precio contesta alguien. Lo
+habitual es inventar una curva y enseñar un porcentaje con dos decimales que
+nadie ha medido. La 0.3.0 hacía eso, y estaba mal.
+
+Con los tiempos de recogida reales que devuelve `calculateRouteMatrix`, el
+**precio de reserva de cada conductor cercano es calculable**: es su
+`BidAdvisor.breakEvenFare`. Y entonces «cuántos aceptarían a este precio» deja
+de ser una estimación y pasa a ser un conteo. `AcceptanceForecast.estimated`
+dice cuál de las dos cosas estás mirando, y es `true` incluso cuando hay
+conductores pero alguno no pasó por la matriz.
+
+### El tiempo de ir a recoger pesa más
+
+Los estudios de aceptación de carreras coinciden en que a los conductores el
+tiempo muerto les molesta **más** que el mismo tiempo dentro del trayecto: no
+está pagado, no acerca al destino y compite con esperar algo mejor.
+`PriceAdvisor.pickupAversion` lo recoge inflando ese tiempo al calcular el
+precio de reserva. Con el valor por defecto, doce minutos de recogida se
+valoran como diecinueve.
+
+Es la consecuencia práctica: cuando todos los coches están lejos, el precio
+sugerido **sube por encima de la tarifa**, porque a la tarifa no viene nadie.
+
+### Demanda
+
+`ratio ^ 0.6` sobre peticiones por conductor libre, con techo en 2,5×. El
+exponente por debajo de 1 hace que el precio suba menos que proporcionalmente
+al desequilibrio, que es lo correcto: la escasez se corrige sola en minutos y
+una subida lineal sobrerreacciona a picos que se deshacen antes de notarse.
+
+El atasco solo se cobra aparte si la tarifa **no** cobra por minuto; cuando lo
+hace ya está dentro, y sumarlo sería cobrarlo dos veces.
+
+### Ajustar la tarifa a tu ciudad
+
+Las tarifas de las aplicaciones que ya operan no son públicas, cambian entre
+ciudades y cambian con el tiempo: **no se pueden traer hechas en un paquete**.
+Lo que sí se puede es medirlas.
+
+`TariffCalibration.fit` toma precios observados —distancia, duración, importe—
+y devuelve por mínimos cuadrados la bajada de bandera, el precio por kilómetro
+y el precio por minuto que los reproducen. Hay una prueba que genera precios
+con una tarifa conocida y comprueba que el ajuste **la redescubre exacta**.
+
+Y avisa de lo que casi nadie mira: si en tus muestras la distancia y la
+duración van de la mano —lo normal en ciudad— el modelo predice bien el total
+pero **el reparto entre kilómetro y minuto es arbitrario**.
+`TariffFit.splitIsReliable` lo dice, y `report()` lo escribe en el informe.
+
+### Obsoleto
+
+- **`FareAdvisor` y `FareSuggestion`**, en favor de `PriceAdvisor` y
+  `SuggestedPrice`. Siguen funcionando y siguen probados; se retiran en la
+  1.0.0.
+
+### Corregido
+
+- **`BidAdvisor.breakEvenFare` devolvía un céntimo de más** en algunos casos.
+  El importe se redondea hacia arriba, y `1200 × 0.28 + 140` da
+  `476.00000000000006` en coma flotante: un `ceil()` a secas subía a 477. La
+  misma carrera daba dos números según cómo se escribiera la duración.
+
+### Pruebas
+
+**41 nuevas**, 376 en total.
+
 ## 0.3.0
 
 **Capa de cálculo para taxi, VTC por pujas y rastreo por GPS.** Ocho módulos

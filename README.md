@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.3.0
+  nativ_maps_flutter: ^0.4.0
 ```
 
 ```dart
@@ -213,9 +213,73 @@ print(tarifa.quote(viaje).toReceipt());
 | `RouteTracker` | ETA por maniobra y desvío, sin llamadas |
 | `RideAuction` | subasta de carreras al estilo inDrive |
 | `BidAdvisor` | si la carrera le compensa al conductor |
-| `FareAdvisor` | precio justo sugerido al pasajero |
+| `PriceAdvisor` | precio sugerido con el porqué de cada factor |
+| `TariffCalibration` | ajusta la tarifa a los precios de tu ciudad |
 | `DispatchPlanner` | el conductor más cercano **en tiempo**, no en recta |
 | `TelemetryAnalyzer` | acelerones, frenazos, curvas y excesos |
+
+### Precio sugerido, con la forma de inDrive
+
+```dart
+final precio = asesor.suggest(
+  distanceMeters: ruta.distanceMeters,   // de calculateRoutes
+  duration: ruta.duration,               // con tráfico
+  nearbyDrivers: cercanos,               // de calculateRouteMatrix
+  market: MarketConditions(
+    availableDrivers: cercanos.length,
+    openRequests: sinAsignar,
+    signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+  ),
+  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+);
+
+print(precio.explain());
+// Referencia          13,30 USD
+//   Demanda ×1.52 (10 peticiones / 5 libres)
+//   Lluvia ×1.15
+// Mínimo de puja       4,76
+// Recomendado         23,25
+// Para el más cercano 23,25
+// Peajes y tasas       3,00 (aparte)
+// Previsión           AcceptanceForecast(3 de 3, llega en 3 min)
+```
+
+Tres números —**mínimo de puja, recomendado y precio de la prisa**— más los
+peajes aparte, que es exactamente la forma que usa inDrive.
+
+**La previsión de aceptación no es una curva inventada.** Con los tiempos de
+recogida reales de `calculateRouteMatrix`, el precio de reserva de cada
+conductor cercano es *calculable*: es su `breakEvenFare`. Así que «cuántos
+aceptarían a este precio» deja de ser una estimación y pasa a ser un conteo.
+`AcceptanceForecast.estimated` te dice cuál de las dos cosas estás mirando.
+
+**Y cuando los coches están lejos, el precio sube por encima de la tarifa** —
+porque a la tarifa no viene nadie. Eso es lo que una fórmula fija no ve.
+
+### Ajustar la tarifa a tu ciudad
+
+Las tarifas de quien ya opera en tu ciudad no son públicas y cambian. No se
+pueden traer hechas. Pero se pueden **medir**:
+
+```dart
+final ajuste = TariffCalibration.fit(<FareSample>[
+  FareSample(distanceMeters: 3200, duration: Duration(minutes: 11),
+      observedFare: 320, label: 'Centro → Mariscal'),
+  // …veinte más, tomadas en horas tranquilas
+]);
+
+print(ajuste.report(muestras));
+if (ajuste.isUsable) {
+  final tarifa = ajuste.toTariff(currency: 'USD', minimumFare: 150);
+}
+```
+
+Mínimos cuadrados sobre precios observados. Hay una prueba que genera precios
+con una tarifa conocida y comprueba que el ajuste **la redescubre exacta**.
+
+Y avisa de lo que casi nadie mira: si en tus muestras la distancia y la
+duración van de la mano —lo normal en ciudad— el modelo predice bien el total
+pero el reparto entre kilómetro y minuto es arbitrario.
 
 ### Los tres errores que esta capa existe para evitar
 

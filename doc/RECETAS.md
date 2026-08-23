@@ -1,6 +1,6 @@
 # Recetas
 
-**62 recetas.** Cada una es **autocontenida y copiable**: un problema, el código completo y
+**66 recetas.** Cada una es **autocontenida y copiable**: un problema, el código completo y
 la explicación de por qué así y no de otra forma.
 
 Todas dan por hecho:
@@ -35,6 +35,8 @@ final maps = NativMaps(
 **Geovallas y rastreo** — [41](#41--crear-una-zona) · [42](#42--saber-si-un-punto-está-dentro-gratis) · [43](#43--evaluar-posiciones-de-verdad) · [44](#44--avisar-antes-de-que-salga-de-la-zona) · [45](#45--subir-posiciones-de-la-flota) · [46](#46--el-histórico-limpio-en-dos-pasos) · [47](#47--quién-hay-dentro-de-esta-zona-ahora) · [48](#48--detectar-una-ubicación-falseada) · [49](#49--montar-el-sistema-entero-una-vez)
 
 **Taxi, pujas y rastreo** — [50](#50--taxímetro-completo-de-la-primera-lectura-al-recibo) · [51](#51--filtrar-el-gps-de-un-rastreador-barato) · [52](#52--detectar-y-cobrar-la-espera) · [53](#53--tarifa-nocturna-y-de-fin-de-semana) · [54](#54--estimar-el-precio-antes-de-arrancar) · [55](#55--subasta-de-carrera-al-estilo-indrive) · [56](#56--decidir-si-aceptar-lado-del-conductor) · [57](#57--contraofertar-el-precio-justo) · [58](#58--ordenar-las-ofertas-para-el-pasajero) · [59](#59--elegir-al-conductor-que-llega-antes-de-verdad) · [60](#60--navegación-cuánto-falta-qué-maniobra-y-si-se-salió) · [61](#61--nota-de-conducción-de-la-flota) · [62](#62--guardar-el-histórico-sin-arruinarse)
+
+**Precio sugerido** — [63](#63--precio-sugerido-con-la-forma-de-indrive) · [64](#64--el-deslizador-que-dice-cuántos-conductores-aceptarían) · [65](#65--por-qué-a-veces-el-precio-sube-por-encima-de-la-tarifa) · [66](#66--ajustar-la-tarifa-a-los-precios-reales-de-tu-ciudad)
 
 **Producción** — [37](#37--proxy-que-firma-recomendado) · [38](#38--sigv4-en-el-dispositivo) · [39](#39--manejar-los-errores-bien) · [40](#40--no-llevarse-un-susto-en-la-factura)
 
@@ -1883,3 +1885,174 @@ sobre él es cobrar de menos.
 
 Una flota de 200 vehículos a 1 Hz son 17 millones de posiciones al día. Con
 5 m de tolerancia se quedan en menos de un millón, y al dibujarlas no se nota.
+
+## 63 · Precio sugerido con la forma de inDrive
+
+```dart
+const asesor = PriceAdvisor(
+  tariff: tarifaDeTuCiudad,        // ver receta 66
+  economics: DriverEconomics(
+    costPerKilometer: 20,
+    commissionRate: 0.15,
+    minimumNetPerHour: 1200,
+  ),
+);
+
+// 1 · La ruta: distancia, duración CON tráfico y peajes.
+final ruta = (await maps.routes.calculateRoutes(
+  origin: recogida,
+  destination: destino,
+)).best!;
+
+// 2 · La matriz: el tiempo REAL de recogida de cada conductor cercano.
+final cercanos = await planificador.findNearest(conectados, recogida);
+
+// 3 · El precio.
+final precio = asesor.suggest(
+  distanceMeters: ruta.distanceMeters,
+  duration: ruta.duration,
+  nearbyDrivers: cercanos,
+  market: MarketConditions(
+    availableDrivers: cercanos.length,
+    openRequests: peticionesSinAsignar,
+    signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+  ),
+  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+);
+```
+
+En pantalla, los tres números que da inDrive y uno más:
+
+```dart
+deslizador
+  ..min = precio.minimum.toDouble()        // mínimo recomendado de puja
+  ..value = precio.recommended.toDouble(); // el que aparece solo
+
+if (precio.fast > precio.recommended) {
+  aviso.text = 'Con ${precio.formatAmount(precio.fast)} viene el más cercano';
+}
+if (precio.extrasPaidSeparately > 0) {
+  nota.text = 'Peajes aparte: '
+      '${precio.formatAmount(precio.extrasPaidSeparately)}';
+}
+```
+
+**Los peajes van fuera del precio**, igual que en inDrive: no se negocian y no
+se los lleva el conductor. Meterlos dentro distorsiona la puja.
+
+## 64 · El deslizador que dice cuántos conductores aceptarían
+
+```dart
+void alMoverElDeslizador(int importe) {
+  // Sin ninguna petición: solo aritmética sobre datos que ya tienes.
+  final f = asesor.forecast(
+    offered: importe,
+    distanceMeters: ruta.distanceMeters,
+    duration: ruta.duration,
+    nearbyDrivers: cercanos,
+  );
+
+  etiqueta.text = f.estimated
+      ? 'Precio orientativo'
+      : '${f.driversLikelyToAccept} de ${f.driversConsidered} conductores';
+
+  if (f.expectedPickup != null) {
+    espera.text = 'Llegaría en ${f.expectedPickup!.inMinutes} min';
+  }
+}
+```
+
+**No enseñes un porcentaje cuando `estimated` es `true`.** Significa que detrás
+hay una curva sin calibrar, o conductores cuyo tiempo de recogida es una línea
+recta. Un «87,3 % de aceptación» que nadie ha medido es peor que no decir nada,
+porque nadie vuelve a cuestionarlo.
+
+Cuando es `false`, el número **no es una estimación**: es contar cuántos de los
+conductores que tienes delante ganan dinero a ese precio.
+
+## 65 · Por qué a veces el precio sube por encima de la tarifa
+
+```dart
+final precio = asesor.suggest(/* … */, nearbyDrivers: cercanos);
+
+for (final factor in precio.factors) {
+  print(factor);      // Demanda ×1.52 (10 peticiones / 5 libres)
+}                     // Coches lejos ×1.34 (al más cercano le cuesta llegar)
+```
+
+`Coches lejos` aparece cuando **al conductor más barato no le compensa la
+tarifa**: si el más cercano está a media hora, la carrera no le sale a cuenta
+por mucho que la tarifa diga otra cosa, y ofrecerla a ese precio es dejar al
+pasajero esperando sin explicación.
+
+Es el factor que una fórmula fija no puede ver, y sale de un dato real: el
+tiempo de conducción que devolvió `calculateRouteMatrix`.
+
+El tiempo de **ir a recoger** pesa más que el mismo tiempo dentro del trayecto
+—no está pagado y no acerca al destino— y eso lo gradúa `pickupAversion`.
+
+## 66 · Ajustar la tarifa a los precios reales de tu ciudad
+
+Las tarifas de quien ya opera no son públicas, cambian entre ciudades y cambian
+con el tiempo. **No se pueden traer hechas.** Pero se pueden medir.
+
+```dart
+// Pide veinte precios en la app con la que compites, en horas tranquilas,
+// y anota los tres números. La distancia y la duración, de calculateRoutes.
+final muestras = <FareSample>[
+  FareSample(distanceMeters: 3200,  duration: Duration(minutes: 11),
+      observedFare: 320,  label: 'Centro → Mariscal'),
+  FareSample(distanceMeters: 12800, duration: Duration(minutes: 26),
+      observedFare: 780,  label: 'Centro → aeropuerto'),
+  FareSample(distanceMeters: 2100,  duration: Duration(minutes: 19),
+      observedFare: 290,  label: 'corto en atasco'),
+  // …diecisiete más
+];
+
+final ajuste = TariffCalibration.fit(muestras);
+print(ajuste.report(muestras));
+
+if (ajuste.isUsable) {
+  final tarifa = ajuste.toTariff(
+    currency: 'USD',
+    minimumFare: 150,
+    rounding: FareRounding.nearest10,
+    // Las franjas NO se aprenden del ajuste: se configuran encima.
+    bands: <TariffBand>[
+      const TariffBand(name: 'Nocturna', startOfDay: Duration(hours: 22),
+          endOfDay: Duration(hours: 6), multiplier: 1.25),
+    ],
+  );
+}
+```
+
+### Las seis reglas para tomar las muestras
+
+| Regla | Por qué |
+|---|---|
+| Al menos **quince**, mejor treinta | tres incógnitas necesitan margen |
+| Distancias **muy** distintas | 2 km y 25 km, no todo entre 5 y 8 |
+| En horas **tranquilas** | la demanda no es parte de la tarifa |
+| Distancia y duración de `calculateRoutes` | mezclar motores sesga el ajuste |
+| **Sin** peajes ni tasas de aeropuerto | van aparte |
+| Alguna que rompa la relación km↔min | un corto en atasco, un largo libre |
+
+**La última es la que casi nadie hace.** En ciudad los kilómetros y los minutos
+suben juntos, y si la correlación pasa de 0,95 **no hay forma matemática** de
+saber qué parte del precio pone el kilómetro y qué parte el minuto. El modelo
+predice bien el total y el reparto es arbitrario:
+
+```dart
+if (!ajuste.splitIsReliable) {
+  // Añade un trayecto corto en hora punta y uno largo por autopista de
+  // madrugada, y vuelve a ajustar.
+}
+```
+
+### Qué NO aprende el ajuste
+
+La demanda, las franjas horarias y los recargos de zona. Son **capas aparte**:
+`TariffBand`, `Surcharge` y `MarketConditions`. Si tomas las muestras en hora
+punta, la demanda se cuela dentro de los coeficientes y luego se cobra dos
+veces.
+

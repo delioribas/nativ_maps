@@ -56,7 +56,8 @@
 /// | saber cuánto falta y si se salió de la ruta | `RouteTracker` |
 /// | subastar una carrera al estilo inDrive | `RideAuction` |
 /// | decidir si una oferta le compensa al conductor | `BidAdvisor` |
-/// | sugerirle un precio justo al pasajero | `FareAdvisor` |
+/// | sugerirle un precio al pasajero, con el porqué | `PriceAdvisor` |
+/// | ajustar la tarifa a los precios de tu ciudad | `TariffCalibration` |
 /// | elegir el conductor más cercano de verdad | `DispatchPlanner` |
 /// | puntuar cómo se conduce | `TelemetryAnalyzer` |
 /// | geometría de caminos, recortar históricos | `simplifyPath` |
@@ -166,6 +167,8 @@ export 'src/trip/auction.dart'
         FareSuggestion,
         RideAuction,
         RideRequest;
+export 'src/trip/calibration.dart'
+    show FareSample, TariffCalibration, TariffFit;
 export 'src/trip/dispatch.dart'
     show DispatchPlanner, DriverCandidate, DriverLocation;
 export 'src/trip/fare.dart'
@@ -181,6 +184,14 @@ export 'src/trip/geodesy.dart'
         simplifyPath;
 export 'src/trip/position_filter.dart'
     show FilterResult, FixRejection, PositionFilter, PositionFix;
+export 'src/trip/pricing.dart'
+    show
+        AcceptanceForecast,
+        DemandSignal,
+        MarketConditions,
+        PriceAdvisor,
+        PriceFactor,
+        SuggestedPrice;
 export 'src/trip/route_progress.dart' show RouteProgress, RouteTracker;
 export 'src/trip/telemetry.dart'
     show DrivingEvent, DrivingEventType, DrivingScore, TelemetryAnalyzer;

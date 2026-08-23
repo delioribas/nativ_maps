@@ -78,6 +78,8 @@ una aplicación de taxi, de pujas o de rastreo funcione de verdad.
 | `Tariff` | taxímetro con desglose auditable, franjas y espera |
 | `RouteTracker` | ETA por maniobra y desvío, sin llamadas |
 | `RideAuction` · `BidAdvisor` | subasta tipo inDrive y rentabilidad real |
+| `PriceAdvisor` | precio sugerido con el porqué de cada factor |
+| `TariffCalibration` | ajusta la tarifa a los precios de tu ciudad |
 | `DispatchPlanner` | el conductor más cercano en tiempo, no en línea recta |
 | `TelemetryAnalyzer` | acelerones, frenazos, curvas y excesos |
 

@@ -139,22 +139,22 @@ class FilterResult {
   /// Lanza [StateError] si se consulta en un resultado descartado; comprueba
   /// antes con [accepted].
   PositionFix get fix {
-    final valor = _fix;
-    if (valor == null) {
+    final value = _fix;
+    if (value == null) {
       throw StateError(
-        'La lectura se descartó por $rejection: no hay posición que leer',
+        'The fix was rejected as $rejection: there is no position to read',
       );
     }
-    return valor;
+    return value;
   }
 
   /// La velocidad implícita entre las dos lecturas, en km/h.
   ///
   /// Devuelve `null` si no hay tiempo transcurrido con el que dividir.
   double? get impliedSpeedKmh {
-    final segundos = elapsed.inMicroseconds / 1e6;
-    if (segundos <= 0) return null;
-    return distanceMeters / segundos * 3.6;
+    final seconds = elapsed.inMicroseconds / 1e6;
+    if (seconds <= 0) return null;
+    return distanceMeters / seconds * 3.6;
   }
 
   @override
@@ -218,7 +218,7 @@ class PositionFilter {
       throw ArgumentError.value(
         noiseFactor,
         'noiseFactor',
-        'No puede ser negativo',
+        'Cannot be negative',
       );
     }
   }
@@ -255,16 +255,16 @@ class PositionFilter {
   /// y tarda más en reaccionar. Para tráfico urbano, entre 1 y 3.
   final double processNoiseMps2;
 
-  PositionFix? _ultima;
-  DateTime? _instanteSuavizado;
-  double _origenLat = 0;
-  double _origenLon = 0;
-  double _cosOrigen = 1;
-  _Axis? _este;
-  _Axis? _norte;
+  PositionFix? _last;
+  DateTime? _lastSmoothedAt;
+  double _originLat = 0;
+  double _originLon = 0;
+  double _cosOrigin = 1;
+  _Axis? _east;
+  _Axis? _north;
 
   /// La última lectura aceptada, o `null` si todavía no hubo ninguna.
-  PositionFix? get last => _ultima;
+  PositionFix? get last => _last;
 
   /// Vuelve al estado inicial.
   ///
@@ -272,61 +272,61 @@ class PositionFilter {
   /// se compara con el último de la anterior y la distancia entre las dos se
   /// cuela como si fuera recorrido.
   void reset() {
-    _ultima = null;
-    _instanteSuavizado = null;
-    _este = null;
-    _norte = null;
+    _last = null;
+    _lastSmoothedAt = null;
+    _east = null;
+    _north = null;
   }
 
   /// Pasa una lectura por el filtro.
   FilterResult add(PositionFix fix) {
-    final precision = fix.accuracyMeters;
-    if (precision != null && precision > maxAccuracyMeters) {
+    final accuracy = fix.accuracyMeters;
+    if (accuracy != null && accuracy > maxAccuracyMeters) {
       return const FilterResult.rejected(FixRejection.poorAccuracy);
     }
 
-    final anterior = _ultima;
-    if (anterior == null) {
-      _ultima = smooth ? _suavizar(fix) : fix;
+    final previous = _last;
+    if (previous == null) {
+      _last = smooth ? _applySmoothing(fix) : fix;
       return FilterResult.accepted(
-        fix: _ultima!,
+        fix: _last!,
         distanceMeters: 0,
         elapsed: Duration.zero,
       );
     }
 
-    if (!fix.timestamp.isAfter(anterior.timestamp)) {
+    if (!fix.timestamp.isAfter(previous.timestamp)) {
       return const FilterResult.rejected(FixRejection.outOfOrder);
     }
 
-    final transcurrido = fix.timestamp.difference(anterior.timestamp);
-    final avance = anterior.position.distanceTo(fix.position);
+    final elapsed = fix.timestamp.difference(previous.timestamp);
+    final advance = previous.position.distanceTo(fix.position);
 
     // El umbral de ruido: el mayor entre el suelo absoluto y lo que dicta la
     // incertidumbre declarada de las dos lecturas.
-    final incertidumbre = math.max(
-      precision ?? 0,
-      anterior.accuracyMeters ?? 0,
+    final uncertainty = math.max(accuracy ?? 0, previous.accuracyMeters ?? 0);
+    final threshold = math.max(
+      minDisplacementMeters,
+      uncertainty * noiseFactor,
     );
-    final umbral = math.max(minDisplacementMeters, incertidumbre * noiseFactor);
-    if (avance < umbral) {
+    if (advance < threshold) {
       return const FilterResult.rejected(FixRejection.withinNoise);
     }
 
-    final segundos = transcurrido.inMicroseconds / 1e6;
-    if (segundos > 0 && avance / segundos * 3.6 > maxSpeedKmh) {
+    final seconds = elapsed.inMicroseconds / 1e6;
+    if (seconds > 0 && advance / seconds * 3.6 > maxSpeedKmh) {
       return const FilterResult.rejected(FixRejection.impossibleSpeed);
     }
 
-    final aceptada = smooth ? _suavizar(fix) : fix;
+    final accepted = smooth ? _applySmoothing(fix) : fix;
     // La distancia se mide sobre la posición que se guarda, no sobre la cruda:
     // si no, la suma de avances y el camino dibujado dejan de coincidir.
-    final avanceReal = anterior.position.distanceTo(aceptada.position);
-    _ultima = aceptada;
+    final actualAdvance = previous.position.distanceTo(accepted.position);
+    _last = accepted;
     return FilterResult.accepted(
-      fix: aceptada,
-      distanceMeters: avanceReal,
-      elapsed: transcurrido,
+      fix: accepted,
+      distanceMeters: actualAdvance,
+      elapsed: elapsed,
     );
   }
 
@@ -341,56 +341,56 @@ class PositionFilter {
   /// seguimiento de vehículos: el acoplamiento real entre ellos es pequeño y
   /// un filtro de cuatro estados acoplado no mejora lo suficiente como para
   /// justificar la inversión de una matriz en cada lectura.
-  PositionFix _suavizar(PositionFix fix) {
-    final precision = fix.accuracyMeters ?? maxAccuracyMeters;
-    final varianzaMedida = precision * precision;
+  PositionFix _applySmoothing(PositionFix fix) {
+    final accuracy = fix.accuracyMeters ?? maxAccuracyMeters;
+    final measurementVariance = accuracy * accuracy;
 
-    if (_este == null || _norte == null) {
-      _origenLat = fix.position.latitude;
-      _origenLon = fix.position.longitude;
-      _cosOrigen = math.cos(_origenLat * math.pi / 180.0);
-      _este = _Axis(0, varianzaMedida);
-      _norte = _Axis(0, varianzaMedida);
-      _instanteSuavizado = fix.timestamp;
+    if (_east == null || _north == null) {
+      _originLat = fix.position.latitude;
+      _originLon = fix.position.longitude;
+      _cosOrigin = math.cos(_originLat * math.pi / 180.0);
+      _east = _Axis(0, measurementVariance);
+      _north = _Axis(0, measurementVariance);
+      _lastSmoothedAt = fix.timestamp;
       return fix;
     }
 
-    final anterior = _instanteSuavizado ?? fix.timestamp;
-    final dt = fix.timestamp.difference(anterior).inMicroseconds / 1e6;
-    _instanteSuavizado = fix.timestamp;
+    final previous = _lastSmoothedAt ?? fix.timestamp;
+    final dt = fix.timestamp.difference(previous).inMicroseconds / 1e6;
+    _lastSmoothedAt = fix.timestamp;
 
-    final (x, y) = _proyectar(fix.position);
+    final (x, y) = _project(fix.position);
     final q = processNoiseMps2 * processNoiseMps2;
 
-    _este!
-      ..predecir(dt, q)
-      ..corregir(x, varianzaMedida);
-    _norte!
-      ..predecir(dt, q)
-      ..corregir(y, varianzaMedida);
+    _east!
+      ..predict(dt, q)
+      ..correct(x, measurementVariance);
+    _north!
+      ..predict(dt, q)
+      ..correct(y, measurementVariance);
 
     return fix.copyWith(
-      position: _desproyectar(_este!.position, _norte!.position),
+      position: _unproject(_east!.position, _north!.position),
     );
   }
 
-  (double, double) _proyectar(LatLng punto) {
-    final dLat = (punto.latitude - _origenLat) * math.pi / 180.0;
-    final dLon = (punto.longitude - _origenLon) * math.pi / 180.0;
-    return (earthRadiusMeters * dLon * _cosOrigen, earthRadiusMeters * dLat);
+  (double, double) _project(LatLng point) {
+    final dLat = (point.latitude - _originLat) * math.pi / 180.0;
+    final dLon = (point.longitude - _originLon) * math.pi / 180.0;
+    return (earthRadiusMeters * dLon * _cosOrigin, earthRadiusMeters * dLat);
   }
 
-  LatLng _desproyectar(double x, double y) => LatLng(
-    _origenLat + y / earthRadiusMeters * 180.0 / math.pi,
-    _origenLon + x / (earthRadiusMeters * _cosOrigen) * 180.0 / math.pi,
+  LatLng _unproject(double x, double y) => LatLng(
+    _originLat + y / earthRadiusMeters * 180.0 / math.pi,
+    _originLon + x / (earthRadiusMeters * _cosOrigin) * 180.0 / math.pi,
   );
 }
 
 /// Un eje del filtro de Kalman: posición y velocidad.
 class _Axis {
-  _Axis(this.position, double varianzaInicial)
+  _Axis(this.position, double initialVariance)
     : velocity = 0,
-      _p00 = varianzaInicial,
+      _p00 = initialVariance,
       _p01 = 0,
       // Sin ninguna medida todavía no se sabe nada de la velocidad. Empezar
       // con una varianza grande deja que las primeras lecturas la fijen
@@ -408,7 +408,7 @@ class _Axis {
   double _p11;
 
   /// Avanza el estado [dt] segundos suponiendo velocidad constante.
-  void predecir(double dt, double q) {
+  void predict(double dt, double q) {
     if (dt <= 0) return;
     position += velocity * dt;
 
@@ -422,20 +422,20 @@ class _Axis {
   }
 
   /// Corrige el estado con una medida de posición de varianza [r].
-  void corregir(double medida, double r) {
+  void correct(double measurement, double r) {
     final s = _p00 + r;
     if (s <= 0) return;
     final k0 = _p00 / s;
     final k1 = _p01 / s;
-    final innovacion = medida - position;
+    final innovation = measurement - position;
 
-    position += k0 * innovacion;
-    velocity += k1 * innovacion;
+    position += k0 * innovation;
+    velocity += k1 * innovation;
 
     // El orden importa: `_p11` necesita el `_p01` de antes de actualizarlo.
-    final p01Previo = _p01;
+    final previousP01 = _p01;
     _p00 -= k0 * _p00;
     _p01 -= k0 * _p01;
-    _p11 -= k1 * p01Previo;
+    _p11 -= k1 * previousP01;
   }
 }

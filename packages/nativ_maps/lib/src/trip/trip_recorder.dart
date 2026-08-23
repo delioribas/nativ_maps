@@ -32,7 +32,7 @@ class StopPeriod {
   Duration get duration => end.difference(start);
 
   @override
-  String toString() => 'StopPeriod(${duration.inSeconds} s en $position)';
+  String toString() => 'StopPeriod(${duration.inSeconds} s at $position)';
 }
 
 /// El estado del viaje después de procesar una lectura.
@@ -73,7 +73,7 @@ class TripUpdate {
   @override
   String toString() =>
       'TripUpdate(${(distanceMeters / 1000).toStringAsFixed(2)} km, '
-      '${speedKmh.toStringAsFixed(0)} km/h${stopped ? ', parado' : ''})';
+      '${speedKmh.toStringAsFixed(0)} km/h${stopped ? ', stopped' : ''})';
 }
 
 /// Un viaje terminado, con todo lo necesario para cobrarlo y para defenderlo.
@@ -140,19 +140,19 @@ class TripSummary {
   /// Es la que describe cómo se condujo. La media sobre el tiempo total
   /// mezcla la conducción con los semáforos y no significa gran cosa.
   double get averageMovingSpeedKmh {
-    final segundos = movingDuration.inMicroseconds / 1e6;
-    if (segundos <= 0) return 0;
-    return distanceMeters / segundos * 3.6;
+    final seconds = movingDuration.inMicroseconds / 1e6;
+    if (seconds <= 0) return 0;
+    return distanceMeters / seconds * 3.6;
   }
 
   /// Cuántas lecturas se descartaron en total.
   int get rejectedFixes =>
-      rejections.values.fold(0, (suma, cuantas) => suma + cuantas);
+      rejections.values.fold(0, (sum, howMany) => sum + howMany);
 
   @override
   String toString() =>
-      'TripSummary(${distanceKm.toStringAsFixed(2)} km en '
-      '${duration.inMinutes} min, ${stops.length} parada(s))';
+      'TripSummary(${distanceKm.toStringAsFixed(2)} km in '
+      '${duration.inMinutes} min, ${stops.length} stop(s))';
 }
 
 /// Convierte un chorro de posiciones de GPS en un viaje medible.
@@ -204,8 +204,8 @@ class TripRecorder {
       throw ArgumentError.value(
         resumeSpeedKmh,
         'resumeSpeedKmh',
-        'Tiene que ser mayor que stopSpeedKmh, o no hay histéresis y el '
-            'vehículo entra y sale de «parado» constantemente',
+        'Must be greater than stopSpeedKmh, or there is no hysteresis and '
+            'the vehicle flips in and out of «stopped» constantly',
       );
     }
   }
@@ -254,34 +254,34 @@ class TripRecorder {
 
   /// Procesa una lectura y devuelve el estado del viaje.
   TripUpdate add(PositionFix fix) {
-    final resultado = filter.add(fix);
-    if (resultado.rejection == FixRejection.outOfOrder) {
+    final result = filter.add(fix);
+    if (result.rejection == FixRejection.outOfOrder) {
       // Una lectura vieja no puede mover el reloj hacia atrás.
       _rejections.update(
         FixRejection.outOfOrder,
         (n) => n + 1,
         ifAbsent: () => 1,
       );
-      return _estado(resultado, 0);
+      return _snapshot(result, 0);
     }
 
     _start ??= fix.timestamp;
-    final anterior = _lastTime;
+    final previous = _lastTime;
     _lastTime = fix.timestamp;
 
-    final velocidad = _velocidad(fix, resultado);
-    if (velocidad > _maxSpeed) _maxSpeed = velocidad;
+    final speed = _speedFrom(fix, result);
+    if (speed > _maxSpeed) _maxSpeed = speed;
 
-    if (resultado.accepted) {
+    if (result.accepted) {
       _accepted++;
-      _distance += resultado.distanceMeters;
-      if (keepTrack) _track.add(resultado.fix.position);
+      _distance += result.distanceMeters;
+      if (keepTrack) _track.add(result.fix.position);
     } else {
-      _rejections.update(resultado.rejection!, (n) => n + 1, ifAbsent: () => 1);
+      _rejections.update(result.rejection!, (n) => n + 1, ifAbsent: () => 1);
     }
 
-    _actualizarParadas(fix, velocidad, anterior);
-    return _estado(resultado, velocidad);
+    _updateStops(fix, speed, previous);
+    return _snapshot(result, speed);
   }
 
   /// La velocidad que se usa para decidir si está parado.
@@ -289,22 +289,18 @@ class TripRecorder {
   /// Se prefiere la del receptor —viene del Doppler y es más fiable—; si no
   /// está, se calcula. Un descarte por ruido significa cero: es exactamente
   /// lo que el filtro acaba de determinar.
-  double _velocidad(PositionFix fix, FilterResult resultado) {
-    if (resultado.rejection == FixRejection.withinNoise) return 0;
-    final declarada = fix.speedKmh;
-    if (declarada != null) return math.max(0, declarada);
-    return resultado.impliedSpeedKmh ?? 0;
+  double _speedFrom(PositionFix fix, FilterResult result) {
+    if (result.rejection == FixRejection.withinNoise) return 0;
+    final declared = fix.speedKmh;
+    if (declared != null) return math.max(0, declared);
+    return result.impliedSpeedKmh ?? 0;
   }
 
-  void _actualizarParadas(
-    PositionFix fix,
-    double velocidad,
-    DateTime? anterior,
-  ) {
-    if (velocidad <= stopSpeedKmh) {
+  void _updateStops(PositionFix fix, double speed, DateTime? previous) {
+    if (speed <= stopSpeedKmh) {
       // La parada empezó en la lectura anterior, no en esta: cuando se detecta
       // ya llevaba parado todo el intervalo.
-      _stopCandidate ??= anterior ?? fix.timestamp;
+      _stopCandidate ??= previous ?? fix.timestamp;
       _stopPosition ??= fix.position;
       if (!_stopConfirmed &&
           fix.timestamp.difference(_stopCandidate!) >= minStopDuration) {
@@ -313,16 +309,16 @@ class TripRecorder {
       return;
     }
 
-    if (velocidad >= resumeSpeedKmh) {
+    if (speed >= resumeSpeedKmh) {
       if (_stopConfirmed && _stopCandidate != null) {
-        final parada = StopPeriod(
+        final stop = StopPeriod(
           position: _stopPosition ?? fix.position,
           start: _stopCandidate!,
-          end: anterior ?? fix.timestamp,
+          end: previous ?? fix.timestamp,
         );
-        if (parada.duration > Duration.zero) {
-          _stops.add(parada);
-          _stopped += parada.duration;
+        if (stop.duration > Duration.zero) {
+          _stops.add(stop);
+          _stopped += stop.duration;
         }
       }
       _stopCandidate = null;
@@ -333,25 +329,25 @@ class TripRecorder {
     // histéresis, y es lo que evita cien paradas de dos segundos.
   }
 
-  TripUpdate _estado(FilterResult resultado, double velocidad) {
+  TripUpdate _snapshot(FilterResult result, double speed) {
     final total = _start == null || _lastTime == null
         ? Duration.zero
         : _lastTime!.difference(_start!);
-    final parado = _stopped + _paradaEnCurso();
+    final stopped = _stopped + _openStopDuration();
     return TripUpdate(
-      filter: resultado,
+      filter: result,
       distanceMeters: _distance,
       duration: total,
-      movingDuration: total - parado < Duration.zero
+      movingDuration: total - stopped < Duration.zero
           ? Duration.zero
-          : total - parado,
-      stoppedDuration: parado,
+          : total - stopped,
+      stoppedDuration: stopped,
       stopped: _stopConfirmed,
-      speedKmh: velocidad,
+      speedKmh: speed,
     );
   }
 
-  Duration _paradaEnCurso() {
+  Duration _openStopDuration() {
     if (!_stopConfirmed || _stopCandidate == null || _lastTime == null) {
       return Duration.zero;
     }
@@ -368,31 +364,31 @@ class TripRecorder {
     // puede faltar. Se comprueba igual: la alternativa sería inventar un
     // `LatLng(0, 0)` —el Golfo de Guinea— y este paquete no hace eso en
     // ningún sitio.
-    final posicionFinal = _stopPosition ?? filter.last?.position;
+    final finalPosition = _stopPosition ?? filter.last?.position;
     if (_stopConfirmed &&
         _stopCandidate != null &&
         _lastTime != null &&
-        posicionFinal != null) {
-      final parada = StopPeriod(
-        position: posicionFinal,
+        finalPosition != null) {
+      final stop = StopPeriod(
+        position: finalPosition,
         start: _stopCandidate!,
         end: _lastTime!,
       );
-      if (parada.duration > Duration.zero) {
-        _stops.add(parada);
-        _stopped += parada.duration;
+      if (stop.duration > Duration.zero) {
+        _stops.add(stop);
+        _stopped += stop.duration;
       }
       _stopConfirmed = false;
       _stopCandidate = null;
     }
 
-    final inicio = _start ?? DateTime.fromMillisecondsSinceEpoch(0);
-    final fin = _lastTime ?? inicio;
-    final total = fin.difference(inicio);
+    final start = _start ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final end = _lastTime ?? start;
+    final total = end.difference(start);
 
     return TripSummary(
-      start: inicio,
-      end: fin,
+      start: start,
+      end: end,
       distanceMeters: _distance,
       movingDuration: total - _stopped < Duration.zero
           ? Duration.zero

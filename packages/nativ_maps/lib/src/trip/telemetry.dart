@@ -83,8 +83,7 @@ class DrivingScore {
   final Map<DrivingEventType, int> counts;
 
   /// Cuántos sucesos hubo en total.
-  int get eventCount =>
-      counts.values.fold(0, (suma, cuantos) => suma + cuantos);
+  int get eventCount => counts.values.fold(0, (sum, howMany) => sum + howMany);
 
   /// Sucesos por cada cien kilómetros.
   ///
@@ -95,7 +94,7 @@ class DrivingScore {
 
   @override
   String toString() =>
-      'DrivingScore($value/100, $eventCount sucesos en '
+      'DrivingScore($value/100, $eventCount events over '
       '${distanceKm.toStringAsFixed(1)} km)';
 }
 
@@ -189,118 +188,118 @@ class TelemetryAnalyzer {
   /// `add` entre varios caminos de salida es cómo se acaba contando un exceso
   /// de velocidad dos veces.
   List<DrivingEvent> add(PositionFix fix) {
-    final nuevos = <DrivingEvent>[];
-    final anterior = _previous;
+    final produced = <DrivingEvent>[];
+    final previous = _previous;
     _previous = fix;
 
-    if (anterior != null) {
-      _distanceMeters += anterior.position.distanceTo(fix.position);
+    if (previous != null) {
+      _distanceMeters += previous.position.distanceTo(fix.position);
     }
 
     // Sin velocidad del receptor no se evalúa nada: ver la nota de la clase.
-    final velocidad = fix.speedKmh;
-    if (velocidad != null) {
-      final exceso = _exceso(fix, velocidad);
-      if (exceso != null) nuevos.add(exceso);
+    final speed = fix.speedKmh;
+    if (speed != null) {
+      final speeding = _closeSpeedingEpisode(fix, speed);
+      if (speeding != null) produced.add(speeding);
 
-      final velocidadAnterior = anterior?.speedKmh;
-      final hueco = anterior == null
+      final previousSpeed = previous?.speedKmh;
+      final gap = previous == null
           ? Duration.zero
-          : fix.timestamp.difference(anterior.timestamp);
+          : fix.timestamp.difference(previous.timestamp);
 
-      if (anterior != null &&
-          velocidadAnterior != null &&
-          hueco > Duration.zero &&
-          hueco <= maxSampleGap) {
-        final segundos = hueco.inMicroseconds / 1e6;
+      if (previous != null &&
+          previousSpeed != null &&
+          gap > Duration.zero &&
+          gap <= maxSampleGap) {
+        final seconds = gap.inMicroseconds / 1e6;
 
         // ── Aceleración longitudinal
-        final aceleracion = (velocidad - velocidadAnterior) / 3.6 / segundos;
-        if (aceleracion >= harshAccelerationMps2) {
-          nuevos.add(
-            _suceso(
+        final acceleration = (speed - previousSpeed) / 3.6 / seconds;
+        if (acceleration >= harshAccelerationMps2) {
+          produced.add(
+            _event(
               DrivingEventType.harshAcceleration,
               fix,
-              aceleracion,
-              velocidad,
+              acceleration,
+              speed,
             ),
           );
-        } else if (aceleracion <= harshBrakingMps2) {
-          nuevos.add(
-            _suceso(DrivingEventType.harshBraking, fix, aceleracion, velocidad),
+        } else if (acceleration <= harshBrakingMps2) {
+          produced.add(
+            _event(DrivingEventType.harshBraking, fix, acceleration, speed),
           );
         }
 
         // ── Aceleración lateral: velocidad por velocidad angular
-        final rumbo = fix.headingDegrees;
-        final rumboAnterior = anterior.headingDegrees;
-        if (rumbo != null && rumboAnterior != null) {
-          final giro = _diferenciaDeRumbo(rumboAnterior, rumbo);
-          final omega = giro * math.pi / 180 / segundos;
-          final lateral = (velocidad / 3.6) * omega.abs();
+        final heading = fix.headingDegrees;
+        final previousHeading = previous.headingDegrees;
+        if (heading != null && previousHeading != null) {
+          final turn = _headingDelta(previousHeading, heading);
+          final omega = turn * math.pi / 180 / seconds;
+          final lateral = (speed / 3.6) * omega.abs();
           if (lateral >= harshCorneringMps2) {
-            nuevos.add(
-              _suceso(DrivingEventType.harshCornering, fix, lateral, velocidad),
+            produced.add(
+              _event(DrivingEventType.harshCornering, fix, lateral, speed),
             );
           }
         }
       }
     }
 
-    _events.addAll(nuevos);
-    return nuevos;
+    _events.addAll(produced);
+    return produced;
   }
 
   /// Cierra un episodio de exceso de velocidad, si acaba de terminar.
   ///
   /// Devuelve el suceso **al bajar** del umbral, no mientras se está por
   /// encima: así un minuto a 70 en una vía de 50 es un suceso y no sesenta.
-  DrivingEvent? _exceso(PositionFix fix, double velocidad) {
-    final limite = speedLimitKmh;
-    if (limite == null) return null;
+  DrivingEvent? _closeSpeedingEpisode(PositionFix fix, double speed) {
+    final limit = speedLimitKmh;
+    if (limit == null) return null;
 
-    if (velocidad > limite + speedToleranceKmh) {
+    if (speed > limit + speedToleranceKmh) {
       _speedingSince ??= fix.timestamp;
-      _speedingPeak = math.max(_speedingPeak, velocidad);
+      _speedingPeak = math.max(_speedingPeak, speed);
       return null;
     }
 
-    final desde = _speedingSince;
-    if (desde == null) return null;
-    final duracion = fix.timestamp.difference(desde);
-    final pico = _speedingPeak;
+    final from = _speedingSince;
+    if (from == null) return null;
+    final duration = fix.timestamp.difference(from);
+    final peak = _speedingPeak;
     _speedingSince = null;
     _speedingPeak = 0;
 
-    if (duracion < minSpeedingDuration) return null;
+    if (duration < minSpeedingDuration) return null;
     return DrivingEvent(
       type: DrivingEventType.speeding,
-      timestamp: desde,
+      timestamp: from,
       position: fix.position,
-      magnitude: pico - limite,
-      speedKmh: pico,
+      magnitude: peak - limit,
+      speedKmh: peak,
     );
   }
 
-  DrivingEvent _suceso(
-    DrivingEventType tipo,
+  DrivingEvent _event(
+    DrivingEventType kind,
     PositionFix fix,
-    double magnitud,
-    double velocidad,
+    double magnitude,
+    double speed,
   ) => DrivingEvent(
-    type: tipo,
+    type: kind,
     timestamp: fix.timestamp,
     position: fix.position,
-    magnitude: magnitud,
-    speedKmh: velocidad,
+    magnitude: magnitude,
+    speedKmh: speed,
   );
 
   /// La diferencia de rumbo más corta entre dos ángulos, con signo.
   ///
   /// Sin esto, pasar de 359° a 1° parece un giro de 358 grados y todo coche
   /// que cruce el norte genera una curva brusca.
-  static double _diferenciaDeRumbo(double desde, double hasta) {
-    var d = (hasta - desde) % 360;
+  static double _headingDelta(double from, double to) {
+    var d = (to - from) % 360;
     if (d > 180) d -= 360;
     if (d < -180) d += 360;
     return d;
@@ -317,25 +316,25 @@ class TelemetryAnalyzer {
     double corneringWeight = 2,
     double speedingWeight = 6,
   }) {
-    final cuentas = <DrivingEventType, int>{};
-    for (final suceso in _events) {
-      cuentas.update(suceso.type, (n) => n + 1, ifAbsent: () => 1);
+    final counts = <DrivingEventType, int>{};
+    for (final event in _events) {
+      counts.update(event.type, (n) => n + 1, ifAbsent: () => 1);
     }
 
     final km = _distanceMeters / 1000;
     final base = math.max(km, 1.0);
-    final penalizacion =
-        ((cuentas[DrivingEventType.harshAcceleration] ?? 0) * harshWeight +
-            (cuentas[DrivingEventType.harshBraking] ?? 0) * harshWeight +
-            (cuentas[DrivingEventType.harshCornering] ?? 0) * corneringWeight +
-            (cuentas[DrivingEventType.speeding] ?? 0) * speedingWeight) /
+    final penalty =
+        ((counts[DrivingEventType.harshAcceleration] ?? 0) * harshWeight +
+            (counts[DrivingEventType.harshBraking] ?? 0) * harshWeight +
+            (counts[DrivingEventType.harshCornering] ?? 0) * corneringWeight +
+            (counts[DrivingEventType.speeding] ?? 0) * speedingWeight) /
         base *
         100;
 
     return DrivingScore(
-      value: (100 - penalizacion).clamp(0, 100).round(),
+      value: (100 - penalty).clamp(0, 100).round(),
       distanceKm: km,
-      counts: Map<DrivingEventType, int>.unmodifiable(cuentas),
+      counts: Map<DrivingEventType, int>.unmodifiable(counts),
     );
   }
 
