@@ -88,6 +88,18 @@ pero **el reparto entre kilómetro y minuto es arbitrario**.
   `476.00000000000006` en coma flotante: un `ceil()` a secas subía a 477. La
   misma carrera daba dos números según cómo se escribiera la duración.
 
+### Paso a inglés, en marcha
+
+La API pública siempre estuvo en inglés. En esta versión pasan también a
+inglés **los identificadores internos y todos los textos que se ven en
+ejecución**: etiquetas del desglose de tarifa, factores del precio sugerido,
+informe del calibrador y **todos los mensajes de excepción** de la capa de
+cálculo, que son los que acaban en los registros de quien use el paquete.
+
+El dartdoc está a medio camino: `geodesy` ya está en inglés y el resto sigue
+en español. Se irá traduciendo en las próximas versiones. Es un cambio de
+documentación: no afecta a ninguna firma ni a ningún comportamiento.
+
 ### Pruebas
 
 **41 nuevas**, 376 en total.
