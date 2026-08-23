@@ -20,7 +20,7 @@ class TransportOptions {
     this.timeout = const Duration(seconds: 8),
     this.maxRetries = 2,
     this.maxRetryDelay = const Duration(seconds: 30),
-    this.userAgent = 'nativ-maps-dart/0.2.0',
+    this.userAgent = 'nativ-maps-dart/0.3.0',
   });
 
   /// Tiempo máximo de **cada intento**, no del conjunto.

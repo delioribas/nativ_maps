@@ -1,6 +1,6 @@
 name: nativ_maps_google
 description: "Drop-in compatibility layer that runs a google_maps_flutter codebase on Amazon Location by changing one import. Typedefs and extensions only."
-version: 0.2.0
+version: 0.3.0
 repository: https://github.com/delioribas/nativ_maps
 issue_tracker: https://github.com/delioribas/nativ_maps/issues
 publish_to: none
@@ -14,7 +14,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  nativ_maps_flutter: ^0.2.0
+  nativ_maps_flutter: ^0.3.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

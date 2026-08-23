@@ -4,6 +4,95 @@ Este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 Mientras la versión mayor sea `0`, una versión menor puede romper la API; a
 partir de `1.0.0`, no.
 
+## 0.3.0
+
+**Capa de cálculo para taxi, VTC por pujas y rastreo por GPS.** Ocho módulos
+de Dart puro que **no gastan ni una petición**: todo ocurre en el dispositivo.
+
+Amazon Location dice dónde están las cosas y cómo se va de una a otra. Lo que
+no dice —y lo que separa una demo de una aplicación que cobra— es cuánto ha
+recorrido de verdad ese coche, cuánto se le cobra, si le compensa la carrera y
+si conduce bien. Eso es lo que hay aquí.
+
+### Añadido
+
+| Módulo | Qué resuelve | Clase principal |
+|---|---|---|
+| Filtrado de GPS | el ruido que infla el kilometraje | `PositionFilter` |
+| Registro de viaje | distancia, paradas y tiempos reales | `TripRecorder` |
+| Tarificación | taxímetro con desglose auditable | `Tariff` |
+| Progreso de ruta | ETA, maniobra y desvío, sin llamadas | `RouteTracker` |
+| Subasta de carreras | el modelo de puja tipo inDrive | `RideAuction` |
+| Economía del conductor | si la carrera compensa de verdad | `BidAdvisor` |
+| Despacho | el conductor más cercano **en tiempo** | `DispatchPlanner` |
+| Telemática | acelerones, frenazos, curvas, excesos | `TelemetryAnalyzer` |
+| Geometría de caminos | proyección, recorte de históricos | `simplifyPath` |
+
+### Las decisiones que importan
+
+**El ruido del GPS no se suma.** Un receptor parado no repite coordenada:
+rebota dentro de su círculo de incertidumbre, y en un cañón urbano ese círculo
+son 30 m cada segundo. Sumar distancias entre lecturas consecutivas convierte
+veinte minutos de espera en varios kilómetros que el pasajero paga. Hay una
+prueba que simula exactamente eso: la suma ingenua da **más de 5 km** de un
+coche aparcado, y `TripRecorder` da **menos de 50 m**.
+
+**Un descarte por ruido es un dato, no un hueco.** Mientras el vehículo está
+parado el filtro rechaza casi todas las lecturas. Si el registrador las
+ignorase, el reloj se congelaría durante las esperas. Aquí el tiempo avanza con
+todas las lecturas y solo la distancia depende de que se acepten.
+
+**El dinero va en enteros.** Los importes son unidades menores —céntimos— y son
+`int`. Un `double` no representa 0,10 exactamente, y sumar carreras así
+descuadra la caja. El redondeo ocurre **una sola vez**, al final.
+
+**Nunca se devuelve solo un total.** `FareBreakdown` trae una línea por
+concepto con la cuenta que la produjo (`12,40 km × 1,10`). Un número suelto no
+se puede defender en una reclamación seis meses después.
+
+**La tarifa nocturna se parte de verdad.** Un trayecto de 21:50 a 22:10 tiene
+diez minutos de cada tarifa. Cobrarlo entero a la de salida —lo que hace casi
+todo el software— es incorrecto y en mercado regulado es sancionable. El tiempo
+se reparte de forma exacta; la distancia, en proporción al tiempo en marcha, y
+esa aproximación está documentada donde se usa.
+
+**El tiempo que falta no es una regla de tres.** `duración × (1 − fracción)` se
+equivoca en cuanto la ruta mezcla ciudad y autopista. `RouteTracker` usa el
+tiempo que el servicio dio **por maniobra**.
+
+**El desvío necesita varias lecturas.** Recalcular la ruta con un solo rebote
+del GPS es una petición facturada tirada, y en una calle estrecha pasa varias
+veces por minuto.
+
+**La línea recta elige mal al conductor.** El que está a 300 m al otro lado del
+río tarda quince minutos. `DispatchPlanner` preselecciona gratis por línea
+recta y refina solo a esos con la matriz: 12 celdas por carrera en vez de 800.
+
+**Al conductor le importa el neto por hora, no el importe.** Una carrera de
+8 € a doce minutos de distancia deja 15,82 €/h; una de 5 € a dos minutos deja
+20,00 €/h. `BidAdvisor` hace esa cuenta, contando el trayecto muerto que no
+paga nadie, y `breakEvenFare` dice qué contraofertar.
+
+**La aceleración no se deriva de las posiciones.** Hacerlo amplifica el ruido
+al cuadrado y produce frenazos en coches parados. `TelemetryAnalyzer` exige la
+velocidad del receptor, que viene del efecto Doppler, y prefiere no detectar a
+inventar.
+
+### Sobre lo que no es una medición
+
+`FareAdvisor.acceptanceProbability` es una **curva logística de dos parámetros**,
+no un dato. Los valores por defecto son una forma razonable para empezar; hay
+que calibrarlos con el historial propio. Está dicho así de claro en la
+documentación de la clase a propósito.
+
+### Pruebas
+
+**106 pruebas nuevas**, 335 en total. Cubren los casos que rompen las
+implementaciones ingenuas: el coche parado que acumula kilómetros, la espera
+que no se cobra, la franja nocturna a caballo de la medianoche, el rumbo que
+cruza el norte, el túnel que deja al vehículo fuera de la ventana de búsqueda,
+y el conductor que parece cerca y no lo está.
+
 ## 0.2.0
 
 **El paquete cambia de nombre.** Antes se publicaba como `compass_maps` y

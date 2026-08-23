@@ -67,6 +67,24 @@ de las dos tiene equivalente en Google Maps.
 > mensaje que dice qué hacer, en vez de dejar que llegue como un `403`
 > idéntico a todos los demás.
 
+## La capa de cálculo
+
+Dart puro, **sin peticiones**: lo que hace falta encima del servicio para que
+una aplicación de taxi, de pujas o de rastreo funcione de verdad.
+
+| Clase | Qué resuelve |
+|---|---|
+| `TripRecorder` | mide el viaje sin que el ruido del GPS lo infle |
+| `Tariff` | taxímetro con desglose auditable, franjas y espera |
+| `RouteTracker` | ETA por maniobra y desvío, sin llamadas |
+| `RideAuction` · `BidAdvisor` | subasta tipo inDrive y rentabilidad real |
+| `DispatchPlanner` | el conductor más cercano en tiempo, no en línea recta |
+| `TelemetryAnalyzer` | acelerones, frenazos, curvas y excesos |
+
+Un coche parado con ±20 m de incertidumbre acumula **más de 5 km** por hora si
+se suman las distancias entre lecturas. `TripRecorder` acumula **menos de
+50 m**. Esa diferencia es lo que el pasajero acaba pagando.
+
 ## Control de gasto
 
 Amazon Location se factura **por petición**, y algunas cobran más de una:

@@ -1,6 +1,6 @@
 # Recetas
 
-Cada receta es **autocontenida y copiable**: un problema, el código completo y
+**62 recetas.** Cada una es **autocontenida y copiable**: un problema, el código completo y
 la explicación de por qué así y no de otra forma.
 
 Todas dan por hecho:
@@ -33,6 +33,8 @@ final maps = NativMaps(
 **Lo que Google no da** — [31](#31--isócrona-hasta-dónde-llegó-en-8-minutos) · [32](#32--isócrona-inversa-quién-llega-hasta-aquí) · [33](#33--quién-está-más-cerca-por-carretera) · [34](#34--orden-óptimo-de-veinte-entregas) · [35](#35--pegar-un-histórico-gps-a-la-calle) · [36](#36--mapa-sin-conexión)
 
 **Geovallas y rastreo** — [41](#41--crear-una-zona) · [42](#42--saber-si-un-punto-está-dentro-gratis) · [43](#43--evaluar-posiciones-de-verdad) · [44](#44--avisar-antes-de-que-salga-de-la-zona) · [45](#45--subir-posiciones-de-la-flota) · [46](#46--el-histórico-limpio-en-dos-pasos) · [47](#47--quién-hay-dentro-de-esta-zona-ahora) · [48](#48--detectar-una-ubicación-falseada) · [49](#49--montar-el-sistema-entero-una-vez)
+
+**Taxi, pujas y rastreo** — [50](#50--taxímetro-completo-de-la-primera-lectura-al-recibo) · [51](#51--filtrar-el-gps-de-un-rastreador-barato) · [52](#52--detectar-y-cobrar-la-espera) · [53](#53--tarifa-nocturna-y-de-fin-de-semana) · [54](#54--estimar-el-precio-antes-de-arrancar) · [55](#55--subasta-de-carrera-al-estilo-indrive) · [56](#56--decidir-si-aceptar-lado-del-conductor) · [57](#57--contraofertar-el-precio-justo) · [58](#58--ordenar-las-ofertas-para-el-pasajero) · [59](#59--elegir-al-conductor-que-llega-antes-de-verdad) · [60](#60--navegación-cuánto-falta-qué-maniobra-y-si-se-salió) · [61](#61--nota-de-conducción-de-la-flota) · [62](#62--guardar-el-histórico-sin-arruinarse)
 
 **Producción** — [37](#37--proxy-que-firma-recomendado) · [38](#38--sigv4-en-el-dispositivo) · [39](#39--manejar-los-errores-bien) · [40](#40--no-llevarse-un-susto-en-la-factura)
 
@@ -1491,3 +1493,393 @@ enlace existe**:
 final enlaces = await maps.tracking.listConsumers(trackerName: 'flota');
 print(enlaces.items);   // vacío = ese es el problema
 ```
+
+---
+
+# Taxi, pujas y rastreo
+
+Todo lo de esta sección es **Dart puro y no gasta ni una unidad**, salvo la
+receta 59, que sí llama a la matriz de rutas.
+
+## 50 · Taxímetro completo, de la primera lectura al recibo
+
+```dart
+const tarifa = Tariff(
+  currency: 'USD',
+  baseFare: 250,                                // 2,50 de bandera
+  perKilometer: 110,
+  perMinute: 35,
+  waitingPerMinute: 30,
+  waitingGrace: Duration(minutes: 3),
+  minimumFare: 500,
+  rounding: FareRounding.nearest10,
+);
+
+final registrador = TripRecorder();
+
+// Por cada posición que llegue del dispositivo:
+void alRecibirPosicion(Position p) {
+  final estado = registrador.add(PositionFix(
+    position: LatLng(p.latitude, p.longitude),
+    timestamp: p.timestamp,
+    accuracyMeters: p.accuracy,        // ← sin esto el filtro va medio ciego
+    speedKmh: p.speed * 3.6,           // ← la del receptor, no la calculada
+  ));
+  pantalla.mostrar(
+    km: estado.distanceMeters / 1000,
+    parado: estado.stopped,
+  );
+}
+
+// Al llegar:
+final viaje = registrador.finish();
+final importe = tarifa.quote(viaje);
+
+print(importe.toReceipt());
+// Bajada de bandera                 2,50
+// Tarifa · distancia               13,64      12.40 km × 1,10
+// Tarifa · tiempo                   6,30      18.0 min × 0,35
+// Tarifa · espera                   1,50      5.0 min × 0,30
+// Redondeo                          0,06      nearest10
+// --------------------------------------
+// TOTAL                            24,00   USD
+```
+
+**Guarda `importe.lines`, no solo `importe.total`.** El día que llegue una
+reclamación, el desglose con la cuenta de cada línea es lo único que responde
+a «¿por qué me cobraste esto?».
+
+## 51 · Filtrar el GPS de un rastreador barato
+
+```dart
+// Un GT06 con antena interna en un cañón urbano: mucho ruido y lecturas
+// reenviadas en lote cuando recupera cobertura.
+final filtro = PositionFilter(
+  maxAccuracyMeters: 60,     // es un cacharro; con 50 se descarta demasiado
+  noiseFactor: 2.0,
+  minDisplacementMeters: 5,  // por si la trama no trae incertidumbre
+  maxSpeedKmh: 160,
+  smooth: true,              // Kalman de velocidad constante
+);
+
+final descartes = <FixRejection, int>{};
+for (final trama in tramasDelDispositivo) {
+  final r = filtro.add(trama.aPositionFix());
+  if (r.accepted) {
+    pintar(r.fix.position);
+  } else {
+    descartes.update(r.rejection!, (n) => n + 1, ifAbsent: () => 1);
+  }
+}
+
+// El reparto de descartes diagnostica el hardware:
+//   poorAccuracy alto  → antena mal puesta o dentro de la guantera
+//   outOfOrder alto    → cobertura mala, reenvía en lote
+//   withinNoise alto   → normal si el vehículo pasa mucho tiempo parado
+print(descartes);
+```
+
+## 52 · Detectar y cobrar la espera
+
+```dart
+final registrador = TripRecorder(
+  stopSpeedKmh: 3,                              // entra en «parado»
+  resumeSpeedKmh: 8,                            // sale de «parado»
+  minStopDuration: const Duration(seconds: 45), // deja fuera los semáforos
+);
+```
+
+Los dos umbrales distintos son **histéresis**, y no son opcionales: con un
+solo umbral, un coche oscilando alrededor de él genera decenas de paradas de
+dos segundos.
+
+```dart
+final viaje = registrador.finish();
+for (final parada in viaje.stops) {
+  print('${parada.duration.inMinutes} min en ${parada.position}');
+}
+```
+
+La cortesía se descuenta **del conjunto del viaje**, no de cada parada: con un
+minuto gratis por parada, veinte semáforos de un minuto saldrían gratis.
+
+## 53 · Tarifa nocturna y de fin de semana
+
+```dart
+const tarifa = Tariff(
+  currency: 'EUR',
+  baseFare: 250,
+  perKilometer: 110,
+  perMinute: 35,
+  bands: <TariffBand>[
+    // Las más específicas primero: se aplica la PRIMERA que coincida.
+    TariffBand(
+      name: 'Nocturna fin de semana',
+      startOfDay: Duration(hours: 22),
+      endOfDay: Duration(hours: 6),
+      multiplier: 1.50,
+      weekdays: <int>{DateTime.friday, DateTime.saturday},
+    ),
+    TariffBand(
+      name: 'Nocturna',
+      startOfDay: Duration(hours: 22),
+      endOfDay: Duration(hours: 6),
+      multiplier: 1.25,
+    ),
+  ],
+);
+```
+
+Un trayecto de 21:50 a 22:10 se **parte**: diez minutos a tarifa diurna y diez
+a nocturna. Cobrarlo entero a la tarifa de salida es lo que hace casi todo el
+software, y en mercado regulado es sancionable.
+
+> **Zona horaria.** Las horas de las franjas se leen en la misma zona que las
+> marcas de tiempo del viaje. Si el servidor guarda en UTC —que es lo
+> correcto—, convierte a la hora de la ciudad antes de tarificar.
+
+## 54 · Estimar el precio antes de arrancar
+
+```dart
+final ruta = (await maps.routes.calculateRoutes(
+  origin: recogida,
+  destination: destino,
+)).best!;
+
+final estimado = tarifa.estimate(
+  distanceMeters: ruta.distanceMeters,
+  duration: ruta.duration,
+  tolls: ruta.tollCostByCurrency['EUR']?.round() ?? 0,
+);
+
+print('Unos ${estimado.formattedTotal} ${estimado.currency}');
+```
+
+No sustituye a `quote`: aquí no hay paradas todavía, y el tiempo es el que
+predijo el servicio, no el que ocurrió.
+
+## 55 · Subasta de carrera al estilo inDrive
+
+```dart
+// El pasajero propone precio, con una referencia para no pedir un imposible.
+const asesor = FareAdvisor(tariff: tarifa);
+final sugerido = asesor.suggest(
+  distanceMeters: ruta.distanceMeters,
+  duration: ruta.duration,
+  demandFactor: demandaDeLaZona,      // 1.0 normal, 1.6 punta con lluvia
+);
+
+final peticion = RideRequest(
+  id: uuid,
+  pickup: recogida,
+  dropoff: destino,
+  proposedFare: loQuePusoElPasajero,
+  currency: 'USD',
+  createdAt: DateTime.now(),
+  estimatedDistanceMeters: ruta.distanceMeters,
+  estimatedDuration: ruta.duration,
+);
+
+final subasta = RideAuction(
+  request: peticion,
+  duration: const Duration(minutes: 5),
+);
+
+// Cada conductor que contesta:
+subasta.bid(DriverBid(
+  driverId: conductor.id,
+  requestId: peticion.id,
+  amount: loQuePide,
+  etaToPickup: llegaEn,
+  createdAt: DateTime.now(),
+  validFor: const Duration(minutes: 2),   // caduca: su ETA envejece
+  driverRating: conductor.nota,
+));
+
+// El pasajero elige:
+final ganadora = subasta.accept(elegido);
+```
+
+Volver a ofertar **sustituye** la oferta anterior del mismo conductor, que es
+lo que hace falta para poder bajar el precio sin duplicar la lista.
+
+Una oferta caducada **no se puede aceptar**: sería prometerle al pasajero un
+tiempo de llegada que el conductor ya no puede cumplir.
+
+## 56 · Decidir si aceptar (lado del conductor)
+
+```dart
+const asesor = BidAdvisor(
+  currency: 'USD',
+  minorUnitDigits: 2,
+  economics: DriverEconomics(
+    costPerKilometer: 20,     // combustible + desgaste, NO solo gasolina
+    commissionRate: 0.20,
+    minimumNetPerHour: 1500,  // 15,00 por hora, neto
+    returnFactor: 0.5,        // media vuelta de vacío desde las afueras
+  ),
+);
+
+final analisis = asesor.evaluate(
+  fare: peticion.proposedFare,
+  deadheadMeters: hastaRecoger.distanceMeters,
+  deadheadDuration: hastaRecoger.duration,
+  tripMeters: elTrayecto.distanceMeters,
+  tripDuration: elTrayecto.duration,
+);
+
+print('Neto ${analisis.net}, ${analisis.netPerHour}/h');
+print(analisis.worthIt ? 'Acepta' : 'No compensa');
+```
+
+**El importe suelto engaña.** Una carrera de 8,00 a doce minutos de distancia
+deja 15,82/h; una de 5,00 a dos minutos deja 20,00/h. La que paga menos rinde
+un 26 % más.
+
+`analisis.deadheadShare` por encima de 0,4 casi nunca compensa.
+
+## 57 · Contraofertar el precio justo
+
+```dart
+if (!analisis.worthIt) {
+  final minimo = asesor.breakEvenFare(
+    deadheadMeters: hastaRecoger.distanceMeters,
+    deadheadDuration: hastaRecoger.duration,
+    tripMeters: elTrayecto.distanceMeters,
+    tripDuration: elTrayecto.duration,
+  );
+  subasta.bid(DriverBid(
+    driverId: yo.id,
+    requestId: peticion.id,
+    amount: minimo,          // ya cuenta la comisión y el trayecto muerto
+    etaToPickup: hastaRecoger.duration,
+    createdAt: DateTime.now(),
+  ));
+}
+```
+
+## 58 · Ordenar las ofertas para el pasajero
+
+```dart
+// Ni solo por precio ni solo por espera: los pesos se normalizan al rango
+// observado, así una diferencia de dos euros y una de dos minutos pasan a
+// ser comparables.
+const criterio = BidRanking(
+  priceWeight: 1.0,
+  etaWeight: 1.5,      // en esta ciudad la gente valora más llegar pronto
+  ratingWeight: 0.5,
+);
+
+final ordenadas = criterio.sort(subasta.liveBids(DateTime.now()));
+```
+
+Las caducadas se quitan solas.
+
+## 59 · Elegir al conductor que llega antes de verdad
+
+```dart
+final planificador = DispatchPlanner(
+  routes: maps.routes,
+  shortlistSize: 12,
+  maxRadiusMeters: 6000,
+);
+
+final finalistas = await planificador.findNearest(
+  conductoresConectados,
+  peticion.pickup,
+  staleAfter: const Duration(minutes: 2),   // descarta posiciones viejas
+);
+
+for (final c in finalistas.take(5)) {
+  ofrecerCarrera(c.driver.driverId, llegaEn: c.drivingDuration!);
+}
+```
+
+**Dos fases, y las dos hacen falta.** La preselección por línea recta es
+local, instantánea y gratis; el refinado con la matriz es el que sabe que hay
+un río en medio. Con 800 conductores conectados, esto cuesta **12 celdas por
+carrera** en vez de 800.
+
+`c.detourFactor` por encima de 2,5 casi siempre significa río, vía de tren o
+autopista sin salida cerca: justo el caso en el que la línea recta se equivoca.
+
+## 60 · Navegación: cuánto falta, qué maniobra y si se salió
+
+```dart
+final seguimiento = RouteTracker(
+  ruta,
+  offRouteThresholdMeters: 45,   // 80 para autopista
+  offRouteStrikes: 3,
+);
+
+void alRecibirPosicion(LatLng p) {
+  final progreso = seguimiento.update(p);
+
+  pantalla
+    ..eta = progreso.eta
+    ..faltan = progreso.remainingMeters
+    ..maniobra = progreso.nextStep?.instruction
+    ..enMetros = progreso.distanceToNextManeuverMeters;
+
+  if (progreso.offRoute) {
+    recalcular();            // ya son tres lecturas seguidas fuera
+  }
+}
+
+// Tras una pausa larga o al reanudar la app:
+seguimiento.resync();
+```
+
+**El tiempo restante no es una regla de tres.** `RouteTracker` usa el tiempo
+que el servicio dio por maniobra: si quedan 500 m de autopista de una ruta que
+empezó en ciudad, la regla de tres dice 37 s y la realidad son 15.
+
+## 61 · Nota de conducción de la flota
+
+```dart
+final analizador = TelemetryAnalyzer(
+  speedLimitKmh: limiteDeLaVia,   // el paquete NO lo averigua: es tuyo
+  minSpeedingDuration: const Duration(seconds: 15),
+);
+
+for (final lectura in lecturasDelTurno) {
+  for (final suceso in analizador.add(lectura)) {
+    registrar(suceso);            // .type .position .timestamp .gForce
+  }
+}
+
+final nota = analizador.score();
+print('${nota.value}/100 · ${nota.eventsPer100Km.toStringAsFixed(1)} '
+      'sucesos por 100 km');
+```
+
+**Pasa `speedKmh` en cada lectura o no se detecta nada.** Derivar la
+aceleración de las posiciones amplifica el ruido del GPS al cuadrado y produce
+frenazos en coches parados. El paquete prefiere no detectar a inventar.
+
+`eventsPer100Km` es la única cifra comparable entre conductores; el total
+absoluto solo dice quién trabaja más horas.
+
+## 62 · Guardar el histórico sin arruinarse
+
+```dart
+final viaje = registrador.finish();
+
+// PRIMERO se mide…
+final metros = viaje.distanceMeters;
+
+// …y DESPUÉS se recorta para guardar.
+final paraGuardar = simplifyPath(viaje.track, toleranceMeters: 5);
+
+await bd.guardar(
+  distancia: metros,
+  recorrido: paraGuardar,      // entre el 3 % y el 8 % de los puntos
+);
+```
+
+**Nunca al revés.** Douglas–Peucker quita justamente los puntos de las curvas
+suaves, así que la longitud del camino recortado siempre sale menor: medir
+sobre él es cobrar de menos.
+
+Una flota de 200 vehículos a 1 Hz son 17 millones de posiciones al día. Con
+5 m de tolerancia se quedan en menos de un millón, y al dibujarlas no se nota.
