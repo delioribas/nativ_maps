@@ -33,3 +33,11 @@ pubspec_overrides.yaml
 # Secretos: nunca en el repositorio.
 .env
 *.env.local
+
+# Notas de operación, privadas.
+#
+# No son documentación del paquete: llevan rutas de esta máquina, nombres de
+# cuenta y detalles de autenticación. La documentación pública vive en
+# README.md, AGENTS.md y doc/.
+PENDIENTE.md
+OPERACIONES.md
