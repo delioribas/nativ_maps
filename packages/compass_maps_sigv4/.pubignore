@@ -1,0 +1,11 @@
+# Lo que NUNCA debe viajar dentro del archivo publicado.
+#
+# `.gitignore` no basta: `pub publish` lo respeta solo si el directorio está
+# bajo control de versiones. En un repositorio recién iniciado —o antes de
+# `git init`— empaqueta todo lo que encuentre, y un `build/` olvidado convierte
+# un paquete de 150 KB en uno de 14 MB.
+build/
+.dart_tool/
+coverage/
+*.iml
+.DS_Store

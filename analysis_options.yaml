@@ -1,0 +1,10 @@
+# Configuración de la raíz del espacio de trabajo.
+#
+# Cada paquete tiene la suya, mucho más estricta, generada desde
+# `tool/analysis_options.*.template`. Esta solo cubre el andamiaje del
+# repositorio.
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    - "**/build/**"

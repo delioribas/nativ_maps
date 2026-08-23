@@ -1,0 +1,28 @@
+name: compass_maps_example
+description: >-
+  App que ejercita las 17 operaciones de Amazon Location v2 y todo lo que el
+  widget del mapa sabe hacer. Es a la vez la demostración y la prueba de que
+  la matriz de plataformas declarada es cierta.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.41.0"
+
+resolution: workspace
+
+dependencies:
+  compass_maps_flutter: ^0.1.0
+  compass_maps_google: ^0.1.0
+  cupertino_icons: ^1.0.8
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
