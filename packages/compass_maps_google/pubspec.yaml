@@ -1,18 +1,18 @@
 name: compass_maps_google
 description: "Drop-in compatibility layer that runs a google_maps_flutter codebase on Amazon Location by changing one import. Typedefs and extensions only."
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/delioribas/compass_maps
 issue_tracker: https://github.com/delioribas/compass_maps/issues
 publish_to: none
 
 environment:
-  sdk: ^3.13.0
-  flutter: ">=3.41.0"
+  sdk: ^3.8.0
+  flutter: ">=3.32.0"
 
 resolution: workspace
 
 dependencies:
-  compass_maps_flutter: ^0.1.0
+  compass_maps_flutter: ^0.1.1
   flutter:
     sdk: flutter
 

@@ -3,6 +3,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
+// `meta` importado explícitamente, aunque en Flutter 3.44+ el linter lo marque
+// como redundante: `package:flutter/foundation.dart` **no reexporta
+// `@internal`** hasta versiones recientes, y este paquete declara suelo en
+// Flutter 3.32. Sin este import, quien lo use en 3.32 se encuentra doce
+// errores de `undefined_annotation`.
+// ignore: unnecessary_import
+import 'package:meta/meta.dart';
 
 /// Qué clase de capa es, dentro de un estilo MapLibre.
 enum StyleLayerType {

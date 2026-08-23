@@ -1,7 +1,10 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
 import 'package:compass_maps/compass_maps.dart';
-import 'package:flutter/foundation.dart';
+// Solo se usan anotaciones aquí, y vienen de `meta`. Importar
+// `package:flutter/foundation.dart` sobraría en Flutter 3.32 y `meta`
+// sobraría en 3.44+; se elige `meta`, que funciona en las dos.
+import 'package:meta/meta.dart';
 
 /// Dónde está la cámara del mapa.
 ///

@@ -1,20 +1,20 @@
 name: compass_maps_sigv4
 description: "AWS Signature Version 4 credentials for compass_maps, verified against the official AWS test vectors and depending only on package crypto."
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/delioribas/compass_maps
 issue_tracker: https://github.com/delioribas/compass_maps/issues
 publish_to: none
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.8.0
 
 resolution: workspace
 
 dependencies:
-  compass_maps: ^0.1.0
+  compass_maps: ^0.1.1
   crypto: ^3.0.7
-  http: ^1.6.0
-  meta: ^1.19.0
+  http: ^1.1.0
+  meta: ^1.16.0
 
 dev_dependencies:
   lints: ^6.1.0

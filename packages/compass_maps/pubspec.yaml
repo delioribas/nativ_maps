@@ -1,6 +1,6 @@
 name: compass_maps
 description: "Amazon Location Service in pure Dart with the shape of Google Maps. 44 typed operations for places, routes, maps, geofences and device tracking."
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/delioribas/compass_maps
 issue_tracker: https://github.com/delioribas/compass_maps/issues
 documentation: https://github.com/delioribas/compass_maps#readme
@@ -12,13 +12,13 @@ topics:
   - location
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.8.0
 
 resolution: workspace
 
 dependencies:
-  http: ^1.6.0
-  meta: ^1.19.0
+  http: ^1.1.0
+  meta: ^1.16.0
 
 dev_dependencies:
   lints: ^6.1.0
