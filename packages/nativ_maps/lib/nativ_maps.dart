@@ -45,6 +45,21 @@
 /// | el estilo del mapa | `MapsClient` |
 /// | autenticar | `Credentials` |
 /// | no llevarme un susto en la factura | `Budget` |
+///
+/// ## Capa de cálculo, sin red y sin coste
+///
+/// | Quiero… | Miro en… |
+/// |---|---|
+/// | medir un viaje sin que el ruido del GPS lo infle | `TripRecorder` |
+/// | descartar lecturas malas | `PositionFilter` |
+/// | cobrar una carrera, con desglose | `Tariff` |
+/// | saber cuánto falta y si se salió de la ruta | `RouteTracker` |
+/// | subastar una carrera al estilo inDrive | `RideAuction` |
+/// | decidir si una oferta le compensa al conductor | `BidAdvisor` |
+/// | sugerirle un precio justo al pasajero | `FareAdvisor` |
+/// | elegir el conductor más cercano de verdad | `DispatchPlanner` |
+/// | puntuar cómo se conduce | `TelemetryAnalyzer` |
+/// | geometría de caminos, recortar históricos | `simplifyPath` |
 library;
 
 // Los `export` van en un solo bloque y en orden alfabético porque es lo que
@@ -139,3 +154,35 @@ export 'src/tracking/models.dart'
         TrackingPage,
         WiFiAccessPoint;
 export 'src/tracking/tracking_client.dart' show TrackingClient;
+export 'src/trip/auction.dart'
+    show
+        AuctionState,
+        BidAdvisor,
+        BidEvaluation,
+        BidRanking,
+        DriverBid,
+        DriverEconomics,
+        FareAdvisor,
+        FareSuggestion,
+        RideAuction,
+        RideRequest;
+export 'src/trip/dispatch.dart'
+    show DispatchPlanner, DriverCandidate, DriverLocation;
+export 'src/trip/fare.dart'
+    show FareBreakdown, FareLine, FareRounding, Surcharge, Tariff, TariffBand;
+export 'src/trip/geodesy.dart'
+    show
+        PathMatch,
+        crossTrackMeters,
+        cumulativeDistances,
+        interpolateOnPath,
+        nearestPointOnPath,
+        pathLength,
+        simplifyPath;
+export 'src/trip/position_filter.dart'
+    show FilterResult, FixRejection, PositionFilter, PositionFix;
+export 'src/trip/route_progress.dart' show RouteProgress, RouteTracker;
+export 'src/trip/telemetry.dart'
+    show DrivingEvent, DrivingEventType, DrivingScore, TelemetryAnalyzer;
+export 'src/trip/trip_recorder.dart'
+    show StopPeriod, TripRecorder, TripSummary, TripUpdate;

@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
-  nativ_maps_flutter: ^0.2.0
+  nativ_maps_flutter: ^0.3.0
 
   # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
   # nunca con una rama. Añádelos solo si los necesitas.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.2.0
+      ref: v0.3.0
   nativ_maps_google:     # SOLO si migras de google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.2.0
+      ref: v0.3.0
 ```
 
 ```dart
@@ -399,6 +399,200 @@ Future<TrackingPage<String>> listConsumers({required String trackerName,
 
 **AWS borra el histórico a los 30 días.** No es configurable.
 
+### La capa de cálculo — firmas exactas
+
+**Dart puro. Ninguna de estas llamadas usa la red ni gasta unidades**, salvo
+`DispatchPlanner.rank`, que sí llama a la matriz.
+
+```dart
+// ── Lectura del GPS: el tipo de entrada de toda la capa
+PositionFix({
+  required LatLng position,
+  required DateTime timestamp,
+  double? accuracyMeters,      // el dato más valioso; pásalo siempre
+  double? speedKmh,            // del receptor (Doppler), no calculada
+  double? headingDegrees,
+  double? altitudeMeters,
+})
+
+// ── Filtrar el ruido
+PositionFilter({
+  double maxAccuracyMeters = 50,
+  double noiseFactor = 2.0,
+  double minDisplacementMeters = 3,
+  double maxSpeedKmh = 220,
+  bool smooth = false,
+  double processNoiseMps2 = 2.0,
+})
+FilterResult add(PositionFix fix)   // .accepted, .rejection, .distanceMeters
+void reset()
+
+enum FixRejection { poorAccuracy, outOfOrder, withinNoise, impossibleSpeed }
+
+// ── Medir el viaje
+TripRecorder({
+  PositionFilter? filter,
+  double stopSpeedKmh = 3,
+  double resumeSpeedKmh = 8,        // > stopSpeedKmh o lanza
+  Duration minStopDuration = const Duration(seconds: 45),
+  bool keepTrack = true,
+})
+TripUpdate add(PositionFix fix)
+TripSummary finish()
+void reset()
+
+// TripSummary: .distanceMeters .distanceKm .duration .movingDuration
+//              .stoppedDuration .stops .track .maxSpeedKmh
+//              .averageMovingSpeedKmh .rejections .acceptedFixes
+
+// ── Tarificar. TODOS los importes en unidades menores (céntimos), int.
+Tariff({
+  required String currency,        // ISO 4217
+  required int baseFare,
+  int perKilometer = 0,
+  int perMinute = 0,
+  int waitingPerMinute = 0,
+  Duration waitingGrace = Duration.zero,
+  int minimumFare = 0,
+  int minorUnitDigits = 2,         // 0 para CLP, JPY
+  FareRounding rounding = FareRounding.none,
+  List<TariffBand> bands = const <TariffBand>[],
+  List<Surcharge> surcharges = const <Surcharge>[],
+})
+FareBreakdown quote(TripSummary trip, {
+  double surgeMultiplier = 1.0,
+  int tolls = 0,
+  List<Surcharge> extraSurcharges = const <Surcharge>[],
+})
+FareBreakdown estimate({           // antes de empezar, desde una ruta
+  required double distanceMeters,
+  required Duration duration,
+  DateTime? departure,
+  double surgeMultiplier = 1.0,
+  int tolls = 0,
+})
+
+TariffBand({
+  required String name,
+  required Duration startOfDay,
+  required Duration endOfDay,      // < startOfDay ⇒ cruza la medianoche
+  double multiplier = 1.0,
+  Set<int> weekdays = const <int>{1,2,3,4,5,6,7},   // DateTime.monday = 1
+})
+Surcharge({required String name, required int amount, bool surgeable = false})
+
+enum FareRounding { none, nearest5, nearest10, nearest50, nearestMajor,
+                    upToMajor }
+
+// FareBreakdown: .total .lines .formattedTotal .toReceipt() .currency
+
+// ── Seguir una ruta ya calculada
+RouteTracker(Route route, {
+  double offRouteThresholdMeters = 45,
+  int offRouteStrikes = 3,
+  int searchWindowSegments = 60,
+})
+RouteProgress update(LatLng position, {DateTime? now})
+void resync()                      // tras una pausa larga sin posiciones
+
+// RouteProgress: .remainingMeters .remainingDuration .eta .offRoute
+//                .fraction .deviationMeters .currentStep .nextStep
+//                .distanceToNextManeuverMeters .stepIndex
+
+// ── Subasta de carreras (modelo inDrive)
+RideRequest({
+  required String id, required LatLng pickup, required LatLng dropoff,
+  required int proposedFare, required String currency,
+  required DateTime createdAt,
+  double? estimatedDistanceMeters, Duration? estimatedDuration,
+  int passengerCount = 1, String note = '', Set<String> tags = const {},
+})
+DriverBid({
+  required String driverId, required String requestId, required int amount,
+  required Duration etaToPickup, required DateTime createdAt,
+  Duration validFor = const Duration(minutes: 2),
+  double? driverRating, int? completedTrips, String vehicleLabel = '',
+})
+RideAuction({required RideRequest request,
+             Duration duration = const Duration(minutes: 5)})
+void bid(DriverBid offer, {DateTime? now})     // sustituye la del mismo id
+bool withdraw(String driverId)
+DriverBid accept(String driverId, {DateTime? now})   // lanza si caducó
+void cancel()
+List<DriverBid> liveBids(DateTime now)
+AuctionState stateAt(DateTime now)
+
+BidRanking({double priceWeight = 1, double etaWeight = 1,
+            double ratingWeight = 0.5})
+List<DriverBid> sort(List<DriverBid> bids, {DateTime? now})
+
+// ── ¿Le compensa al conductor?
+DriverEconomics({
+  required int costPerKilometer,   // combustible + desgaste, NO solo gasolina
+  double commissionRate = 0,
+  int minimumNetPerHour = 0,
+  double returnFactor = 0.0,
+})
+BidAdvisor({required DriverEconomics economics,
+            required int minorUnitDigits, required String currency})
+BidEvaluation evaluate({
+  required int fare,
+  required double deadheadMeters, required Duration deadheadDuration,
+  required double tripMeters, required Duration tripDuration,
+})
+int breakEvenFare({...los mismos cuatro...})   // qué contraofertar
+
+// BidEvaluation: .net .netPerHour .worthIt .drivingCost .commission
+//                .deadheadShare .engagedDuration
+
+// ── Precio sugerido al pasajero
+FareAdvisor({required Tariff tariff, double minimumRatio = 0.80,
+             double maximumRatio = 1.40, double midpointRatio = 0.95,
+             double steepness = 9.0})
+FareSuggestion suggest({required double distanceMeters,
+  required Duration duration, DateTime? departure,
+  double demandFactor = 1.0, int tolls = 0})
+double acceptanceProbability({required int offered, required int reference,
+                              double demandFactor = 1.0})
+
+// ── Elegir conductor.  shortlist es GRATIS; rank SÍ llama a la matriz.
+DispatchPlanner({required RoutesClient routes, int shortlistSize = 12,
+                 double maxRadiusMeters = 8000})
+List<DriverCandidate> shortlist(List<DriverLocation> drivers, LatLng pickup,
+    {Duration? staleAfter, DateTime? now})
+Future<List<DriverCandidate>> rank(List<DriverCandidate> candidates,
+    LatLng pickup, {TravelMode travelMode = TravelMode.car,
+    DateTime? departureTime})
+Future<List<DriverCandidate>> findNearest(List<DriverLocation> drivers,
+    LatLng pickup, {Duration? staleAfter,
+    TravelMode travelMode = TravelMode.car, DateTime? now})
+
+// ── Telemática
+TelemetryAnalyzer({
+  double harshAccelerationMps2 = 3.0,
+  double harshBrakingMps2 = -3.5,
+  double harshCorneringMps2 = 3.5,
+  double? speedLimitKmh,           // el paquete NO lo averigua
+  double speedToleranceKmh = 8,
+  Duration minSpeedingDuration = const Duration(seconds: 10),
+  Duration maxSampleGap = const Duration(seconds: 10),
+})
+List<DrivingEvent> add(PositionFix fix)
+DrivingScore score({double harshWeight = 4, double corneringWeight = 2,
+                    double speedingWeight = 6})
+void reset()
+
+// ── Geometría de caminos
+double pathLength(List<LatLng> path)
+List<double> cumulativeDistances(List<LatLng> path)
+double crossTrackMeters(LatLng point, LatLng start, LatLng end)
+PathMatch nearestPointOnPath(List<LatLng> path, LatLng point,
+    {int fromIndex = 0, int? maxSegments, List<double>? cumulative})
+LatLng interpolateOnPath(List<LatLng> path, double alongMeters,
+    {List<double>? cumulative})
+List<LatLng> simplifyPath(List<LatLng> path, {required double toleranceMeters})
+```
+
 ### `NativMapController` — lo que se usa de verdad
 
 ```dart
@@ -546,6 +740,66 @@ await controlador.animateCamera(
 );
 ```
 
+### Cobrar una carrera de principio a fin
+
+```dart
+final registrador = TripRecorder();
+final tarifa = Tariff(currency: 'USD', baseFare: 250, perKilometer: 110,
+    perMinute: 35, waitingPerMinute: 30,
+    waitingGrace: const Duration(minutes: 3), minimumFare: 500);
+
+suscripcion = flujoDelGps.listen((posicion) {
+  final estado = registrador.add(PositionFix(
+    position: LatLng(posicion.latitude, posicion.longitude),
+    timestamp: posicion.timestamp,
+    accuracyMeters: posicion.accuracy,   // ← imprescindible
+    speedKmh: posicion.speed * 3.6,      // ← del receptor
+  ));
+  mostrarEnPantalla(estado.distanceMeters, estado.speedKmh);
+});
+
+// Al terminar:
+final viaje = registrador.finish();
+final importe = tarifa.quote(viaje, tolls: ruta.tollCostByCurrency['USD']
+    ?.round() ?? 0);
+guardar(viaje, importe.lines);   // guarda el DESGLOSE, no solo el total
+```
+
+### Decidir si aceptar una carrera (conductor)
+
+```dart
+const asesor = BidAdvisor(currency: 'USD', minorUnitDigits: 2,
+  economics: DriverEconomics(costPerKilometer: 20, commissionRate: 0.20,
+      minimumNetPerHour: 1500));
+
+final analisis = asesor.evaluate(
+  fare: peticion.proposedFare,
+  deadheadMeters: hastaRecoger.distanceMeters,
+  deadheadDuration: hastaRecoger.duration,
+  tripMeters: elTrayecto.distanceMeters,
+  tripDuration: elTrayecto.duration,
+);
+
+if (analisis.worthIt) {
+  aceptar();
+} else {
+  contraofertar(asesor.breakEvenFare(/* los mismos cuatro */));
+}
+```
+
+### Ofrecer la carrera a quien llegue antes de verdad
+
+```dart
+final planificador = DispatchPlanner(routes: maps.routes);
+final finalistas = await planificador.findNearest(
+  conductoresConectados, peticion.pickup,
+  staleAfter: const Duration(minutes: 2),   // descarta posiciones viejas
+);
+for (final c in finalistas.take(5)) {
+  notificar(c.driver.driverId, llegaEn: c.drivingDuration!);
+}
+```
+
 ### Filtrar antes de pagar la matriz
 
 ```dart
@@ -666,6 +920,99 @@ logger.info('estilo: ${maps.maps.styleDescriptorUrl(MapStyle.standard)}');
 ```
 
 ---
+
+### Sumar la distancia entre lecturas del GPS
+
+```dart
+// ❌ Un coche aparcado acumula kilómetros: el receptor rebota dentro de su
+//    círculo de incertidumbre, y el pasajero paga ese rebote.
+for (var i = 1; i < posiciones.length; i++) {
+  total += posiciones[i - 1].distanceTo(posiciones[i]);
+}
+
+// ✅
+final registrador = TripRecorder();
+for (final p in lecturas) registrador.add(p);
+final total = registrador.finish().distanceMeters;
+```
+
+### Pasar `PositionFix` sin `accuracyMeters`
+
+```dart
+// ❌ Sin la incertidumbre no hay forma de distinguir avance lento de rebote,
+//    y el filtro solo puede aplicar el suelo absoluto de 3 m.
+PositionFix(position: p, timestamp: t)
+
+// ✅
+PositionFix(position: p, timestamp: t, accuracyMeters: lectura.accuracy,
+    speedKmh: lectura.speed * 3.6)
+```
+
+### Guardar solo el total de la carrera
+
+```dart
+// ❌ Seis meses después llega la reclamación y no hay cómo justificarlo.
+guardar(importe.total);
+
+// ✅ El desglose trae la cuenta de cada línea: «12,40 km × 1,10».
+guardar(importe.total, importe.lines);
+```
+
+### Usar `double` para el dinero
+
+```dart
+// ❌ 0,10 no existe en coma flotante binaria; la caja descuadra a fin de mes.
+double tarifa = 1.10;
+
+// ✅ Unidades menores, enteras. El redondeo ocurre una vez, al final.
+const perKilometer = 110;   // céntimos
+```
+
+### Ordenar conductores por distancia en línea recta
+
+```dart
+// ❌ El que está a 300 m al otro lado del río tarda quince minutos.
+conductores.sort((a, b) => a.position.distanceTo(punto)
+    .compareTo(b.position.distanceTo(punto)));
+
+// ✅ Gratis primero, matriz solo para los finalistas.
+final mejores = await planificador.findNearest(conductores, punto);
+```
+
+### Recalcular la ruta al primer punto que se salga
+
+```dart
+// ❌ Una lectura mala coloca el coche a 80 m de su carril. En una calle
+//    estrecha pasa varias veces por minuto, y cada recálculo se factura.
+if (posicion.distanceTo(ruta.points.first) > 50) await recalcular();
+
+// ✅ RouteTracker exige varias lecturas seguidas antes de darlo por bueno.
+final progreso = seguimiento.update(posicion);
+if (progreso.offRoute) await recalcular();
+```
+
+### Recortar el rastro antes de medirlo
+
+```dart
+// ❌ Douglas–Peucker quita justo los puntos de las curvas suaves: la
+//    distancia siempre sale menor, y se cobra de menos.
+final total = pathLength(simplifyPath(rastro, toleranceMeters: 5));
+
+// ✅ Primero se mide, después se recorta para guardar.
+final total = registrador.finish().distanceMeters;
+final paraGuardar = simplifyPath(viaje.track, toleranceMeters: 5);
+```
+
+### Enseñar `acceptanceProbability` como si fuera un dato
+
+```dart
+// ❌ «87 % de probabilidad» con dos decimales: nadie lo vuelve a cuestionar.
+Text('${(p * 100).toStringAsFixed(1)} % de aceptación');
+
+// ✅ Es una curva calibrable, no una medición. Enséñala como orientación
+//    cualitativa hasta que la ajustes con tu propio historial.
+Text(p > 0.6 ? 'Buen precio' : 'Puede que nadie conteste');
+```
 
 ## 7 · Nombres exactos de los enums
 

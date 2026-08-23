@@ -11,12 +11,12 @@
 ```diff
  dependencies:
 -  google_maps_flutter: ^2.12.0
-+  nativ_maps_flutter: ^0.2.0
++  nativ_maps_flutter: ^0.3.0
 +  nativ_maps_google:
 +    git:
 +      url: https://github.com/delioribas/nativ_maps.git
 +      path: packages/nativ_maps_google
-+      ref: v0.2.0
++      ref: v0.3.0
 ```
 
 `nativ_maps_google` **no está en pub.dev a propósito**: es una capa de

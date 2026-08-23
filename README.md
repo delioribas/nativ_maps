@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.2.0
+  nativ_maps_flutter: ^0.3.0
 ```
 
 ```dart
@@ -169,6 +169,80 @@ packages/
 >    metros**, para que todo el resto siga en unidades del SI.
 
 ---
+
+## La capa de cálculo: taxi, pujas y rastreo
+
+Ocho módulos de **Dart puro que no gastan ni una petición**. Amazon Location
+dice dónde están las cosas y cómo se va de una a otra; esto es lo que hace
+falta encima para que una aplicación cobre bien.
+
+```dart
+// 1 · Medir el viaje sin que el ruido del GPS lo infle
+final registrador = TripRecorder();
+for (final lectura in flujoDelGps) {
+  registrador.add(lectura);
+}
+final viaje = registrador.finish();
+
+// 2 · Cobrarlo, con desglose que se puede enseñar
+const tarifa = Tariff(
+  currency: 'USD',
+  baseFare: 250,          // 2,50 de bajada de bandera
+  perKilometer: 110,
+  perMinute: 35,
+  waitingPerMinute: 30,
+  waitingGrace: Duration(minutes: 3),
+  minimumFare: 500,
+  bands: <TariffBand>[
+    TariffBand(
+      name: 'Nocturna',
+      startOfDay: Duration(hours: 22),
+      endOfDay: Duration(hours: 6),
+      multiplier: 1.25,
+    ),
+  ],
+);
+print(tarifa.quote(viaje).toReceipt());
+```
+
+| Módulo | Qué resuelve |
+|---|---|
+| `PositionFilter` | descarta el ruido que infla el kilometraje |
+| `TripRecorder` | distancia, paradas y tiempos reales |
+| `Tariff` | taxímetro con desglose auditable, franjas y espera |
+| `RouteTracker` | ETA por maniobra y desvío, sin llamadas |
+| `RideAuction` | subasta de carreras al estilo inDrive |
+| `BidAdvisor` | si la carrera le compensa al conductor |
+| `FareAdvisor` | precio justo sugerido al pasajero |
+| `DispatchPlanner` | el conductor más cercano **en tiempo**, no en recta |
+| `TelemetryAnalyzer` | acelerones, frenazos, curvas y excesos |
+
+### Los tres errores que esta capa existe para evitar
+
+**1 · Un coche parado no acumula kilómetros.** Un receptor quieto rebota
+dentro de su círculo de incertidumbre, 30 m cada segundo en una calle
+estrecha. Sumar distancias entre lecturas convierte veinte minutos de espera
+en varios kilómetros que el pasajero paga. Hay una prueba que lo mide: la suma
+ingenua da **más de 5 km** de un coche aparcado; `TripRecorder` da **menos de
+50 m**.
+
+**2 · El importe suelto engaña al conductor.** Una carrera de 8 € a doce
+minutos de distancia deja **15,82 €/h**. Una de 5 € a dos minutos deja
+**20,00 €/h**. `BidAdvisor` cuenta el trayecto muerto que no paga nadie y dice
+cuál conviene.
+
+**3 · La línea recta elige mal.** El conductor que está a 300 m al otro lado
+del río tarda quince minutos. `DispatchPlanner` filtra gratis por línea recta
+y refina solo a los finalistas con la matriz: doce celdas facturadas por
+carrera en vez de ochocientas.
+
+### Lo que no es una medición
+
+`FareAdvisor.acceptanceProbability` devuelve una **curva logística de dos
+parámetros**, no un dato observado. Sirve para arrancar; hay que calibrarla con
+el historial propio. Se dice así de claro a propósito: un porcentaje inventado
+enseñado en pantalla con dos decimales es peor que no enseñar nada, porque
+nadie vuelve a cuestionarlo.
 
 ## Lo que Google no te daba
 
@@ -335,9 +409,10 @@ caza el compilador.
 | | |
 |---|---|
 | Operaciones | **44 de 44** de Amazon Location |
+| Capa de cálculo | **9 módulos** de Dart puro, sin red |
 | Análisis estático | **limpio en los 4 paquetes y en el ejemplo**, con `--fatal-infos` y `public_member_api_docs: error` |
 | Pub points del núcleo | **160/160**, medido con `pana` |
-| Pruebas | **229 verdes** |
+| Pruebas | **335 verdes** (106 de la capa de cálculo) |
 | Firma SigV4 | verificada contra el **vector oficial `get-vanilla` de AWS** |
 | Polilínea de HERE | verificada contra el **vector oficial de `heremaps/flexible-polyline`** |
 | Android | **APK compilado** |
