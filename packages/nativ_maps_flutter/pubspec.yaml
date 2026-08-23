@@ -1,6 +1,6 @@
 name: nativ_maps_flutter
 description: "Amazon Location Service with the shape of Google Maps. A MapLibre map widget with clusters, heatmaps and offline regions, plus 44 typed operations."
-version: 0.3.0
+version: 0.4.0
 repository: https://github.com/delioribas/nativ_maps
 issue_tracker: https://github.com/delioribas/nativ_maps/issues
 documentation: https://github.com/delioribas/nativ_maps#readme
@@ -31,7 +31,7 @@ dependencies:
   # Lo que sí entra son los parches (0.27.1, 0.27.2), que son correcciones.
   maplibre_gl: ^0.27.0
   meta: ^1.16.0
-  nativ_maps: ^0.3.0
+  nativ_maps: ^0.4.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

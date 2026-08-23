@@ -122,13 +122,16 @@ class DriverBid {
 
   @override
   String toString() =>
-      'DriverBid($driverId, $amount, llega en ${etaToPickup.inMinutes} min)';
+      'DriverBid($driverId, $amount, arrives in ${etaToPickup.inMinutes} min)';
 }
 
 /// El rango de precio que se le sugiere al pasajero.
 ///
 /// El pasajero pone el precio, pero necesita una referencia o pedirá dos euros
 /// por un trayecto de veinte kilómetros y nadie le contestará.
+@Deprecated(
+  'The result type of the deprecated FareAdvisor. Use SuggestedPrice.',
+)
 @immutable
 class FareSuggestion {
   /// Crea una sugerencia.
@@ -181,6 +184,11 @@ class FareSuggestion {
 /// Se documenta así de claro a propósito: un número inventado con dos decimales
 /// enseñado en pantalla como «87 % de probabilidad» es peor que no enseñar
 /// nada, porque nadie vuelve a cuestionarlo.
+@Deprecated(
+  'Use PriceAdvisor: it computes each nearby driver\'s real reservation '
+  'price instead of guessing it with a curve, and reports why. '
+  'FareAdvisor will be removed in 1.0.0.',
+)
 @immutable
 class FareAdvisor {
   /// Crea un asesor de precios.
@@ -229,11 +237,11 @@ class FareAdvisor {
       throw ArgumentError.value(
         demandFactor,
         'demandFactor',
-        'Tiene que ser mayor que cero',
+        'Must be greater than zero',
       );
     }
 
-    final referencia = tariff
+    final reference = tariff
         .estimate(
           distanceMeters: distanceMeters,
           duration: duration,
@@ -241,15 +249,15 @@ class FareAdvisor {
           tolls: tolls,
         )
         .total;
-    final recomendado = (referencia * demandFactor).round();
+    final recommendedPrice = (reference * demandFactor).round();
 
     return FareSuggestion(
       currency: tariff.currency,
       minorUnitDigits: tariff.minorUnitDigits,
-      reference: referencia,
-      recommended: recomendado,
-      minimum: (referencia * minimumRatio * demandFactor).round(),
-      maximum: (referencia * maximumRatio * demandFactor).round(),
+      reference: reference,
+      recommended: recommendedPrice,
+      minimum: (reference * minimumRatio * demandFactor).round(),
+      maximum: (reference * maximumRatio * demandFactor).round(),
       demandFactor: demandFactor,
     );
   }
@@ -304,7 +312,7 @@ class DriverEconomics {
 
   @override
   String toString() =>
-      'DriverEconomics($costPerKilometer/km, comisión $commissionRate)';
+      'DriverEconomics($costPerKilometer/km, commission $commissionRate)';
 }
 
 /// El análisis de si una carrera le conviene al conductor.
@@ -427,26 +435,26 @@ class BidAdvisor {
     required double tripMeters,
     required Duration tripDuration,
   }) {
-    final vuelta = deadheadMeters * economics.returnFactor;
-    final kilometros = (deadheadMeters + tripMeters + vuelta) / 1000;
-    final coste = (kilometros * economics.costPerKilometer).round();
-    final comision = (fare * economics.commissionRate).round();
-    final neto = fare - comision - coste;
+    final returnLeg = deadheadMeters * economics.returnFactor;
+    final kilometers = (deadheadMeters + tripMeters + returnLeg) / 1000;
+    final cost = (kilometers * economics.costPerKilometer).round();
+    final commissionAmount = (fare * economics.commissionRate).round();
+    final net = fare - commissionAmount - cost;
 
-    final ocupado = deadheadDuration + tripDuration;
-    final horas = ocupado.inMicroseconds / 3.6e9;
-    final porHora = horas <= 0 ? 0 : (neto / horas).round();
+    final engaged = deadheadDuration + tripDuration;
+    final hours = engaged.inMicroseconds / 3.6e9;
+    final perHour = hours <= 0 ? 0 : (net / hours).round();
 
     return BidEvaluation(
       currency: currency,
       minorUnitDigits: minorUnitDigits,
       gross: fare,
-      commission: comision,
-      drivingCost: coste,
-      net: neto,
-      engagedDuration: ocupado,
-      netPerHour: porHora,
-      worthIt: porHora >= economics.minimumNetPerHour,
+      commission: commissionAmount,
+      drivingCost: cost,
+      net: net,
+      engagedDuration: engaged,
+      netPerHour: perHour,
+      worthIt: perHour >= economics.minimumNetPerHour,
       deadheadMeters: deadheadMeters,
       tripMeters: tripMeters,
     );
@@ -462,13 +470,18 @@ class BidAdvisor {
     required double tripMeters,
     required Duration tripDuration,
   }) {
-    final vuelta = deadheadMeters * economics.returnFactor;
-    final kilometros = (deadheadMeters + tripMeters + vuelta) / 1000;
-    final coste = kilometros * economics.costPerKilometer;
-    final horas = (deadheadDuration + tripDuration).inMicroseconds / 3.6e9;
-    final objetivo = economics.minimumNetPerHour * horas;
-    final bruto = (objetivo + coste) / (1 - economics.commissionRate);
-    return bruto.ceil();
+    final returnLeg = deadheadMeters * economics.returnFactor;
+    final kilometers = (deadheadMeters + tripMeters + returnLeg) / 1000;
+    final cost = kilometers * economics.costPerKilometer;
+    final hours = (deadheadDuration + tripDuration).inMicroseconds / 3.6e9;
+    final target = economics.minimumNetPerHour * hours;
+    final gross = (target + cost) / (1 - economics.commissionRate);
+    // Redondeo hacia arriba, pero sin castigar el ruido de la coma flotante:
+    // `1200 × 0.28 + 140` da 476.00000000000006, y un `ceil()` a secas
+    // devolvería 477. Un céntimo no arruina a nadie, pero hace que la misma
+    // carrera dé dos números distintos según cómo se escriba la duración.
+    const epsilon = 1e-6;
+    return (gross - epsilon).ceil();
   }
 }
 
@@ -500,46 +513,46 @@ class BidRanking {
   /// una diferencia de dos euros y una de dos minutos no serían comparables.
   /// Las ofertas caducadas se quitan.
   List<DriverBid> sort(List<DriverBid> bids, {DateTime? now}) {
-    final instante = now ?? DateTime.now();
-    final vivas = <DriverBid>[
-      for (final oferta in bids)
-        if (!oferta.isExpired(instante)) oferta,
+    final moment = now ?? DateTime.now();
+    final live = <DriverBid>[
+      for (final offer in bids)
+        if (!offer.isExpired(moment)) offer,
     ];
-    if (vivas.length < 2) return vivas;
+    if (live.length < 2) return live;
 
-    final precios = <int>[for (final o in vivas) o.amount];
-    final esperas = <int>[for (final o in vivas) o.etaToPickup.inSeconds];
-    final notas = <double>[for (final o in vivas) o.driverRating ?? 0];
+    final prices = <int>[for (final o in live) o.amount];
+    final waits = <int>[for (final o in live) o.etaToPickup.inSeconds];
+    final ratings = <double>[for (final o in live) o.driverRating ?? 0];
 
-    final puntuadas = <(double, DriverBid)>[
-      for (final oferta in vivas)
+    final scored = <(double, DriverBid)>[
+      for (final offer in live)
         (
           // El precio y la espera son «menos es mejor», así que se invierten.
-          priceWeight * (1 - _normalizar(oferta.amount.toDouble(), precios)) +
+          priceWeight * (1 - _normalise(offer.amount.toDouble(), prices)) +
               etaWeight *
                   (1 -
-                      _normalizar(
-                        oferta.etaToPickup.inSeconds.toDouble(),
-                        esperas,
+                      _normalise(
+                        offer.etaToPickup.inSeconds.toDouble(),
+                        waits,
                       )) +
-              ratingWeight * _normalizar(oferta.driverRating ?? 0, notas),
-          oferta,
+              ratingWeight * _normalise(offer.driverRating ?? 0, ratings),
+          offer,
         ),
     ]..sort((a, b) => b.$1.compareTo(a.$1));
 
-    return <DriverBid>[for (final (_, oferta) in puntuadas) oferta];
+    return <DriverBid>[for (final (_, offer) in scored) offer];
   }
 
-  static double _normalizar(double valor, List<num> todos) {
-    var minimo = double.infinity;
-    var maximo = double.negativeInfinity;
-    for (final v in todos) {
+  static double _normalise(double value, List<num> all) {
+    var floorPrice = double.infinity;
+    var highest = double.negativeInfinity;
+    for (final v in all) {
       final d = v.toDouble();
-      if (d < minimo) minimo = d;
-      if (d > maximo) maximo = d;
+      if (d < floorPrice) floorPrice = d;
+      if (d > highest) highest = d;
     }
-    if (maximo - minimo == 0) return 0.5;
-    return (valor - minimo) / (maximo - minimo);
+    if (highest - floorPrice == 0) return 0.5;
+    return (value - floorPrice) / (highest - floorPrice);
   }
 }
 
@@ -593,8 +606,8 @@ class RideAuction {
 
   /// Las ofertas vivas en ese instante.
   List<DriverBid> liveBids(DateTime now) => <DriverBid>[
-    for (final oferta in _bids.values)
-      if (!oferta.isExpired(now)) oferta,
+    for (final offer in _bids.values)
+      if (!offer.isExpired(now)) offer,
   ];
 
   /// Registra una oferta.
@@ -605,18 +618,18 @@ class RideAuction {
   /// Lanza [StateError] si la subasta ya no admite ofertas, y [ArgumentError]
   /// si la oferta es de otra petición.
   void bid(DriverBid offer, {DateTime? now}) {
-    final instante = now ?? DateTime.now();
-    if (stateAt(instante) != AuctionState.open) {
+    final moment = now ?? DateTime.now();
+    if (stateAt(moment) != AuctionState.open) {
       throw StateError(
-        'La subasta ${request.id} ya no admite ofertas '
-        '(${stateAt(instante).name})',
+        'Auction ${request.id} is no longer taking offers '
+        '(${stateAt(moment).name})',
       );
     }
     if (offer.requestId != request.id) {
       throw ArgumentError.value(
         offer.requestId,
         'offer.requestId',
-        'La oferta es de otra petición: se esperaba ${request.id}',
+        'The offer belongs to another request; expected ${request.id}',
       );
     }
     _bids[offer.driverId] = offer;
@@ -633,22 +646,20 @@ class RideAuction {
   /// —aceptar una oferta caducada es prometerle al pasajero un tiempo de
   /// llegada que el conductor ya no puede cumplir.
   DriverBid accept(String driverId, {DateTime? now}) {
-    final instante = now ?? DateTime.now();
-    if (stateAt(instante) != AuctionState.open) {
-      throw StateError('La subasta ${request.id} ya está cerrada');
+    final moment = now ?? DateTime.now();
+    if (stateAt(moment) != AuctionState.open) {
+      throw StateError('Auction ${request.id} is already closed');
     }
-    final oferta = _bids[driverId];
-    if (oferta == null) {
-      throw StateError('$driverId no tiene ninguna oferta en ${request.id}');
+    final offer = _bids[driverId];
+    if (offer == null) {
+      throw StateError('$driverId has no offer on ${request.id}');
     }
-    if (oferta.isExpired(instante)) {
-      throw StateError(
-        'La oferta de $driverId caducó a las ${oferta.expiresAt}',
-      );
+    if (offer.isExpired(moment)) {
+      throw StateError("$driverId's offer expired at ${offer.expiresAt}");
     }
-    _winner = oferta;
+    _winner = offer;
     _state = AuctionState.accepted;
-    return oferta;
+    return offer;
   }
 
   /// Cancela la subasta.

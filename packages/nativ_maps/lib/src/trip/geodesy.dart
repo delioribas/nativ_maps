@@ -111,11 +111,11 @@ double pathLength(List<LatLng> path) {
 /// pena calcularlo una vez y guardarlo cuando se va a consultar el progreso
 /// muchas veces sobre la misma ruta.
 List<double> cumulativeDistances(List<LatLng> path) {
-  final acumulado = List<double>.filled(path.length, 0);
+  final cumulative = List<double>.filled(path.length, 0);
   for (var i = 1; i < path.length; i++) {
-    acumulado[i] = acumulado[i - 1] + path[i - 1].distanceTo(path[i]);
+    cumulative[i] = cumulative[i - 1] + path[i - 1].distanceTo(path[i]);
   }
-  return acumulado;
+  return cumulative;
 }
 
 /// La distancia perpendicular de [point] al segmento que va de [start] a [end].
@@ -126,12 +126,12 @@ List<double> cumulativeDistances(List<LatLng> path) {
 /// alineado con su prolongación, que es geométricamente cierto y operativamente
 /// absurdo.
 double crossTrackMeters(LatLng point, LatLng start, LatLng end) {
-  final plano = _Plane(start);
-  final (px, py) = plano.project(point);
-  final (bx, by) = plano.project(end);
-  final largo2 = bx * bx + by * by;
-  if (largo2 == 0) return point.distanceTo(start);
-  final t = ((px * bx + py * by) / largo2).clamp(0.0, 1.0);
+  final plane = _Plane(start);
+  final (px, py) = plane.project(point);
+  final (bx, by) = plane.project(end);
+  final lengthSquared = bx * bx + by * by;
+  if (lengthSquared == 0) return point.distanceTo(start);
+  final t = ((px * bx + py * by) / lengthSquared).clamp(0.0, 1.0);
   final dx = px - bx * t;
   final dy = py - by * t;
   return math.sqrt(dx * dx + dy * dy);
@@ -164,58 +164,58 @@ PathMatch nearestPointOnPath(
     throw ArgumentError.value(
       path.length,
       'path',
-      'Un camino necesita al menos dos puntos para proyectar sobre él',
+      'A path needs at least two points to project onto',
     );
   }
 
-  final acumulado = cumulative ?? cumulativeDistances(path);
-  final inicio = fromIndex.clamp(0, path.length - 2);
-  final fin = maxSegments == null
+  final cum = cumulative ?? cumulativeDistances(path);
+  final start = fromIndex.clamp(0, path.length - 2);
+  final end = maxSegments == null
       ? path.length - 1
-      : math.min(inicio + maxSegments, path.length - 1);
+      : math.min(start + maxSegments, path.length - 1);
 
-  var mejorDistancia = double.infinity;
-  var mejorIndice = inicio;
-  var mejorT = 0.0;
-  var mejorPunto = path[inicio];
+  var bestDistance = double.infinity;
+  var bestIndex = start;
+  var bestT = 0.0;
+  var bestPoint = path[start];
 
-  for (var i = inicio; i < fin; i++) {
+  for (var i = start; i < end; i++) {
     final a = path[i];
     final b = path[i + 1];
-    final plano = _Plane(a);
-    final (px, py) = plano.project(point);
-    final (bx, by) = plano.project(b);
-    final largo2 = bx * bx + by * by;
-    final t = largo2 == 0
+    final plane = _Plane(a);
+    final (px, py) = plane.project(point);
+    final (bx, by) = plane.project(b);
+    final lengthSquared = bx * bx + by * by;
+    final t = lengthSquared == 0
         ? 0.0
-        : ((px * bx + py * by) / largo2).clamp(0.0, 1.0);
+        : ((px * bx + py * by) / lengthSquared).clamp(0.0, 1.0);
     final cx = bx * t;
     final cy = by * t;
     final dx = px - cx;
     final dy = py - cy;
-    final distancia = math.sqrt(dx * dx + dy * dy);
-    if (distancia < mejorDistancia) {
-      mejorDistancia = distancia;
-      mejorIndice = i;
-      mejorT = t;
-      mejorPunto = t == 0
+    final distance = math.sqrt(dx * dx + dy * dy);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+      bestT = t;
+      bestPoint = t == 0
           ? a
           : t == 1
           ? b
-          : plano.unproject(cx, cy);
+          : plane.unproject(cx, cy);
     }
   }
 
-  final largoSegmento = acumulado[mejorIndice + 1] - acumulado[mejorIndice];
-  final recorrido = acumulado[mejorIndice] + largoSegmento * mejorT;
-  final total = acumulado.last;
+  final segmentLength = cum[bestIndex + 1] - cum[bestIndex];
+  final travelled = cum[bestIndex] + segmentLength * bestT;
+  final total = cum.last;
 
   return PathMatch(
-    segmentIndex: mejorIndice,
-    position: mejorPunto,
-    distanceMeters: mejorDistancia,
-    alongMeters: recorrido,
-    fraction: total == 0 ? 0 : (recorrido / total).clamp(0.0, 1.0),
+    segmentIndex: bestIndex,
+    position: bestPoint,
+    distanceMeters: bestDistance,
+    alongMeters: travelled,
+    fraction: total == 0 ? 0 : (travelled / total).clamp(0.0, 1.0),
   );
 }
 
@@ -229,34 +229,34 @@ LatLng interpolateOnPath(
   List<double>? cumulative,
 }) {
   if (path.isEmpty) {
-    throw ArgumentError.value(path, 'path', 'El camino está vacío');
+    throw ArgumentError.value(path, 'path', 'The path is empty');
   }
   if (path.length == 1) return path.first;
 
-  final acumulado = cumulative ?? cumulativeDistances(path);
+  final cum = cumulative ?? cumulativeDistances(path);
   if (alongMeters <= 0) return path.first;
-  if (alongMeters >= acumulado.last) return path.last;
+  if (alongMeters >= cum.last) return path.last;
 
   // Búsqueda binaria: el camino de una ruta larga tiene miles de puntos y
   // esta función se llama en cada fotograma de una animación.
-  var bajo = 0;
-  var alto = acumulado.length - 1;
-  while (alto - bajo > 1) {
-    final medio = (bajo + alto) >> 1;
-    if (acumulado[medio] <= alongMeters) {
-      bajo = medio;
+  var low = 0;
+  var high = cum.length - 1;
+  while (high - low > 1) {
+    final mid = (low + high) >> 1;
+    if (cum[mid] <= alongMeters) {
+      low = mid;
     } else {
-      alto = medio;
+      high = mid;
     }
   }
 
-  final largo = acumulado[alto] - acumulado[bajo];
-  if (largo == 0) return path[bajo];
-  final t = (alongMeters - acumulado[bajo]) / largo;
+  final length = cum[high] - cum[low];
+  if (length == 0) return path[low];
+  final t = (alongMeters - cum[low]) / length;
 
-  final plano = _Plane(path[bajo]);
-  final (bx, by) = plano.project(path[alto]);
-  return plano.unproject(bx * t, by * t);
+  final plane = _Plane(path[low]);
+  final (bx, by) = plane.project(path[high]);
+  return plane.unproject(bx * t, by * t);
 }
 
 /// Recorta un camino conservando su forma, con **Douglas–Peucker**.
@@ -283,43 +283,43 @@ List<LatLng> simplifyPath(
     throw ArgumentError.value(
       toleranceMeters,
       'toleranceMeters',
-      'La tolerancia tiene que ser mayor que cero',
+      'The tolerance must be greater than zero',
     );
   }
   if (path.length < 3) return List<LatLng>.of(path);
 
-  final conservar = List<bool>.filled(path.length, false);
-  conservar[0] = true;
-  conservar[path.length - 1] = true;
+  final keep = List<bool>.filled(path.length, false);
+  keep[0] = true;
+  keep[path.length - 1] = true;
 
   // Pila explícita en vez de recursión: un rastro de un día entero desborda
   // la pila de llamadas en el peor caso.
-  final pendientes = <(int, int)>[(0, path.length - 1)];
+  final pending = <(int, int)>[(0, path.length - 1)];
 
-  while (pendientes.isNotEmpty) {
-    final (inicio, fin) = pendientes.removeLast();
-    if (fin - inicio < 2) continue;
+  while (pending.isNotEmpty) {
+    final (start, end) = pending.removeLast();
+    if (end - start < 2) continue;
 
-    var peorDistancia = 0.0;
-    var peorIndice = -1;
-    for (var i = inicio + 1; i < fin; i++) {
-      final d = crossTrackMeters(path[i], path[inicio], path[fin]);
-      if (d > peorDistancia) {
-        peorDistancia = d;
-        peorIndice = i;
+    var worstDistance = 0.0;
+    var worstIndex = -1;
+    for (var i = start + 1; i < end; i++) {
+      final d = crossTrackMeters(path[i], path[start], path[end]);
+      if (d > worstDistance) {
+        worstDistance = d;
+        worstIndex = i;
       }
     }
 
-    if (peorDistancia > toleranceMeters && peorIndice > 0) {
-      conservar[peorIndice] = true;
-      pendientes
-        ..add((inicio, peorIndice))
-        ..add((peorIndice, fin));
+    if (worstDistance > toleranceMeters && worstIndex > 0) {
+      keep[worstIndex] = true;
+      pending
+        ..add((start, worstIndex))
+        ..add((worstIndex, end));
     }
   }
 
   return <LatLng>[
     for (var i = 0; i < path.length; i++)
-      if (conservar[i]) path[i],
+      if (keep[i]) path[i],
   ];
 }

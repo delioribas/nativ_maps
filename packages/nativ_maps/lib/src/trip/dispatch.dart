@@ -72,9 +72,9 @@ class DriverCandidate {
   /// de 2,5 casi siempre hay un río, una vía de tren o una autopista de por
   /// medio, y es justo el caso en el que ordenar por línea recta se equivoca.
   double? get detourFactor {
-    final metros = drivingMeters;
-    if (metros == null || straightLineMeters <= 0) return null;
-    return metros / straightLineMeters;
+    final meters = drivingMeters;
+    if (meters == null || straightLineMeters <= 0) return null;
+    return meters / straightLineMeters;
   }
 
   @override
@@ -82,7 +82,7 @@ class DriverCandidate {
       ? 'DriverCandidate(${driver.driverId}, '
             '${drivingDuration!.inMinutes} min)'
       : 'DriverCandidate(${driver.driverId}, '
-            '${straightLineMeters.round()} m en recta)';
+            '${straightLineMeters.round()} m straight line)';
 }
 
 /// Elige a qué conductores ofrecerles una carrera.
@@ -138,46 +138,46 @@ class DispatchPlanner {
     Duration? staleAfter,
     DateTime? now,
   }) {
-    final instante = now ?? DateTime.now();
+    final moment = now ?? DateTime.now();
 
     // Rechazo por caja envolvente antes de calcular ninguna distancia. Con
     // flotas grandes esto quita el 99 % de los candidatos con dos restas, sin
     // trigonometría.
-    final gradosLat = maxRadiusMeters / 111320.0;
+    final latDegrees = maxRadiusMeters / 111320.0;
     final cosLat = math.cos(pickup.latitude * math.pi / 180).abs();
-    final gradosLon = cosLat < 1e-6
+    final lonDegrees = cosLat < 1e-6
         ? 180.0
         : maxRadiusMeters / (111320.0 * cosLat);
 
-    final candidatos = <DriverCandidate>[];
-    for (final conductor in drivers) {
-      if (!conductor.available) continue;
+    final candidates = <DriverCandidate>[];
+    for (final driver in drivers) {
+      if (!driver.available) continue;
 
       if (staleAfter != null) {
-        final visto = conductor.updatedAt;
-        if (visto == null || instante.difference(visto).abs() > staleAfter) {
+        final seen = driver.updatedAt;
+        if (seen == null || moment.difference(seen).abs() > staleAfter) {
           continue;
         }
       }
 
-      if ((conductor.position.latitude - pickup.latitude).abs() > gradosLat) {
+      if ((driver.position.latitude - pickup.latitude).abs() > latDegrees) {
         continue;
       }
-      if ((conductor.position.longitude - pickup.longitude).abs() > gradosLon) {
+      if ((driver.position.longitude - pickup.longitude).abs() > lonDegrees) {
         continue;
       }
 
-      final metros = conductor.position.distanceTo(pickup);
-      if (metros > maxRadiusMeters) continue;
-      candidatos.add(
-        DriverCandidate(driver: conductor, straightLineMeters: metros),
+      final meters = driver.position.distanceTo(pickup);
+      if (meters > maxRadiusMeters) continue;
+      candidates.add(
+        DriverCandidate(driver: driver, straightLineMeters: meters),
       );
     }
 
-    candidatos.sort(
+    candidates.sort(
       (a, b) => a.straightLineMeters.compareTo(b.straightLineMeters),
     );
-    return candidatos.take(shortlistSize).toList();
+    return candidates.take(shortlistSize).toList();
   }
 
   /// Refina la preselección con tiempos de conducción reales.
@@ -198,38 +198,40 @@ class DispatchPlanner {
   }) async {
     if (candidates.isEmpty) return const <DriverCandidate>[];
 
-    const porLote = 15;
-    final refinados = <DriverCandidate>[];
-    final fallidos = <DriverCandidate>[];
+    const perBatch = 15;
+    final refinedList = <DriverCandidate>[];
+    final unroutable = <DriverCandidate>[];
 
-    for (var i = 0; i < candidates.length; i += porLote) {
-      final lote = candidates.skip(i).take(porLote).toList();
-      final matriz = await routes.calculateRouteMatrix(
-        origins: <LatLng>[for (final c in lote) c.driver.position],
+    for (var i = 0; i < candidates.length; i += perBatch) {
+      final batch = candidates.skip(i).take(perBatch).toList();
+      final matrix = await routes.calculateRouteMatrix(
+        origins: <LatLng>[for (final c in batch) c.driver.position],
         destinations: <LatLng>[pickup],
         travelMode: travelMode,
         departureTime: departureTime,
       );
 
-      for (var j = 0; j < lote.length; j++) {
-        final celda = matriz.cells[j][0];
-        if (!celda.isValid) {
-          fallidos.add(lote[j]);
+      for (var j = 0; j < batch.length; j++) {
+        final cell = matrix.cells[j][0];
+        if (!cell.isValid) {
+          unroutable.add(batch[j]);
           continue;
         }
-        refinados.add(
+        refinedList.add(
           DriverCandidate(
-            driver: lote[j].driver,
-            straightLineMeters: lote[j].straightLineMeters,
-            drivingMeters: celda.distanceMeters,
-            drivingDuration: celda.duration,
+            driver: batch[j].driver,
+            straightLineMeters: batch[j].straightLineMeters,
+            drivingMeters: cell.distanceMeters,
+            drivingDuration: cell.duration,
           ),
         );
       }
     }
 
-    refinados.sort((a, b) => a.drivingDuration!.compareTo(b.drivingDuration!));
-    return <DriverCandidate>[...refinados, ...fallidos];
+    refinedList.sort(
+      (a, b) => a.drivingDuration!.compareTo(b.drivingDuration!),
+    );
+    return <DriverCandidate>[...refinedList, ...unroutable];
   }
 
   /// Preselecciona y refina de una vez.
@@ -242,13 +244,13 @@ class DispatchPlanner {
     TravelMode travelMode = TravelMode.car,
     DateTime? now,
   }) async {
-    final preseleccion = shortlist(
+    final shortlisted = shortlist(
       drivers,
       pickup,
       staleAfter: staleAfter,
       now: now,
     );
-    if (preseleccion.isEmpty) return const <DriverCandidate>[];
-    return rank(preseleccion, pickup, travelMode: travelMode);
+    if (shortlisted.isEmpty) return const <DriverCandidate>[];
+    return rank(shortlisted, pickup, travelMode: travelMode);
   }
 }

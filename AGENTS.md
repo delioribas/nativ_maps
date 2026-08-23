@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
-  nativ_maps_flutter: ^0.3.0
+  nativ_maps_flutter: ^0.4.0
 
   # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
   # nunca con una rama. Añádelos solo si los necesitas.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.3.0
+      ref: v0.4.0
   nativ_maps_google:     # SOLO si migras de google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.3.0
+      ref: v0.4.0
 ```
 
 ```dart
@@ -555,6 +555,68 @@ FareSuggestion suggest({required double distanceMeters,
 double acceptanceProbability({required int offered, required int reference,
                               double demandFactor = 1.0})
 
+// ── Precio sugerido (modelo de puja, forma de inDrive)
+MarketConditions({
+  int availableDrivers = 0,
+  int openRequests = 0,
+  List<DemandSignal> signals = const <DemandSignal>[],
+  double returnEmptyProbability = 0,   // 0..1, vuelta de vacío
+  double congestionFactor = 1.0,       // duración con tráfico / sin tráfico
+})
+DemandSignal({required String name, required double multiplier})
+// constantes listas: DemandSignal.rain (1.15), .event (1.30), .noTransit (1.20)
+
+PriceAdvisor({
+  required Tariff tariff,
+  required DriverEconomics economics,
+  double surgeExponent = 0.6,      // multiplicador = ratio ^ este exponente
+  double maxSurge = 2.5,
+  double minimumRatio = 0.85,      // solo si no hay conductores
+  double pickupAversion = 1.6,     // el tiempo muerto pesa más
+  double targetAcceptance = 0.5,
+  double fastMargin = 1.08,
+  double fallbackSteepness = 9.0,  // ← inventado; calíbralo
+  double detourFactor = 1.4,
+  double urbanSpeedKmh = 24,
+})
+SuggestedPrice suggest({
+  required double distanceMeters,
+  required Duration duration,
+  List<DriverCandidate> nearbyDrivers = const <DriverCandidate>[],
+  MarketConditions market = const MarketConditions(),
+  DateTime? departure,
+  int tolls = 0,      // NO entra en el precio, se informa aparte
+  int fees = 0,
+})
+AcceptanceForecast forecast({    // para el deslizador del precio
+  required int offered,
+  required double distanceMeters,
+  required Duration duration,
+  List<DriverCandidate> nearbyDrivers = const <DriverCandidate>[],
+  int? reference,
+})
+
+// SuggestedPrice: .minimum .recommended .fast .reference
+//                 .extrasPaidSeparately .demandMultiplier .factors
+//                 .forecast .explain() .formatAmount()
+// AcceptanceForecast: .probability .driversLikelyToAccept
+//                     .driversConsidered .expectedPickup .estimated
+
+// ── Ajustar la tarifa a precios reales de tu ciudad
+FareSample({
+  required double distanceMeters,   // de calculateRoutes, NO de la otra app
+  required Duration duration,
+  required int observedFare,        // SIN peajes ni tasas
+  String label = '',
+})
+TariffFit TariffCalibration.fit(List<FareSample> samples,
+    {bool includeTimeComponent = true})
+
+// TariffFit: .baseFare .perKilometer .perMinute .rSquared
+//            .meanAbsoluteError .maxAbsoluteError .sampleCount
+//            .distanceTimeCorrelation .splitIsReliable .isUsable
+//            .toTariff(currency: ...) .predict(...) .report(samples)
+
 // ── Elegir conductor.  shortlist es GRATIS; rank SÍ llama a la matriz.
 DispatchPlanner({required RoutesClient routes, int shortlistSize = 12,
                  double maxRadiusMeters = 8000})
@@ -763,6 +825,46 @@ final viaje = registrador.finish();
 final importe = tarifa.quote(viaje, tolls: ruta.tollCostByCurrency['USD']
     ?.round() ?? 0);
 guardar(viaje, importe.lines);   // guarda el DESGLOSE, no solo el total
+```
+
+### Sugerirle un precio al pasajero
+
+```dart
+// 1 · La ruta da distancia, duración CON TRÁFICO y peajes.
+final ruta = (await maps.routes.calculateRoutes(
+  origin: recogida, destination: destino,
+)).best!;
+
+// 2 · La matriz da el tiempo REAL de recogida de cada conductor.
+final cercanos = await planificador.findNearest(conectados, recogida);
+
+// 3 · Y con eso sale el precio.
+final precio = asesor.suggest(
+  distanceMeters: ruta.distanceMeters,
+  duration: ruta.duration,
+  nearbyDrivers: cercanos,
+  market: MarketConditions(
+    availableDrivers: cercanos.length,
+    openRequests: peticionesSinAsignar,
+    signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+  ),
+  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+);
+
+deslizador
+  ..min = precio.minimum
+  ..value = precio.recommended;
+
+// Al mover el deslizador, sin ninguna petición:
+final f = asesor.forecast(
+  offered: loQueMarcaElDeslizador,
+  distanceMeters: ruta.distanceMeters,
+  duration: ruta.duration,
+  nearbyDrivers: cercanos,
+);
+etiqueta.text = f.estimated
+    ? 'Precio orientativo'
+    : '${f.driversLikelyToAccept} de ${f.driversConsidered} conductores';
 ```
 
 ### Decidir si aceptar una carrera (conductor)
@@ -1012,6 +1114,53 @@ Text('${(p * 100).toStringAsFixed(1)} % de aceptación');
 // ✅ Es una curva calibrable, no una medición. Enséñala como orientación
 //    cualitativa hasta que la ajustes con tu propio historial.
 Text(p > 0.6 ? 'Buen precio' : 'Puede que nadie conteste');
+```
+
+### Enseñar la probabilidad de aceptación cuando es una estimación
+
+```dart
+// ❌ `estimated: true` significa que detrás hay una curva sin calibrar o
+//    tiempos en línea recta. Un porcentaje con decimales ahí es mentira.
+Text('${(f.probability * 100).toStringAsFixed(1)} % de aceptación');
+
+// ✅
+Text(f.estimated
+    ? 'Precio orientativo'
+    : '${f.driversLikelyToAccept} de ${f.driversConsidered} aceptarían');
+```
+
+### Meter los peajes dentro del precio sugerido
+
+```dart
+// ❌ El peaje no se negocia y no se lo lleva el conductor. Dentro del
+//    precio, la puja se distorsiona y el conductor cree que gana más.
+final ofrecer = precio.recommended + peajes;
+
+// ✅ Van aparte, como en inDrive.
+final ofrecer = precio.recommended;
+final aparte = precio.extrasPaidSeparately;
+```
+
+### Calibrar la tarifa con muestras de hora punta
+
+```dart
+// ❌ La demanda se cuela DENTRO de los coeficientes, y luego MarketConditions
+//    la vuelve a aplicar: se cobra dos veces.
+// ✅ Toma las muestras en horas tranquilas. La demanda es una capa aparte.
+```
+
+### Fiarte del reparto km/minuto sin mirar la correlación
+
+```dart
+// ❌ En ciudad, kilómetros y minutos van de la mano. El ajuste predice bien
+//    el total y el reparto entre los dos puede ser arbitrario.
+final tarifa = ajuste.toTariff(currency: 'USD');
+
+// ✅
+if (!ajuste.splitIsReliable) {
+  // Añade muestras que rompan la relación: un corto en atasco y un largo
+  // por autopista a las seis de la mañana.
+}
 ```
 
 ## 7 · Nombres exactos de los enums
