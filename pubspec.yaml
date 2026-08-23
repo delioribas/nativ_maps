@@ -10,7 +10,7 @@ name: compass_maps_workspace
 publish_to: none
 
 environment:
-  sdk: ^3.13.0
+  sdk: ^3.9.0
 
 workspace:
   - packages/compass_maps

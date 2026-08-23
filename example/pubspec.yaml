@@ -7,14 +7,14 @@ publish_to: none
 version: 0.1.0
 
 environment:
-  sdk: ^3.13.0
-  flutter: ">=3.41.0"
+  sdk: ^3.8.0
+  flutter: ">=3.32.0"
 
 resolution: workspace
 
 dependencies:
-  compass_maps_flutter: ^0.1.0
-  compass_maps_google: ^0.1.0
+  compass_maps_flutter: ^0.1.1
+  compass_maps_google: ^0.1.1
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
