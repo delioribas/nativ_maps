@@ -1,58 +1,58 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT licence — see LICENSE.
 
 import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// Proyección plana local, en metros, alrededor de un origen.
+/// A local flat projection, in metres, around an origin.
 ///
-/// ## Por qué no se usa trigonometría esférica
+/// ## Why not spherical trigonometry
 ///
-/// La fórmula de distancia transversal de una circunferencia máxima es
-/// `asin(sin(δ13) · sin(θ13 − θ12)) · R`. Es exacta a escala planetaria, pero
-/// para las distancias de un viaje en taxi —segmentos de decenas de metros—
-/// pierde precisión justo donde hace falta: `asin` de un número minúsculo, y
-/// `acos(cos(δ13) / cos(dxt/R))` con los dos cosenos casi iguales a 1, es
-/// cancelación catastrófica en coma flotante de 64 bits.
+/// The great-circle cross-track formula is
+/// `asin(sin(δ13) · sin(θ13 − θ12)) · R`. It is exact at planetary scale, but
+/// over the distances of a taxi ride —segments tens of metres long— it loses
+/// precision exactly where precision is needed: `asin` of a minuscule number,
+/// and `acos(cos(δ13) / cos(dxt/R))` with both cosines almost equal to 1, is
+/// catastrophic cancellation in 64-bit floating point.
 ///
-/// Una proyección equirectangular local no tiene ese problema, es un orden de
-/// magnitud más rápida —no hay funciones trigonométricas dentro del bucle— y
-/// su error por debajo de 10 km está en los milímetros. Un medidor de taxi
-/// procesa miles de posiciones por viaje: las dos cosas importan.
+/// A local equirectangular projection does not have that problem, is an order
+/// of magnitude faster —no trigonometric calls inside the loop— and its error
+/// below 10 km is measured in millimetres. A taxi meter processes thousands of
+/// positions per trip: both things matter.
 ///
-/// El origen se elige **por segmento**, no una vez por camino, para que la
-/// distorsión nunca crezca con la longitud de la ruta.
+/// The origin is chosen **per segment**, not once per path, so the distortion
+/// never grows with the length of the route.
 @immutable
 class _Plane {
   _Plane(this.origin) : _cosLat = math.cos(origin.latitude * math.pi / 180.0);
 
-  /// El punto que se toma como `(0, 0)`.
+  /// The point taken as `(0, 0)`.
   final LatLng origin;
 
   final double _cosLat;
 
-  /// Metros al este y al norte del origen.
+  /// Metres east and north of the origin.
   (double, double) project(LatLng point) {
     final dLat = (point.latitude - origin.latitude) * math.pi / 180.0;
     final dLon = (point.longitude - origin.longitude) * math.pi / 180.0;
     return (earthRadiusMeters * dLon * _cosLat, earthRadiusMeters * dLat);
   }
 
-  /// La operación inversa de [project].
+  /// The inverse of [project].
   LatLng unproject(double x, double y) => LatLng(
     origin.latitude + y / earthRadiusMeters * 180.0 / math.pi,
     origin.longitude + x / (earthRadiusMeters * _cosLat) * 180.0 / math.pi,
   );
 }
 
-/// El resultado de proyectar un punto sobre un camino.
+/// The result of projecting a point onto a path.
 ///
-/// Es lo que devuelve [nearestPointOnPath], y la pieza sobre la que se apoyan
-/// el progreso de ruta, la detección de desvío y el recorte de históricos.
+/// This is what [nearestPointOnPath] returns, and the piece that route
+/// progress, off-route detection and history trimming all rest on.
 @immutable
 class PathMatch {
-  /// Crea un emparejamiento.
+  /// Creates a match.
   const PathMatch({
     required this.segmentIndex,
     required this.position,
@@ -61,30 +61,29 @@ class PathMatch {
     required this.fraction,
   });
 
-  /// El índice del segmento donde cayó, es decir el del punto de partida.
+  /// The index of the segment it landed on, that is, of its starting point.
   ///
-  /// Para un camino de `n` puntos hay `n - 1` segmentos, así que este valor
-  /// va de `0` a `n - 2`.
+  /// A path of `n` points has `n - 1` segments, so this value ranges from `0`
+  /// to `n - 2`.
   final int segmentIndex;
 
-  /// El punto del camino más cercano, ya interpolado dentro del segmento.
+  /// The closest point on the path, already interpolated inside the segment.
   ///
-  /// **No es un vértice del camino**, salvo por casualidad. Ese es justo el
-  /// error que hay que evitar: en una autopista dos vértices consecutivos
-  /// pueden estar a 200 m, y quedarse con el vértice más cercano da una
-  /// distancia de desvío de 100 m para un coche que va perfectamente por su
-  /// carril.
+  /// **It is not a vertex of the path**, except by coincidence. That is exactly
+  /// the mistake to avoid: on a motorway two consecutive vertices can be 200 m
+  /// apart, and taking the nearest vertex reports a 100 m deviation for a car
+  /// driving perfectly in its lane.
   final LatLng position;
 
-  /// La distancia perpendicular entre el punto original y [position].
+  /// The perpendicular distance between the original point and [position].
   ///
-  /// Es la medida de «cuánto me he salido del camino».
+  /// It is the measure of «how far off the path am I».
   final double distanceMeters;
 
-  /// Cuánto camino queda por detrás de [position], contado desde el principio.
+  /// How much path lies behind [position], counted from the start.
   final double alongMeters;
 
-  /// [alongMeters] como fracción de la longitud total, entre 0 y 1.
+  /// [alongMeters] as a fraction of the total length, between 0 and 1.
   final double fraction;
 
   @override
@@ -93,9 +92,9 @@ class PathMatch {
       'recorrido ${alongMeters.round()} m)';
 }
 
-/// La longitud total de un camino, en metros.
+/// The total length of a path, in metres.
 ///
-/// Devuelve `0` para un camino de menos de dos puntos.
+/// Returns `0` for a path of fewer than two points.
 double pathLength(List<LatLng> path) {
   if (path.length < 2) return 0;
   var total = 0.0;
@@ -105,11 +104,11 @@ double pathLength(List<LatLng> path) {
   return total;
 }
 
-/// La distancia acumulada hasta cada punto del camino.
+/// The cumulative distance up to each point of the path.
 ///
-/// El resultado tiene la misma longitud que [path] y empieza en `0`. Merece la
-/// pena calcularlo una vez y guardarlo cuando se va a consultar el progreso
-/// muchas veces sobre la misma ruta.
+/// The result has the same length as [path] and starts at `0`. It is worth
+/// computing once and keeping when progress will be queried many times over
+/// the same route.
 List<double> cumulativeDistances(List<LatLng> path) {
   final cumulative = List<double>.filled(path.length, 0);
   for (var i = 1; i < path.length; i++) {
@@ -118,13 +117,13 @@ List<double> cumulativeDistances(List<LatLng> path) {
   return cumulative;
 }
 
-/// La distancia perpendicular de [point] al segmento que va de [start] a [end].
+/// The perpendicular distance from [point] to the segment [start]–[end].
 ///
-/// El punto se proyecta **dentro del segmento**: si la perpendicular cae fuera,
-/// se devuelve la distancia al extremo más cercano. Sin ese recorte, un punto
-/// muy anterior al inicio de un segmento daría una distancia pequeña por estar
-/// alineado con su prolongación, que es geométricamente cierto y operativamente
-/// absurdo.
+/// The point is projected **inside the segment**: if the perpendicular falls
+/// outside, the distance to the nearest endpoint is returned. Without that
+/// clamp, a point well before the start of a segment would report a small
+/// distance for being aligned with its extension — geometrically true and
+/// operationally absurd.
 double crossTrackMeters(LatLng point, LatLng start, LatLng end) {
   final plane = _Plane(start);
   final (px, py) = plane.project(point);
@@ -137,22 +136,21 @@ double crossTrackMeters(LatLng point, LatLng start, LatLng end) {
   return math.sqrt(dx * dx + dy * dy);
 }
 
-/// Encuentra el punto del camino más cercano a [point].
+/// Finds the point on the path closest to [point].
 ///
-/// ## La ventana de búsqueda
+/// ## The search window
 ///
-/// Recorrer los 5 000 puntos de una ruta larga en cada posición del GPS es
-/// trabajo desperdiciado: un coche que avanza a 90 km/h se mueve 25 m por
-/// segundo, así que el emparejamiento nuevo está a un par de segmentos del
-/// anterior. [fromIndex] y [maxSegments] permiten mirar solo esa ventana.
+/// Walking the 5,000 points of a long route on every GPS fix is wasted work:
+/// a car travelling at 90 km/h moves 25 m per second, so the new match is a
+/// couple of segments away from the previous one. [fromIndex] and
+/// [maxSegments] restrict the scan to that window.
 ///
-/// **Cuidado con usarla siempre.** Con la ventana puesta, un vehículo que se
-/// teletransporta —túnel, pérdida de señal, reinicio de la app— se empareja
-/// con el trozo equivocado y ya no se recupera. Quien la use debe volver a
-/// buscar en todo el camino cuando la distancia resultante sea grande;
-/// `RouteTracker` lo hace por su cuenta.
+/// **Be careful using it always.** With the window on, a vehicle that
+/// teleports —a tunnel, lost signal, an app restart— matches the wrong stretch
+/// and never recovers. Callers must rescan the whole path when the resulting
+/// distance is large; `RouteTracker` does that on its own.
 ///
-/// Lanza [ArgumentError] si el camino tiene menos de dos puntos.
+/// Throws [ArgumentError] if the path has fewer than two points.
 PathMatch nearestPointOnPath(
   List<LatLng> path,
   LatLng point, {
@@ -219,10 +217,10 @@ PathMatch nearestPointOnPath(
   );
 }
 
-/// El punto que está a [alongMeters] del principio del camino.
+/// The point that lies [alongMeters] from the start of the path.
 ///
-/// Se recorta a los extremos: pedir una distancia negativa devuelve el primer
-/// punto, y pedir más de la longitud total devuelve el último.
+/// Clamped at both ends: asking for a negative distance returns the first
+/// point, and asking for more than the total length returns the last.
 LatLng interpolateOnPath(
   List<LatLng> path,
   double alongMeters, {
@@ -237,8 +235,8 @@ LatLng interpolateOnPath(
   if (alongMeters <= 0) return path.first;
   if (alongMeters >= cum.last) return path.last;
 
-  // Búsqueda binaria: el camino de una ruta larga tiene miles de puntos y
-  // esta función se llama en cada fotograma de una animación.
+  // Binary search: a long route has thousands of points and this function is
+  // called on every frame of an animation.
   var low = 0;
   var high = cum.length - 1;
   while (high - low > 1) {
@@ -259,22 +257,21 @@ LatLng interpolateOnPath(
   return plane.unproject(bx * t, by * t);
 }
 
-/// Recorta un camino conservando su forma, con **Douglas–Peucker**.
+/// Trims a path while keeping its shape, with **Douglas–Peucker**.
 ///
-/// ## Para qué sirve de verdad
+/// ## What it is actually for
 ///
-/// Guardar el histórico de una flota a 1 Hz son 86 400 posiciones por vehículo
-/// y día. La inmensa mayoría no aporta nada: un coche parado en un semáforo
-/// genera 90 puntos idénticos, y una recta de autopista queda igual de bien
-/// descrita con dos puntos que con doscientos.
+/// Storing a fleet's history at 1 Hz is 86,400 positions per vehicle per day.
+/// The vast majority add nothing: a car waiting at a traffic light produces 90
+/// identical points, and a motorway straight is described just as well by two
+/// points as by two hundred.
 ///
-/// Con [toleranceMeters] de 5 m, un rastro urbano típico se queda entre el 3 %
-/// y el 8 % de sus puntos sin que se note al dibujarlo.
+/// With [toleranceMeters] of 5 m, a typical urban trace keeps between 3 % and
+/// 8 % of its points with no visible difference when drawn.
 ///
-/// **No uses esto antes de calcular la distancia del viaje.** El recorte quita
-/// justamente los puntos de las curvas suaves, y la suma de distancias sobre
-/// el camino recortado siempre sale menor. Primero se mide, después se recorta
-/// para guardar.
+/// **Do not use this before computing the trip distance.** Trimming removes
+/// precisely the points of gentle curves, and the sum of distances over the
+/// trimmed path always comes out smaller. Measure first, then trim to store.
 List<LatLng> simplifyPath(
   List<LatLng> path, {
   required double toleranceMeters,
@@ -292,8 +289,8 @@ List<LatLng> simplifyPath(
   keep[0] = true;
   keep[path.length - 1] = true;
 
-  // Pila explícita en vez de recursión: un rastro de un día entero desborda
-  // la pila de llamadas en el peor caso.
+  // An explicit stack instead of recursion: a full day of trace overflows the
+  // call stack in the worst case.
   final pending = <(int, int)>[(0, path.length - 1)];
 
   while (pending.isNotEmpty) {
