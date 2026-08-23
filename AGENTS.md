@@ -13,9 +13,21 @@ Si eres una persona, [README.md](README.md) es más agradable y
 
 ```yaml
 dependencies:
-  compass_maps_flutter: ^0.1.0   # widget + las 44 operaciones
-  compass_maps_sigv4: ^0.1.0     # SOLO si usas geovallas o rastreo
-  compass_maps_google: ^0.1.0    # SOLO si migras de google_maps_flutter
+  # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
+  compass_maps_flutter: ^0.1.0
+
+  # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
+  # nunca con una rama. Añádelos solo si los necesitas.
+  compass_maps_sigv4:      # SOLO si usas geovallas o rastreo (exigen SigV4)
+    git:
+      url: https://github.com/delioribas/compass_maps.git
+      path: packages/compass_maps_sigv4
+      ref: v0.1.0
+  compass_maps_google:     # SOLO si migras de google_maps_flutter
+    git:
+      url: https://github.com/delioribas/compass_maps.git
+      path: packages/compass_maps_google
+      ref: v0.1.0
 ```
 
 ```dart
