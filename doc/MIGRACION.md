@@ -12,8 +12,17 @@
  dependencies:
 -  google_maps_flutter: ^2.12.0
 +  compass_maps_flutter: ^0.1.0
-+  compass_maps_google: ^0.1.0
++  compass_maps_google:
++    git:
++      url: https://github.com/delioribas/compass_maps.git
++      path: packages/compass_maps_google
++      ref: v0.1.0
 ```
+
+`compass_maps_google` **no está en pub.dev a propósito**: es una capa de
+transición, y publicarla sería un cuarto paquete que mantener para siempre. Se
+consume por git con una **etiqueta**, nunca con una rama — una rama cambia bajo
+los pies y rompe compilaciones que ayer funcionaban.
 
 ```diff
 -import 'package:google_maps_flutter/google_maps_flutter.dart';
