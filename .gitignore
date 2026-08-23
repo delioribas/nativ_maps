@@ -1,0 +1,35 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+!example/pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+doc/api/
+coverage/
+*.iml
+
+# fvm
+#
+# `.fvmrc` SÍ se sube: es una línea que fija la versión de Flutter para todo el
+# equipo, y es lo que garantiza que el CI y las máquinas de desarrollo usen la
+# misma. Lo que no se sube es `.fvm/`, que son enlaces simbólicos a un SDK de
+# 40 GB en la ruta local de cada uno.
+.fvm/
+
+# Melos
+pubspec_overrides.yaml
+.melos_tool/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# Secretos: nunca en el repositorio.
+.env
+*.env.local

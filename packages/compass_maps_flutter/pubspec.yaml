@@ -1,0 +1,48 @@
+name: compass_maps_flutter
+description: "Amazon Location Service with the shape of Google Maps. A MapLibre map widget with clusters, heatmaps and offline regions, plus 44 typed operations."
+version: 0.1.0
+repository: https://github.com/delioribas/compass_maps
+issue_tracker: https://github.com/delioribas/compass_maps/issues
+documentation: https://github.com/delioribas/compass_maps#readme
+topics:
+  - maps
+  - aws
+  - maplibre
+  - geocoding
+  - routing
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.41.0"
+
+resolution: workspace
+
+dependencies:
+  collection: ^1.19.1
+  compass_maps: ^0.1.0
+  flutter:
+    sdk: flutter
+  # `^0.27.0`, que por debajo de 1.0.0 significa `>=0.27.0 <0.28.0`.
+  #
+  # Es exactamente la protección que hace falta —MapLibre rompe entre versiones
+  # menores, y esta restricción las excluye— sin el problema de una versión
+  # clavada: con `0.27.0` exacto, cualquier otro paquete del proyecto que
+  # dependa de `maplibre_gl` haría fallar la resolución, y `pub publish` lo
+  # marca como aviso.
+  #
+  # Lo que sí entra son los parches (0.27.1, 0.27.2), que son correcciones.
+  maplibre_gl: ^0.27.0
+  meta: ^1.19.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+# Solo Android e iOS. La matriz de plataformas es una promesa: declarar `web`
+# obligaría a mantener el camino de `maplibre-gl-js` y a probarlo en cada
+# versión, y las regiones sin conexión —la mitad de la razón de existir de
+# este paquete— no existen en el navegador.
+platforms:
+  android:
+  ios:

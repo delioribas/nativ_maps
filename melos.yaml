@@ -1,0 +1,70 @@
+name: compass_maps
+
+# Melos 8 lee la lista de paquetes del `workspace:` del pubspec raíz.
+# Aquí solo viven las órdenes.
+
+command:
+  version:
+    # Un CHANGELOG por paquete, más uno agregado en la raíz. Al publicar,
+    # quien consume el paquete lee el suyo y no el ruido de los otros tres.
+    updateGitTagRefs: true
+    linkToCommits: true
+    workspaceChangelog: true
+
+scripts:
+  analyze:
+    description: Análisis estático de todos los paquetes. Cero tolerancia.
+    run: dart analyze --fatal-infos --fatal-warnings .
+    exec:
+      concurrency: 1
+
+  format:
+    description: Formatea todo el código.
+    run: dart format .
+
+  format:check:
+    description: Falla si algo no está formateado. Es lo que corre en CI.
+    run: dart format --output=none --set-exit-if-changed .
+
+  test:
+    description: Pruebas de los paquetes que las tienen.
+    run: dart test
+    packageFilters:
+      dirExists: test
+      flutter: false
+
+  test:flutter:
+    description: Pruebas de los paquetes de Flutter.
+    run: flutter test
+    packageFilters:
+      dirExists: test
+      flutter: true
+
+  coverage:
+    description: Cobertura del núcleo, que es donde vive la lógica.
+    run: dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+    packageFilters:
+      scope: compass_maps
+
+  publish:dry:
+    description: Ensayo de publicación de los paquetes públicos.
+    run: dart pub publish --dry-run
+    packageFilters:
+      published: false
+      scope:
+        - compass_maps
+        - compass_maps_flutter
+
+  doc:
+    description: Genera la documentación de la API.
+    run: dart doc .
+    packageFilters:
+      noPrivate: true
+
+  verify:
+    description: Todo lo que CI comprueba, en el mismo orden.
+    run: |
+      melos run format:check && \
+      melos run analyze && \
+      melos run test && \
+      melos run test:flutter

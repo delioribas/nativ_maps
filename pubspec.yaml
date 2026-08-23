@@ -1,0 +1,23 @@
+# Raíz del espacio de trabajo (pub workspace, Dart 3.9+).
+#
+# No es un paquete publicable: existe para que los cuatro paquetes de
+# `packages/` y la app de `example/` compartan una única resolución de
+# dependencias. Un solo `.dart_tool/package_config.json`, una sola versión de
+# cada dependencia transitiva y, sobre todo, ninguna posibilidad de que el
+# ejemplo se compile contra una versión del núcleo distinta de la que se
+# publica.
+name: compass_maps_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - packages/compass_maps
+  - packages/compass_maps_flutter
+  - packages/compass_maps_google
+  - packages/compass_maps_sigv4
+  - example
+
+dev_dependencies:
+  melos: ^8.3.0
