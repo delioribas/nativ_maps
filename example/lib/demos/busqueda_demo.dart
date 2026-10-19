@@ -63,6 +63,7 @@ class _BusquedaDemoState extends State<BusquedaDemo> {
         if (_sugerencias.isNotEmpty) _listaDeSugerencias(),
         Expanded(
           child: NativMap(
+            customHeaders: Config.mapHeaders,
             styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
             initialCameraPosition: CameraPosition(
               target: Config.defaultCenter,

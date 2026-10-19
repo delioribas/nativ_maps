@@ -103,9 +103,24 @@ final class ProxyCredentials implements Credentials {
   @override
   String? get apiKeyForUrl => null;
 
-  /// The proxy is a single destination for the three services. It is told
-  /// which one it was with the `X-Nativ-Service` header, so it can sign with
-  /// the right name without having to infer it from the path.
+  /// The proxy is a single destination for every service. Each request says
+  /// where it was going with three headers, so the proxy never has to infer
+  /// it from the path:
+  ///
+  /// | Header | Example | What it's for |
+  /// |---|---|---|
+  /// | `X-Nativ-Host` | `tracking.geo.us-east-1.amazonaws.com` | where to |
+  /// | `X-Nativ-Service` | `geo` | the SigV4 signing name |
+  /// | `X-Nativ-Region` | `us-east-1` | the SigV4 region |
+  ///
+  /// `X-Nativ-Host` is what makes geofencing and tracking work: four of their
+  /// hosts sign with the same name, `geo`, so the name alone can't tell them
+  /// apart. **The proxy must check it against an allowlist** of Amazon
+  /// Location hosts before forwarding: a header the phone sends is a header
+  /// anyone can forge.
+  ///
+  /// The complete contract, with reference servers in Node, Go, Python, PHP,
+  /// Java and for AWS Lambda, is in `doc/PROXY.md` of the repository.
   @override
   Uri baseUri(AlsService service, String region) => baseUrl;
 
@@ -116,6 +131,7 @@ final class ProxyCredentials implements Credentials {
     String region,
   ) async {
     request.headers.addAll(headers);
+    request.headers['X-Nativ-Host'] = service.hostFor(region);
     request.headers['X-Nativ-Service'] = service.signingName;
     request.headers['X-Nativ-Region'] = region;
     return request;

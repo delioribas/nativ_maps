@@ -1,0 +1,188 @@
+# Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
+#
+# The nativ_maps reference proxy on AWS Lambda, behind a Function URL.
+#
+#   npm install && npm run build      # dist/: the self-contained bundle
+#   sam build && sam deploy --guided
+#
+# There are no AWS keys anywhere: the function's execution role signs every
+# request to Amazon Location, and that role may do exactly what the package
+# needs and nothing more.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  nativ_maps proxy for ProxyCredentials: checks the app's user, signs with
+  this function's role and forwards to Amazon Location.
+
+Parameters:
+  ProxyToken:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: >-
+      Demo user check: the app sends "Authorization: Bearer <this>". In
+      production, replace it with your own session/JWT verification in
+      src/index.mjs. Generate one with: openssl rand -hex 32
+  AlsApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: >-
+      Optional. An Amazon Location API key for Places, Routes and Maps. Leave
+      it empty: the role already signs them, and a key is one more secret.
+  ProxyBasePath:
+    Type: String
+    Default: /geo
+    AllowedPattern: ^(/[A-Za-z0-9._~-]+)+$
+    ConstraintDescription: A path like /geo, with no trailing slash.
+    Description: The path the app puts in ProxyCredentials(baseUrl).
+  ProxyPublicUrl:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(https://\S+[^/])?$
+    ConstraintDescription: Empty, or an https URL with no trailing slash.
+    Description: >-
+      Optional. The proxy's public base URL when it is not the Function URL
+      itself (CloudFront, a custom domain), e.g. https://maps.example.com/geo.
+      The style descriptor's tile URLs are rewritten to point there.
+
+Conditions:
+  HasApiKey: !Not [!Equals [!Ref AlsApiKey, '']]
+  HasPublicUrl: !Not [!Equals [!Ref ProxyPublicUrl, '']]
+
+Resources:
+  ProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: nativ_maps proxy, signs with its own role
+      CodeUri: dist/
+      Handler: index.handler
+      Runtime: nodejs22.x
+      Architectures: [arm64]
+      # Waiting on AWS is all it does. 512 MB buys a faster cold start and
+      # TLS handshake; 256 MB also works.
+      MemorySize: 512
+      # The package gives up after 8 s by default; a route matrix or a long
+      # snap-to-roads can take a few. 30 s leaves room for a raised client
+      # timeout without paying for requests nobody waits for any more (the
+      # core's own 60 s limit is for long-running servers).
+      Timeout: 30
+      Environment:
+        Variables:
+          PROXY_TOKEN: !Ref ProxyToken
+          PROXY_BASE_PATH: !Ref ProxyBasePath
+          PROXY_PUBLIC_URL: !If [HasPublicUrl, !Ref ProxyPublicUrl, !Ref AWS::NoValue]
+          ALS_API_KEY: !If [HasApiKey, !Ref AlsApiKey, !Ref AWS::NoValue]
+          # AWS_REGION is set by Lambda itself.
+      FunctionUrlConfig:
+        # Public on purpose: the user check is inside the function, before
+        # anything reaches Amazon Location.
+        AuthType: NONE
+        InvokeMode: BUFFERED
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            # The 7 Places, 5 Routes and 2 Maps operations the package calls.
+            # Glyphs, sprites and style descriptors need no permission.
+            - Sid: PlacesRoutesMaps
+              Effect: Allow
+              Action:
+                - geo-places:Autocomplete
+                - geo-places:Geocode
+                - geo-places:GetPlace
+                - geo-places:ReverseGeocode
+                - geo-places:SearchNearby
+                - geo-places:SearchText
+                - geo-places:Suggest
+                - geo-routes:CalculateIsolines
+                - geo-routes:CalculateRouteMatrix
+                - geo-routes:CalculateRoutes
+                - geo-routes:OptimizeWaypoints
+                - geo-routes:SnapToRoads
+                - geo-maps:GetStaticMap
+                - geo-maps:GetTile
+              Resource:
+                - !Sub arn:${AWS::Partition}:geo-places:${AWS::Region}::provider/default
+                - !Sub arn:${AWS::Partition}:geo-routes:${AWS::Region}::provider/default
+                - !Sub arn:${AWS::Partition}:geo-maps:${AWS::Region}::provider/default
+            # The 11 geofencing operations that name a collection.
+            - Sid: Geofencing
+              Effect: Allow
+              Action:
+                - geo:CreateGeofenceCollection
+                - geo:DescribeGeofenceCollection
+                - geo:UpdateGeofenceCollection
+                - geo:DeleteGeofenceCollection
+                - geo:PutGeofence
+                - geo:BatchPutGeofence
+                - geo:GetGeofence
+                - geo:ListGeofences
+                - geo:BatchDeleteGeofence
+                - geo:BatchEvaluateGeofences
+                - geo:ForecastGeofenceEvents
+              Resource: !Sub arn:${AWS::Partition}:geo:${AWS::Region}:${AWS::AccountId}:geofence-collection/*
+            # The 14 tracking operations that name a tracker.
+            - Sid: Tracking
+              Effect: Allow
+              Action:
+                - geo:CreateTracker
+                - geo:DescribeTracker
+                - geo:UpdateTracker
+                - geo:DeleteTracker
+                - geo:BatchUpdateDevicePosition
+                - geo:GetDevicePosition
+                - geo:BatchGetDevicePosition
+                - geo:GetDevicePositionHistory
+                - geo:ListDevicePositions
+                - geo:BatchDeleteDevicePositionHistory
+                - geo:VerifyDevicePosition
+                - geo:AssociateTrackerConsumer
+                - geo:DisassociateTrackerConsumer
+                - geo:ListTrackerConsumers
+              Resource: !Sub arn:${AWS::Partition}:geo:${AWS::Region}:${AWS::AccountId}:tracker/*
+            # Listing names no resource, so it can't be scoped to one.
+            - Sid: ListCollectionsAndTrackers
+              Effect: Allow
+              Action:
+                - geo:ListGeofenceCollections
+                - geo:ListTrackers
+              Resource: '*'
+
+  # Since October 2025 a public Function URL needs lambda:InvokeFunction as
+  # well as lambda:InvokeFunctionUrl. A current SAM CLI generates both from
+  # FunctionUrlConfig; an older one only the second, and the URL answers 403
+  # to everyone. Stated here too, so the template works with either: the
+  # duplicate statement is harmless.
+  ProxyFunctionUrlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ProxyFunction
+      Action: lambda:InvokeFunction
+      Principal: '*'
+      InvokedViaFunctionUrl: true
+
+  # Lambda would create it with infinite retention.
+  ProxyLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ProxyFunction}
+      RetentionInDays: 14
+
+Outputs:
+  ProxyBaseUrl:
+    Description: 'ProxyCredentials(baseUrl: Uri.parse(<this>))'
+    Value: !Sub
+      - https://${Domain}${ProxyBasePath}
+      - Domain: !Select [2, !Split ['/', !GetAtt ProxyFunctionUrl.FunctionUrl]]
+  StyleUrl:
+    Description: 'NativMap(styleUrl: <this>, customHeaders: {Authorization: …})'
+    Value: !Sub
+      - https://${Domain}${ProxyBasePath}/v2/styles/Standard/descriptor
+      - Domain: !Select [2, !Split ['/', !GetAtt ProxyFunctionUrl.FunctionUrl]]
+  FunctionUrl:
+    Description: The raw Function URL
+    Value: !GetAtt ProxyFunctionUrl.FunctionUrl
+  RoleArn:
+    Description: The role that signs; extend it here if you use a KMS key
+    Value: !GetAtt ProxyFunctionRole.Arn

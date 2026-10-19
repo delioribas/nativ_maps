@@ -1,4 +1,8 @@
 tags:
+  # The conformance test for a ProxyCredentials server: it needs a proxy
+  # running and PROXY_URL pointing at it. `dart test -P proxy`.
+  proxy:
+    skip: "Needs a running proxy. Run with: dart test -P proxy"
   # Las pruebas contra Amazon Location de verdad gastan dinero y necesitan una
   # clave. `dart test` las salta; se lanzan a propósito con `-P live`.
   live:
@@ -10,4 +14,10 @@ presets:
       - test/live
     tags:
       live:
+        skip: false
+  proxy:
+    paths:
+      - test/live/proxy_live_test.dart
+    tags:
+      proxy:
         skip: false

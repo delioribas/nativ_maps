@@ -74,6 +74,7 @@ class _ElegirUbicacionDemoState extends State<ElegirUbicacionDemo> {
         children: <Widget>[
           Positioned.fill(
             child: NativMap(
+              customHeaders: Config.mapHeaders,
               styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
               initialCameraPosition: CameraPosition(
                 target: Config.defaultCenter,

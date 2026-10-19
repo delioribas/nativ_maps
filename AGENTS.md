@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # The only one on pub.dev. Brings the widget and all 44 operations.
-  nativ_maps_flutter: ^0.9.0
+  nativ_maps_flutter: ^0.9.1
 
   # The other two are NOT published: consume them via git, pinned to a TAG and
   # never to a branch. Add them only if you need them.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.9.0
+      ref: v0.9.1
   nativ_maps_google:     # ONLY if you are migrating from google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.9.0
+      ref: v0.9.1
 ```
 
 ```dart
@@ -65,6 +65,8 @@ produce un fallo **silencioso**.
 | 16 | Cada operación de lugares admite **su** subconjunto de `PlaceFeature` | Fuera de su fila, `400`. La tabla, medida contra AWS, está en la documentación de `PlaceFeature`: `contact` no vale en `autocomplete`, `core` no vale en `searchText` |
 | 17 | Las instrucciones escritas exigen `TravelStepType.standard` | Con `turnByTurn` —el valor por defecto— y `RouteFeature.travelStepInstructions`, AWS responde `400`; el paquete lo corta antes de enviar |
 | 18 | A pie no hay peajes | `RouteFeature.tolls` con `TravelMode.pedestrian` lanza `ArgumentError` antes de enviar; AWS respondería `400` |
+| 19 | Con `ProxyCredentials`, el `NativMap` lleva **`customHeaders` con el mismo token** | El motor de mapas pide el estilo y las teselas por su cuenta: sin el token, `401` y el mapa en blanco, sin excepción |
+| 20 | El servidor del proxy **no se improvisa** | Tiene que validar el host, reescribir el estilo y quitar la clave de las URLs. Hay seis hechos en `proxies/` y el contrato en [doc/PROXY.md](doc/PROXY.md) |
 
 ---
 
@@ -81,6 +83,12 @@ final maps = NativMaps(
   intendedUse: IntendedUse.singleUse,               // storage if you persist it
   budget: Budget(maxUnits: 500),                    // optional but recommended
 );
+
+// Production: the key stays on YOUR server. See doc/PROXY.md.
+//   credentials: ProxyCredentials(
+//     baseUrl: Uri.parse('https://api.example.com/geo'),
+//     headers: {'Authorization': 'Bearer $token'},   // and the same in
+//   ),                                               // NativMap.customHeaders
 
 maps.places      // PlacesClient     · 7 operations · v2, accepts API key
 maps.routes      // RoutesClient     · 5 operations · v2, accepts API key
@@ -735,7 +743,9 @@ NativMap(
   minMaxZoomPreference: MinMaxZoomPreference.unbounded,
   cameraTargetBounds: null,
   offlineEnabled: false,                // true so that `offline` is not null
-  customHeaders: null,                  // for SigV4 on the tiles
+  customHeaders: null,                  // REQUIRED with a proxy (its token) or
+                                        // SigV4; sent only to the style's host
+                                        // and amazonaws.com
   padding: EdgeInsets.zero,
   styleLoadTimeout: Duration(seconds: 20),
 )
@@ -1204,7 +1214,7 @@ JointType       .mitered .round .bevel
 
 ## 8 · Antes de dar por buena la integración
 
-1. `dart run melos run verify` en la raíz → formato, análisis y las 428 pruebas.
+1. `dart run melos run verify` en la raíz → formato, análisis y las 434 pruebas.
    Y `tool/test_floor.sh <bin de Flutter 3.32>`: el suelo, con cada paquete
    resuelto suelto, como lo ve quien lo instala.
 2. Android: AGP **8.x** (no 9.x) y **JDK 21**. Ver «Limitaciones conocidas» en

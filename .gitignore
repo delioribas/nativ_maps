@@ -47,3 +47,12 @@ EDITOR-VERIFICADO.md
 # Respuestas reales de las pruebas contra AWS. Se revisan antes de convertir
 # alguna en fixture; no se suben tal cual.
 packages/*/test/live/respuestas/
+
+# Servidores de referencia del proxy: dependencias y compilados.
+proxies/**/node_modules/
+proxies/**/vendor/
+proxies/**/target/
+proxies/**/.venv/
+proxies/**/__pycache__/
+proxies/**/build/
+proxies/**/dist/

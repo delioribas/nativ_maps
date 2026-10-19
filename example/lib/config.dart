@@ -32,8 +32,33 @@ abstract final class Config {
     defaultValue: 'es',
   );
 
-  /// ¿Hay clave?
-  static bool get isConfigured => apiKey.isNotEmpty;
+  /// La URL de un proxy que firma (`ProxyCredentials`), si se usa uno.
+  ///
+  /// ```sh
+  /// flutter run --dart-define=ALS_PROXY_URL=http://10.0.2.2:8080/geo \
+  ///   --dart-define=ALS_PROXY_TOKEN=token-de-prueba
+  /// ```
+  ///
+  /// Con ella, la app no lleva ninguna clave: el proxy la guarda. Los
+  /// servidores de referencia están en `proxies/` y la guía en
+  /// `doc/PROXY.md`. Desde el emulador de Android, el `localhost` del
+  /// ordenador es `10.0.2.2`.
+  static const String proxyUrl = String.fromEnvironment('ALS_PROXY_URL');
+
+  /// El token con el que la app se identifica ante el proxy.
+  static const String proxyToken = String.fromEnvironment('ALS_PROXY_TOKEN');
+
+  /// ¿Va por un proxy?
+  static bool get usesProxy => proxyUrl.isNotEmpty;
+
+  /// ¿Hay clave o proxy?
+  static bool get isConfigured => apiKey.isNotEmpty || usesProxy;
+
+  /// Las cabeceras que el mapa manda con el estilo y las teselas: el token
+  /// del proxy, si lo hay. Con clave de API no hace falta ninguna.
+  static Map<String, String>? get mapHeaders => usesProxy
+      ? <String, String>{'Authorization': 'Bearer $proxyToken'}
+      : null;
 
   /// Quito, que es donde se centra el mapa al arrancar.
   static final LatLng defaultCenter = LatLng(-0.1807, -78.4678);
@@ -49,7 +74,12 @@ abstract final class Config {
   /// bucle es exactamente el caso que el tope tiene que atrapar.
   static final NativMaps maps = NativMaps(
     region: region,
-    credentials: const ApiKeyCredentials(apiKey),
+    credentials: usesProxy
+        ? ProxyCredentials(
+            baseUrl: Uri.parse(proxyUrl),
+            headers: <String, String>{'Authorization': 'Bearer $proxyToken'},
+          )
+        : const ApiKeyCredentials(apiKey),
     language: language,
     budget: Budget(
       maxUnits: 200,

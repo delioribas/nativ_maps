@@ -4,4 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Solo en depuración: deja hablar por http con un proxy local
+         (ALS_PROXY_URL=http://10.0.2.2:8080/geo). Una compilación de
+         publicación no lo lleva, y el proxy real va siempre por https. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

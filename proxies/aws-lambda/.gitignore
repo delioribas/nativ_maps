@@ -1,0 +1,5 @@
+# node_modules/ and dist/ are already ignored by the root .gitignore.
+# What `sam build` and `sam deploy --guided` leave behind: build output, and
+# each deployment's own stack settings.
+.aws-sam/
+samconfig.toml

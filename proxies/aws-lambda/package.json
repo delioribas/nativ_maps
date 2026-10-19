@@ -1,0 +1,26 @@
+{
+  "name": "nativ-maps-proxy-aws-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reference proxy for nativ_maps ProxyCredentials on AWS Lambda: the function's execution role signs, so there are no keys anywhere.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "local": "node build.mjs && node local.mjs"
+  },
+  "devDependencies": {
+    "@aws-crypto/sha256-js": "5.2.0",
+    "@aws-sdk/credential-provider-node": "3.972.87",
+    "@smithy/signature-v4": "5.7.4",
+    "esbuild": "0.28.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

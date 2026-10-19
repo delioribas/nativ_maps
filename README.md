@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.9.0
+  nativ_maps_flutter: ^0.9.1
 ```
 
 ```dart
@@ -382,6 +382,11 @@ await maps.routes.calculateRouteMatrix(
 Cambiar de camino es cambiar el objeto que se pasa al constructor. Nada más
 arriba se entera.
 
+**El proxy, ya escrito:** [doc/PROXY.md](doc/PROXY.md) tiene el contrato, una
+prueba de conformidad y servidores de referencia en **Node, AWS Lambda, Go,
+Python, PHP y Java** (`proxies/`). En Lambda ni siquiera hay claves que guardar:
+firma el rol de la función.
+
 > ⚠️ **Los tres servicios firman con nombres distintos:** `geo-places`,
 > `geo-routes`, `geo-maps`. Equivocarse da un `403` **idéntico** al de una clave
 > mala. Aquí no se puede fallar: el nombre lo pone el enum `AlsService`.
@@ -482,10 +487,10 @@ Location.
 
 | | |
 |---|---|
-| Versión | **0.9.0**, candidata a 1.0.0 |
+| Versión | **0.9.1**, candidata a 1.0.0 |
 | Operaciones | **44 de 44**, todas ejecutadas contra Amazon Location de verdad: 17 con clave de API y 27 con IAM firmadas con SigV4 |
 | Enums | todos los valores que viajan en una petición, comprobados contra el servicio: **111 comprobaciones** |
-| Pruebas | **428 verdes** sin red, y aparte las de AWS real (`-P live`) |
+| Pruebas | **434 verdes** sin red, y aparte las de AWS real (`-P live`) |
 | Suelo | probado con **Flutter 3.32** —el mínimo declarado— y con la última |
 | Pub points | **160/160** en los dos paquetes publicados, medido con `pana` |
 | App de ejemplo | los nueve demos recorridos en un **emulador Android** y en el **simulador de iOS**, con toques y arrastres reales |
@@ -529,6 +534,17 @@ cd example
 flutter run \
   --dart-define=ALS_API_KEY=tu-clave \
   --dart-define=ALS_REGION=us-east-1
+```
+
+O sin ninguna clave dentro de la app, a través de uno de los
+[proxies de referencia](proxies) arrancado en tu ordenador (`10.0.2.2` es
+ese ordenador visto desde el emulador de Android; en el simulador de iOS,
+`localhost`):
+
+```sh
+flutter run \
+  --dart-define=ALS_PROXY_URL=http://10.0.2.2:8080/geo \
+  --dart-define=ALS_PROXY_TOKEN=token-de-prueba
 ```
 
 ---

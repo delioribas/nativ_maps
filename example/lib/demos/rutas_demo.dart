@@ -54,6 +54,7 @@ class _RutasDemoState extends State<RutasDemo> {
     error: _error,
     panel: _panel(),
     child: NativMap(
+      customHeaders: Config.mapHeaders,
       styleUrl: Config.maps.maps.styleDescriptorUrl(
         MapStyle.standard,
         // El tráfico dentro del propio estilo: es el equivalente real de

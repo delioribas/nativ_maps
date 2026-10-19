@@ -189,6 +189,14 @@ class NativMap extends StatefulWidget {
   /// It's what makes it possible to authenticate **the tiles** with SigV4 or
   /// through a proxy. Without this, the style can only be authenticated with
   /// the key in the URL, which is the path that must not leave development.
+  ///
+  /// They're sent to the host of [styleUrl] —your proxy, behind one— and to
+  /// Amazon Location, and to nothing else. Changing them —a renewed session
+  /// token— applies them again.
+  ///
+  /// Pass them **from the first build** if the style needs them: the map then
+  /// starts empty and requests [styleUrl] once they're set. Added later, the
+  /// style has already been requested without them.
   final Map<String, String>? customHeaders;
 
   /// The map's inner padding.
@@ -244,13 +252,54 @@ class _NativMapState extends State<NativMap> {
   /// Where the camera was the last time `onCameraIdle` went out.
   CameraPosition? _lastIdle;
 
+  /// The style the native map is created with, fixed for its whole life.
+  ///
+  /// `maplibre_gl` reloads the style by itself whenever this string changes,
+  /// and [didUpdateWidget] already reloads it through the controller: passing
+  /// the live [NativMap.styleUrl] here loaded every new style twice. With
+  /// [NativMap.customHeaders] it starts as an empty style, see
+  /// [_waitingForHeaders].
+  late final String _initialStyle = widget.customHeaders == null
+      ? widget.styleUrl
+      : _emptyStyle;
+
+  /// Whether the real style is still waiting for the headers.
+  ///
+  /// A native map starts downloading its style the moment it exists, and its
+  /// headers can only be set afterwards: the first request always went out
+  /// without them, and behind a proxy that's a 401 and a blank map. So the
+  /// map starts empty, the headers go in, and only then the real style.
+  late bool _waitingForHeaders = widget.customHeaders != null;
+
+  /// The two things the real style waits for: the headers set, and the empty
+  /// placeholder done loading. Requesting it while the placeholder is still
+  /// loading left the native side halfway through a style switch.
+  bool _headersSet = false;
+  bool _placeholderLoaded = false;
+
+  static const String _emptyStyle = '{"version":8,"sources":{},"layers":[]}';
+
   @override
   void didUpdateWidget(covariant NativMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     // The style is read on every rebuild, not only when the map is created.
     // Otherwise, switching between light and dark by changing this property
     // would do nothing, and that's precisely why `dayNightStyleUrls` exists.
-    if (oldWidget.styleUrl != widget.styleUrl && _controller != null) {
+    final hostChanged =
+        Uri.tryParse(oldWidget.styleUrl)?.host !=
+        Uri.tryParse(widget.styleUrl)?.host;
+    if (_controller != null &&
+        widget.customHeaders != null &&
+        (hostChanged ||
+            !mapEquals(oldWidget.customHeaders, widget.customHeaders))) {
+      // Before the style reload below, so its requests already carry them.
+      unawaited(_applyCustomHeaders());
+    }
+    // While the real style still waits for its headers, there's nothing to
+    // switch: it'll be requested with the current styleUrl.
+    if (oldWidget.styleUrl != widget.styleUrl &&
+        _controller != null &&
+        !_waitingForHeaders) {
       _styleReady = Completer<void>();
       unawaited(
         _controller!.setMapStyle(widget.styleUrl).catchError((Object error) {
@@ -266,7 +315,11 @@ class _NativMapState extends State<NativMap> {
   Widget build(BuildContext context) => Stack(
     children: <Widget>[
       ml.MapLibreMap(
-        styleString: widget.styleUrl,
+        styleString: _initialStyle,
+        // `maplibre_gl` builds four annotation managers —their sources and
+        // layers— on every style load, and this package draws with its own
+        // layers: they were dead weight, and they raced a style switch.
+        annotationOrder: const <ml.AnnotationType>[],
         initialCameraPosition: ml.CameraPosition(
           target: ml.LatLng(
             widget.initialCameraPosition.target.latitude,
@@ -352,9 +405,9 @@ class _NativMapState extends State<NativMap> {
     controller.nativePixelRatio = _nativePixelRatio;
     _controller = controller;
 
-    if (widget.customHeaders != null) {
-      await controller.setCustomHeaders(widget.customHeaders!);
-    }
+    if (widget.customHeaders != null) await _applyCustomHeaders();
+    _headersSet = true;
+    await _loadRealStyleWhenReady();
     if (widget.padding != EdgeInsets.zero) {
       await native.setPadding(
         top: widget.padding.top,
@@ -375,7 +428,38 @@ class _NativMapState extends State<NativMap> {
     );
   }
 
+  /// Requests the real style once the headers are set and the placeholder
+  /// has loaded, whichever happens last. The next "style loaded" is then
+  /// always the real one.
+  Future<void> _loadRealStyleWhenReady() async {
+    if (!_waitingForHeaders || !_headersSet || !_placeholderLoaded) return;
+    _waitingForHeaders = false;
+    await _native?.setStyle(widget.styleUrl);
+  }
+
+  /// The headers go to the style's host —a proxy, behind one— and to Amazon
+  /// Location. Only to `amazonaws.com`, a proxy would never get its token.
+  Future<void> _applyCustomHeaders() async {
+    final headers = widget.customHeaders;
+    final controller = _controller;
+    if (headers == null || controller == null) return;
+    await controller.setCustomHeaders(
+      headers,
+      urlFilter: <String>[
+        ?Uri.tryParse(widget.styleUrl)?.host,
+        'amazonaws.com',
+      ],
+    );
+  }
+
   Future<void> _onStyleLoaded() async {
+    // The empty placeholder style isn't the app's: nothing to report, but
+    // it's one of the two things the real style waits for.
+    if (_waitingForHeaders) {
+      _placeholderLoaded = true;
+      await _loadRealStyleWhenReady();
+      return;
+    }
     if (!_styleReady.isCompleted) _styleReady.complete();
     // A style change deletes every layer and source; without reinstalling
     // them, switching to dark mode would make every marker disappear.

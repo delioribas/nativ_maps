@@ -69,6 +69,7 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
     ],
     panel: _panel(),
     child: NativMap(
+      customHeaders: Config.mapHeaders,
       styleUrl: _styleUrl,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,

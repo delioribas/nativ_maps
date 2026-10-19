@@ -547,15 +547,34 @@ class NativMapController {
   /// tiles too**: without this, the style and the tiles could only be
   /// authenticated with the key in the URL.
   ///
-  /// [urlFilter] limits which URLs they're added to; keep it narrowed to the
-  /// Amazon Location host so you don't send your headers to third parties.
+  /// [urlFilter] is the **host names** they're added to —a host and its
+  /// subdomains—, so your headers don't reach third parties. Behind a proxy,
+  /// that's the proxy's host.
+  ///
+  /// They're host names, not patterns, on purpose: `maplibre_gl` matches the
+  /// filter differently on each platform —the whole URL on Android, anywhere
+  /// in it on iOS— and a plain `amazonaws.com` never matched a whole URL, so
+  /// on Android the headers were never sent. Each host is turned here into a
+  /// pattern that both match the same way: see [hostPatterns].
   Future<void> setCustomHeaders(
     Map<String, String> headers, {
     List<String> urlFilter = const <String>['amazonaws.com'],
   }) async {
     _checkAlive();
-    await _native.setCustomHeaders(headers, urlFilter);
+    await _native.setCustomHeaders(headers, hostPatterns(urlFilter));
   }
+
+  /// Turns host names into URL patterns that match the host and its
+  /// subdomains, over any scheme, port, path or query.
+  ///
+  /// The pattern is anchored at both ends, so it means the same thing whether
+  /// it's matched against the whole URL —Android— or searched inside it —iOS—.
+  @visibleForTesting
+  static List<String> hostPatterns(Iterable<String> hosts) => <String>[
+    for (final host in hosts.toSet())
+      if (host.isNotEmpty)
+        '^https?://([^/?#]*\\.)?${RegExp.escape(host)}(:[0-9]+)?([/?#].*)?\$',
+  ];
 
   /// A snapshot of the map as it looks right now.
   ///

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
+import 'package:http/http.dart' as http;
 import 'package:nativ_maps/nativ_maps.dart';
 import 'package:test/test.dart';
 
@@ -213,6 +214,42 @@ void main() {
       // Para que el proxy firme con el nombre correcto sin deducirlo.
       expect(peticion.headers['X-Nativ-Service'], 'geo-places');
       expect(peticion.headers['X-Nativ-Region'], 'us-east-1');
+      expect(
+        peticion.headers['X-Nativ-Host'],
+        'places.geo.us-east-1.amazonaws.com',
+      );
+    });
+
+    test('ProxyCredentials distingue los cuatro hosts que firman como geo', () {
+      // Geovallas y rastreo firman los cuatro con el nombre `geo`: sin el host
+      // explícito, el proxy no sabría si reenviar al plano de datos o al de
+      // control.
+      final proxy = ProxyCredentials(
+        baseUrl: Uri.parse('https://api.miempresa.com'),
+      );
+      Future<String?> hostDe(AlsService servicio) async {
+        final peticion = http.Request(
+          'GET',
+          proxy.baseUri(servicio, 'us-east-1'),
+        );
+        await proxy.sign(peticion, servicio, 'us-east-1');
+        return peticion.headers['X-Nativ-Host'];
+      }
+
+      expect(
+        Future.wait(<Future<String?>>[
+          hostDe(AlsService.geofencing),
+          hostDe(AlsService.geofencingControl),
+          hostDe(AlsService.tracking),
+          hostDe(AlsService.trackingControl),
+        ]),
+        completion(<String>[
+          'geofencing.geo.us-east-1.amazonaws.com',
+          'cp.geofencing.geo.us-east-1.amazonaws.com',
+          'tracking.geo.us-east-1.amazonaws.com',
+          'cp.tracking.geo.us-east-1.amazonaws.com',
+        ]),
+      );
     });
 
     test('HeaderCredentials se consulta en cada petición', () async {

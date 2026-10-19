@@ -167,7 +167,8 @@ class _Inicio extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'Amazon Location v2 · región ${Config.region}',
+              'Amazon Location v2 · región ${Config.region}'
+              '${Config.usesProxy ? ' · por proxy' : ''}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -271,6 +272,20 @@ class _SinConfigurar extends StatelessWidget {
               'Claves de API. Conviene restringirla a las operaciones que '
               'usa la app y ponerle fecha de caducidad: una clave dentro '
               'de un APK se extrae en dos minutos.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 24),
+            const Text('O sin ninguna clave en la app, por un proxy:'),
+            const SizedBox(height: 8),
+            const _Codigo(
+              'flutter run \\\n'
+              '  --dart-define=ALS_PROXY_URL=http://10.0.2.2:8080/geo \\\n'
+              '  --dart-define=ALS_PROXY_TOKEN=token-de-prueba',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Los servidores de referencia están en proxies/ y la guía en '
+              'doc/PROXY.md.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

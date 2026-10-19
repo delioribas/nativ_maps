@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.9.1
+
+**The signing proxy, end to end.** `ProxyCredentials` was the recommended way
+to ship, and nothing proved it worked: there was no server to point it at, and
+the map never sent the proxy its token on Android. Now there's a contract, six
+reference servers checked with the same conformance test against AWS, and a
+map that loads through a proxy on Android and iOS, with no key in the app.
+
+### Fixed
+
+- **`NativMap.customHeaders` never reached the map on Android.** `maplibre_gl`
+  matches the header filter against the whole URL on Android and searches for
+  it on iOS, so the default `amazonaws.com` only ever worked on iOS. The
+  headers now go out on both, with the same rule.
+- **…and never reached a proxy on either platform.** They only went to
+  `amazonaws.com`, while a map served through a proxy asks the proxy's host.
+  They now go to the `styleUrl`'s host and to `amazonaws.com`, and to nothing
+  else: not to a third-party tile server you add.
+- **The first style request always went out without the headers.** A native
+  map starts downloading its style the moment it exists, before its headers
+  can be set: behind a proxy, a `401` and a blank map. With `customHeaders`,
+  the map now starts empty and loads the style once they're in place.
+- **Changing `styleUrl` loaded the new style twice.**
+- `maplibre_gl`'s annotation managers are no longer created. The package
+  never used them —it draws with its own layers— and they made every style
+  load heavier and could fail a style switch with `STYLE_NOT_READY`.
+
+### Changed
+
+- **`ProxyCredentials` also sends `X-Nativ-Host`**, the Amazon Location host
+  the request is meant for. Geofencing, tracking and their two control planes
+  all sign as `geo`: the signing name alone couldn't tell a proxy which of the
+  four to call. `X-Nativ-Service` and `X-Nativ-Region` are still sent.
+- **`NativMapController.setCustomHeaders(urlFilter:)` takes hosts**, as it
+  always said, and matches each host and its subdomains the same way on
+  Android and iOS. It used to hand the strings to each platform as a regular
+  expression, with the different results above.
+
+### New
+
+- **[doc/PROXY.md](https://github.com/delioribas/nativ_maps/blob/main/doc/PROXY.md)**:
+  what a proxy must do —authorize first, forward only to Amazon Location
+  hosts, rewrite the style so the tiles come back through it and the API key
+  never reaches the phone—, the IAM policy, and a production checklist.
+- **Reference servers** in `proxies/`: Node, AWS Lambda (with a SAM template,
+  and no keys at all: the function's role signs), Go, Python, PHP and Java.
+  Same variables, same behavior, same structure: a framework-free core and a
+  small server, with snippets for Express, NestJS, FastAPI, Laravel, Spring
+  Boot and others.
+- **A conformance test for any proxy**, yours included:
+  `PROXY_URL=… PROXY_TOKEN=… dart test -P proxy` in `packages/nativ_maps`.
+  It goes through the proxy the way the package and the map renderer do, and
+  checks what the proxy has to refuse.
+- The example app runs through a proxy with
+  `--dart-define=ALS_PROXY_URL=… --dart-define=ALS_PROXY_TOKEN=…`, with no key
+  inside the app.
+
 ## 0.9.0
 
 **Release candidate for 1.0.0.** All 44 operations have now run against Amazon

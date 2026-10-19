@@ -69,6 +69,7 @@ class _MatrizDemoState extends State<MatrizDemo> {
     error: _error,
     panel: _panel(),
     child: NativMap(
+      customHeaders: Config.mapHeaders,
       styleUrl: Config.maps.maps.styleDescriptorUrl(MapStyle.standard)!,
       initialCameraPosition: CameraPosition(
         target: Config.defaultCenter,

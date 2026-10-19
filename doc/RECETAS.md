@@ -1053,27 +1053,33 @@ final maps = NativMaps(
 ```
 
 El móvil llama a tu servidor; tu servidor firma y reenvía. **La clave nunca sale
-del servidor**, que es la única forma de que no se extraiga del APK.
+del servidor**, que es la única forma de que no se extraiga del APK. Y es el
+único camino con las 44 operaciones y límites por usuario.
 
-Tu proxy recibe la ruta tal cual (`POST /geo/v2/search-text`) y dos cabeceras
-que le dicen qué firmar:
+Tu proxy recibe la ruta de AWS tal cual (`POST /geo/v2/search-text`) y tres
+cabeceras que le dicen a dónde reenviar y cómo firmar:
 
 ```
+X-Nativ-Host:    places.geo.us-east-1.amazonaws.com
 X-Nativ-Service: geo-places
 X-Nativ-Region:  us-east-1
 ```
 
-Con eso, el proxy es un reenviador transparente de unas veinte líneas.
-
-Para las **teselas**:
+Para el **mapa**, el mismo token en `customHeaders`. Sin él, el estilo da `401`
+y el mapa sale en blanco:
 
 ```dart
 NativMap(
-  styleUrl: 'https://api.miempresa.com/geo/v2/styles/Standard/descriptor',
+  styleUrl: maps.maps.styleDescriptorUrl(MapStyle.standard)!,  // ya apunta al proxy
   customHeaders: {'Authorization': 'Bearer ${sesion.token}'},
   ...
 );
 ```
+
+> **El servidor no lo tienes que escribir desde cero.** [PROXY.md](PROXY.md)
+> tiene el contrato completo —qué validar, cómo reescribir el estilo para que la
+> clave no llegue al teléfono—, seis servidores de referencia (Node, AWS Lambda,
+> Go, Python, PHP y Java) y la prueba que dice si el tuyo lo cumple.
 
 ---
 
@@ -1203,8 +1209,11 @@ final maps = NativMaps(
   region: 'us-east-1',
   credentials: ProxyCredentials(
     baseUrl: Uri.parse('https://api.miempresa.com/geo'),
+    headers: {'Authorization': 'Bearer ${sesion.token}'},
   ),
 );
+// El proxy necesita credenciales IAM con `geo:*` sobre la colección y el
+// rastreador: la clave de API no vale aquí. Ver PROXY.md, sección 4.
 ```
 
 ---
