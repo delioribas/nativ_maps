@@ -163,7 +163,11 @@ export 'src/trip/auction.dart'
         BidRanking,
         DriverBid,
         DriverEconomics,
+        // Obsoletos y exportados a propósito hasta la 1.0. El analizador de
+        // Dart 3.8 —el suelo— avisa de exportarlos; el de 3.9+ ya no.
+        // ignore: deprecated_member_use_from_same_package
         FareAdvisor,
+        // ignore: deprecated_member_use_from_same_package
         FareSuggestion,
         RideAuction,
         RideRequest;

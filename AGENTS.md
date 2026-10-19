@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # The only one on pub.dev. Brings the widget and all 44 operations.
-  nativ_maps_flutter: ^0.5.1
+  nativ_maps_flutter: ^0.5.2
 
   # The other two are NOT published: consume them via git, pinned to a TAG and
   # never to a branch. Add them only if you need them.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.5.1
+      ref: v0.5.2
   nativ_maps_google:     # ONLY if you are migrating from google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.5.1
+      ref: v0.5.2
 ```
 
 ```dart

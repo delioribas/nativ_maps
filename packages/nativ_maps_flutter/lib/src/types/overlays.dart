@@ -2,6 +2,12 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+// `meta` explícito por `@internal`, aunque el linter de Flutter 3.44+ lo dé
+// por redundante: `flutter/foundation.dart` no lo reexporta hasta versiones
+// recientes y el suelo declarado es Flutter 3.32. La 0.5.1 lo quitó y no
+// compilaba en 3.32.
+// ignore: unnecessary_import
+import 'package:meta/meta.dart' show internal;
 import 'package:nativ_maps/nativ_maps.dart';
 
 /// Identificador de un marcador. Mismo nombre que en `google_maps_flutter`.

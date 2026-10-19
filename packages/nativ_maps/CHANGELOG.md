@@ -4,6 +4,21 @@ Este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 Mientras la versión mayor sea `0`, una versión menor puede romper la API; a
 partir de `1.0.0`, no.
 
+## 0.5.2
+
+**`nativ_maps_flutter` 0.5.1 no compilaba en Flutter 3.32**, el suelo que
+declara. Usaba `@internal` contando con que `flutter/foundation.dart` lo
+reexporta, y eso solo pasa en versiones recientes de Flutter. Ahora importa
+`meta` explícitamente, como el resto del paquete.
+
+Lo encontró la primera prueba contra el suelo de verdad: cada paquete copiado
+fuera del workspace y resuelto con Flutter 3.32.0 y Dart 3.8, como lo verá
+quien lo instale. Con 3.32.0 pasan el análisis estricto y las pruebas de los
+dos paquetes publicados.
+
+Sin cambios de comportamiento: si usas Flutter 3.44 o posterior, la 0.5.1 y
+la 0.5.2 hacen lo mismo.
+
 ## 0.5.1
 
 **Los marcadores, probados por fin en un dispositivo.** La 0.5.0 se probó
