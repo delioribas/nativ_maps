@@ -21,3 +21,90 @@ workspace:
 
 dev_dependencies:
   melos: ^8.3.0
+
+# Configuración de Melos 8: vive aquí, en el pubspec raíz, y no en melos.yaml.
+# Melos 8 ya no lee las órdenes de melos.yaml —solo lo admitía para `name`—, y
+# con ellas allí `melos run verify` fallaba con «no scripts defined».
+melos:
+  # La exige `linkToCommits`: es la base de los enlaces a commits del CHANGELOG.
+  repository: https://github.com/delioribas/nativ_maps
+
+  command:
+    version:
+      # Un CHANGELOG por paquete, más uno agregado en la raíz. Al publicar,
+      # quien consume el paquete lee el suyo y no el ruido de los otros tres.
+      updateGitTagRefs: true
+      linkToCommits: true
+      workspaceChangelog: true
+
+  scripts:
+    # `run` corre una vez en la raíz: basta para analizar y formatear todo el
+    # workspace de una pasada. Lo que tiene que correr DENTRO de cada paquete
+    # va con `exec`; un `run: dart test` lanzado en la raíz no prueba nada.
+    analyze:
+      description: Análisis estático de todo el workspace. Cero tolerancia.
+      run: dart analyze --fatal-infos --fatal-warnings .
+
+    format:
+      description: Formatea todo el código.
+      run: dart format .
+
+    format:check:
+      description: Falla si algo no está formateado. Es lo que corre en CI.
+      run: dart format --output=none --set-exit-if-changed .
+
+    test:
+      description: Pruebas de los paquetes Dart puros.
+      exec: dart test
+      packageFilters:
+        dirExists: test
+        flutter: false
+
+    test:flutter:
+      description: Pruebas de los paquetes de Flutter.
+      # De uno en uno: dos `flutter test` a la vez se pelean por el candado de
+      # arranque de Flutter y ensucian la salida con falsos ERROR.
+      exec:
+        command: flutter test
+        concurrency: 1
+      packageFilters:
+        dirExists: test
+        flutter: true
+
+    test:live:
+      description: >-
+        Las 17 operaciones con clave contra AWS de verdad. Gasta dinero: exige
+        ALS_API_KEY en el entorno. No forma parte de verify.
+      exec: dart test -P live
+      packageFilters:
+        scope: nativ_maps
+
+    coverage:
+      description: Cobertura del núcleo, que es donde vive la lógica.
+      exec: dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+      packageFilters:
+        scope: nativ_maps
+
+    publish:dry:
+      description: Ensayo de publicación de los dos paquetes de pub.dev.
+      exec: flutter pub publish --dry-run
+      packageFilters:
+        scope:
+          - nativ_maps
+          - nativ_maps_flutter
+
+    doc:
+      description: Genera la documentación de la API.
+      exec: dart doc .
+      packageFilters:
+        noPrivate: true
+
+    verify:
+      description: Todo lo que CI comprueba, en el mismo orden.
+      # `steps` encadena los scripts sin llamar a un `melos` global, que no
+      # existe cuando melos se ejecuta con `dart run melos`.
+      steps:
+        - format:check
+        - analyze
+        - test
+        - test:flutter
