@@ -13,17 +13,17 @@ Si eres una persona, [README.md](README.md) es más agradable y
 
 ```yaml
 dependencies:
-  # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
+  # The only one on pub.dev. Brings the widget and all 44 operations.
   nativ_maps_flutter: ^0.5.1
 
-  # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
-  # nunca con una rama. Añádelos solo si los necesitas.
-  nativ_maps_sigv4:      # SOLO si usas geovallas o rastreo (exigen SigV4)
+  # The other two are NOT published: consume them via git, pinned to a TAG and
+  # never to a branch. Add them only if you need them.
+  nativ_maps_sigv4:      # ONLY if you use geofencing or tracking (they require SigV4)
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
       ref: v0.5.1
-  nativ_maps_google:     # SOLO si migras de google_maps_flutter
+  nativ_maps_google:     # ONLY if you are migrating from google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
@@ -71,20 +71,20 @@ produce un fallo **silencioso**.
 
 ```dart
 final maps = NativMaps(
-  region: 'us-east-1',                              // requerido
-  credentials: const ApiKeyCredentials('clave'),    // requerido
-  language: 'es',                                   // opcional, BCP 47
-  politicalView: null,                              // opcional, ISO 3166
-  intendedUse: IntendedUse.singleUse,               // storage si lo guardas
-  budget: Budget(maxUnits: 500),                    // opcional pero recomendado
+  region: 'us-east-1',                              // required
+  credentials: const ApiKeyCredentials('api-key'),  // required
+  language: 'es',                                   // optional, BCP 47
+  politicalView: null,                              // optional, ISO 3166
+  intendedUse: IntendedUse.singleUse,               // storage if you persist it
+  budget: Budget(maxUnits: 500),                    // optional but recommended
 );
 
-maps.places      // PlacesClient     · 7 operaciones · v2, acepta clave
-maps.routes      // RoutesClient     · 5 operaciones · v2, acepta clave
-maps.maps        // MapsClient       · 5 operaciones · v2, acepta clave
-maps.geofencing  // GeofencingClient · 12 ops · ⚠️ EXIGE SigV4
-maps.tracking    // TrackingClient   · 15 ops · ⚠️ EXIGE SigV4
-maps.close();    // cierra el cliente HTTP
+maps.places      // PlacesClient     · 7 operations · v2, accepts API key
+maps.routes      // RoutesClient     · 5 operations · v2, accepts API key
+maps.maps        // MapsClient       · 5 operations · v2, accepts API key
+maps.geofencing  // GeofencingClient · 12 ops · ⚠️ REQUIRES SigV4
+maps.tracking    // TrackingClient   · 15 ops · ⚠️ REQUIRES SigV4
+maps.close();    // closes the HTTP client
 ```
 
 ### `maps.places` — firmas exactas
@@ -94,7 +94,7 @@ Future<List<AutocompleteSuggestion>> autocomplete({
   required String query,
   LatLng? biasPosition,
   SearchFilter? filter,
-  int maxResults = 5,              // 1..20, LANZA fuera de rango
+  int maxResults = 5,              // 1..20, THROWS if out of range
   PostalCodeMode? postalCodeMode,
   List<PlaceFeature> additionalFeatures = const [],
   String? language,
@@ -102,13 +102,13 @@ Future<List<AutocompleteSuggestion>> autocomplete({
 });
 
 Future<PlaceSearchResponse> searchText({
-  String? queryText,               // queryText O queryId, no los dos
+  String? queryText,               // queryText OR queryId, not both
   String? queryId,
   LatLng? biasPosition,
   SearchFilter? filter,
   int maxResults = 10,             // 1..100
   List<PlaceFeature> additionalFeatures = const [],
-  String? nextToken,               // paginación
+  String? nextToken,               // pagination
   String? language,
   IntendedUse? intendedUse,
   bool useCache = true,
@@ -116,7 +116,7 @@ Future<PlaceSearchResponse> searchText({
 
 Future<List<Place>> reverseGeocode(
   LatLng position, {
-  double? radiusMeters,            // PONLO. Sin él, la ciudad más cercana
+  double? radiusMeters,            // SET IT. Without it, you get the nearest city
   int maxResults = 1,
   List<String> includePlaceTypes = const [],
   List<PlaceFeature> additionalFeatures = const [],
@@ -133,10 +133,10 @@ Future<Place> getPlace(
 });
 
 Future<List<Place>> geocode({
-  String? queryText,                        // texto O componentes
+  String? queryText,                        // text OR components
   AddressComponents? queryComponents,
   LatLng? biasPosition,
-  List<String> includeCountries = const [], // ISO alfa-3: 'ECU', no 'EC'
+  List<String> includeCountries = const [], // ISO alpha-3: 'ECU', not 'EC'
   int maxResults = 5,
   List<PlaceFeature> additionalFeatures = const [],
   String? language,
@@ -145,7 +145,7 @@ Future<List<Place>> geocode({
 
 Future<PlaceSearchResponse> searchNearby({
   required LatLng position,
-  double? radiusMeters,            // PONLO
+  double? radiusMeters,            // SET IT
   SearchFilter? filter,
   int maxResults = 10,
   List<PlaceFeature> additionalFeatures = const [],
@@ -160,7 +160,7 @@ Future<SuggestResponse> suggest({
   SearchFilter? filter,
   int maxResults = 5,              // 1..20
   int? maxQueryRefinements,
-  List<PlaceFeature> additionalFeatures = const [],  // pide `core` para posición
+  List<PlaceFeature> additionalFeatures = const [],  // request `core` for the position
   String? language,
 });
 ```
@@ -174,7 +174,7 @@ Future<RouteResponse> calculateRoutes({
   List<LatLng> waypoints = const [],
   TravelMode travelMode = TravelMode.car,
   TravelModeOptions? travelModeOptions,      // .truck() / .car() / .scooter()
-  DateTime? departureTime,                   // excluyente con arrivalTime
+  DateTime? departureTime,                   // mutually exclusive with arrivalTime
   DateTime? arrivalTime,
   RouteOptimization optimizeFor = RouteOptimization.fastestRoute,
   RouteAvoidance? avoid,
@@ -188,11 +188,11 @@ Future<RouteResponse> calculateRoutes({
 });
 
 Future<RouteMatrix> calculateRouteMatrix({
-  required List<LatLng> origins,        // ≤15 sin routingBoundary
-  required List<LatLng> destinations,   // ≤100 · celdas ≤100
+  required List<LatLng> origins,        // ≤15 without routingBoundary
+  required List<LatLng> destinations,   // ≤100 · cells ≤100
   TravelMode travelMode = TravelMode.car,
   TravelModeOptions? travelModeOptions,
-  LatLngBounds? routingBoundary,        // pásalo para superar los límites
+  LatLngBounds? routingBoundary,        // pass it to go beyond the limits
   DateTime? departureTime,
   RouteAvoidance? avoid,
   TrafficUsage traffic = TrafficUsage.useTrafficData,
@@ -202,7 +202,7 @@ Future<RouteMatrix> calculateRouteMatrix({
 Future<IsolineResponse> calculateIsolines({
   LatLng? origin,                       // origin XOR destination
   LatLng? destination,
-  required Thresholds thresholds,       // ≤5 umbrales
+  required Thresholds thresholds,       // ≤5 thresholds
   TravelMode travelMode = TravelMode.car,
   TravelModeOptions? travelModeOptions,
   IsolineGranularity granularity = const IsolineGranularity(maxPoints: 300),
@@ -215,17 +215,17 @@ Future<IsolineResponse> calculateIsolines({
 });
 
 Future<SnapToRoadsResponse> snapToRoads({
-  required List<TracePoint> tracePoints,   // ≥2 · se trocea solo si >5000
-  double? snapRadiusMeters,                // 0..10000 · usa ~500 en ciudad
+  required List<TracePoint> tracePoints,   // ≥2 · auto-chunked if >5000
+  double? snapRadiusMeters,                // 0..10000 · use ~500 in cities
   TravelMode travelMode = TravelMode.car,
   TravelModeOptions? travelModeOptions,
   GeometryFormat geometryFormat = GeometryFormat.simple,
-  int overlapPoints = 10,                  // solape entre trozos
+  int overlapPoints = 10,                  // overlap between chunks
 });
 
 Future<WaypointOptimizationResponse> optimizeWaypoints({
   required LatLng origin,
-  required List<OptimizationWaypoint> waypoints,   // ids ÚNICOS
+  required List<OptimizationWaypoint> waypoints,   // UNIQUE ids
   LatLng? destination,
   TravelMode travelMode = TravelMode.car,
   TravelModeOptions? travelModeOptions,
@@ -240,9 +240,9 @@ Future<WaypointOptimizationResponse> optimizeWaypoints({
 ### `maps.maps` — firmas exactas
 
 ```dart
-String? styleDescriptorUrl(          // devuelve null si no hay credenciales
+String? styleDescriptorUrl(          // returns null if there are no credentials
   MapStyle style, {                  // standard | monochrome | hybrid | satellite
-  MapColorScheme? colorScheme,       // light | dark  ← lo renderiza el servidor
+  MapColorScheme? colorScheme,       // light | dark  ← rendered by the server
   MapTraffic? traffic,               // all | congestion
   MapTerrain? terrain,               // hillshade | terrain3d
   MapBuildings? buildings,           // buildings3d
@@ -255,25 +255,25 @@ String? styleDescriptorUrl(          // devuelve null si no hay credenciales
 
 ({String? light, String? dark}) dayNightStyleUrls(MapStyle style, {...});
 
-Future<AlsBytes> staticMap({         // los bytes de la imagen (JPEG)
+Future<AlsBytes> staticMap({         // the image bytes (JPEG)
   LatLng? center, double? zoom,      // center+(zoom XOR radiusMeters) XOR
   LatLngBounds? boundingBox,         // boundingBox XOR boundedPositions
   List<LatLng> boundedPositions = const [],
   double? radiusMeters,
-  required int width,                // 64..1400, LANZA fuera de rango
+  required int width,                // 64..1400, THROWS if out of range
   required int height,               // 64..1400
-  MapStyle style = MapStyle.standard,  // SOLO standard | satellite
+  MapStyle style = MapStyle.standard,  // ONLY standard | satellite
   MapColorScheme? colorScheme,
-  String? geoJsonOverlay,            // geometría encima
+  String? geoJsonOverlay,            // geometry drawn on top
   ...
 });
 
-String? staticMapUrl({...});         // ⚠️ la URL LLEVA LA CLAVE: no la registres
+String? staticMapUrl({...});         // ⚠️ the URL CONTAINS THE KEY: do not log it
 
-// Solo para un renderizador propio: el descriptor de estilo ya las trae.
-String? tileUrlTemplate(String tileset);   // {z}/{x}/{y} literales, con clave
-String? glyphsUrlTemplate();               // {fontstack}/{range}, sin clave
-String? spritesUrl(MapStyle style,         // SIN extensión: MapLibre añade
+// Only for a custom renderer: the style descriptor already includes them.
+String? tileUrlTemplate(String tileset);   // literal {z}/{x}/{y}, with key
+String? glyphsUrlTemplate();               // {fontstack}/{range}, no key
+String? spritesUrl(MapStyle style,         // WITHOUT extension: MapLibre appends
     {MapColorScheme colorScheme = MapColorScheme.light});  // .json/.png/@2x
 ```
 
@@ -287,7 +287,7 @@ Future<Geofence> putGeofence({
   required String collectionName,
   required String geofenceId,
   required GeofenceGeometry geometry,     // .circle() .polygon() .multiPolygon()
-  Map<String, String> properties = const {},  // ≤3, clave ≤20, valor ≤40
+  Map<String, String> properties = const {},  // ≤3, key ≤20, value ≤40
 });
 
 Future<BatchResult> batchPutGeofence({    // ≤10
@@ -304,29 +304,29 @@ Future<GeofencePage<Geofence>> listGeofences({
 Future<BatchResult> batchDeleteGeofence({
   required String collectionName, required List<String> geofenceIds});
 
-// Devuelve SOLO errores: los eventos ENTER/EXIT salen por EventBridge.
+// Returns ONLY errors: ENTER/EXIT events go out through EventBridge.
 Future<BatchResult> batchEvaluateGeofences({
   required String collectionName,
   required List<DevicePositionUpdate> positions,   // ≤10
 });
 
-// LA operación que justifica esta familia: avisa ANTES de que ocurra.
+// THE operation that justifies this family: warns BEFORE it happens.
 Future<ForecastGeofenceEventsResponse> forecastGeofenceEvents({
   required String collectionName,
   required LatLng position,
-  double? speedKmh,          // SIN ESTO no predice, solo comprueba contención
-  Duration? timeHorizon,     // SIN ESTO tampoco
+  double? speedKmh,          // WITHOUT THIS it won't predict, only check containment
+  Duration? timeHorizon,     // WITHOUT THIS either
   int? maxResults,
   String? nextToken,
 });
 
-// Plano de control (host cp.geofencing.geo.…, se resuelve solo)
+// Control plane (host cp.geofencing.geo.…, resolved automatically)
 Future<GeofenceCollection> createCollection({required String collectionName,
     String? description, String? kmsKeyId, Map<String, String> tags = const {}});
 Future<GeofenceCollection> describeCollection(String collectionName);
 Future<GeofenceCollection> updateCollection({required String collectionName,
     String? description});
-Future<void> deleteCollection(String collectionName);   // borra las geovallas
+Future<void> deleteCollection(String collectionName);   // deletes the geofences
 Future<GeofencePage<GeofenceCollection>> listCollections({int? maxResults,
     String? nextToken});
 ```
@@ -341,7 +341,7 @@ base de datos, esto es infraestructura duplicada.** Lo que sí lo justifica:
 `associateConsumer`, `verifyDevicePosition` y `listDevicePositions` con filtro.
 
 ```dart
-// Trocea solo en peticiones de 10.
+// Automatically split into requests of 10.
 Future<BatchResult> batchUpdateDevicePosition({
   required String trackerName,
   required List<DevicePositionUpdate> updates,
@@ -357,16 +357,16 @@ Future<({List<DevicePosition> positions, BatchResult result})>
 Future<TrackingPage<DevicePosition>> getDevicePositionHistory({
   required String trackerName,
   required String deviceId,
-  DateTime? from,        // por defecto: últimas 24 h
+  DateTime? from,        // default: last 24 h
   DateTime? to,
   int? maxResults,       // 1..100
   String? nextToken,
 });
 
-// «quién hay dentro de este polígono ahora mismo»
+// "who is inside this polygon right now"
 Future<TrackingPage<DevicePosition>> listDevicePositions({
   required String trackerName,
-  List<LatLng>? filterGeometry,   // ≥3 puntos, se cierra solo
+  List<LatLng>? filterGeometry,   // ≥3 points, closed automatically
   int? maxResults,
   String? nextToken,
 });
@@ -374,30 +374,30 @@ Future<TrackingPage<DevicePosition>> listDevicePositions({
 Future<BatchResult> batchDeleteDevicePositionHistory({
   required String trackerName, required List<String> deviceIds});
 
-// ¿me están falseando la ubicación?
+// is my location being spoofed?
 Future<PositionVerification> verifyDevicePosition({
   required String trackerName,
   required String deviceId,
   required LatLng position,
   required DateTime sampleTime,
   double? horizontalAccuracyMeters,
-  String? ipv4Address,                       // SIN ESTO no deduce gran cosa
+  String? ipv4Address,                       // WITHOUT THIS it can't infer much
   List<WiFiAccessPoint> wifiAccessPoints = const [],
 });
 
-// Plano de control
+// Control plane
 Future<Tracker> createTracker({required String trackerName, String? description,
     PositionFiltering positionFiltering = PositionFiltering.distanceBased,
     bool? eventBridgeEnabled, String? kmsKeyId, Map<String, String> tags = const {}});
 Future<Tracker> describeTracker(String trackerName);
 Future<Tracker> updateTracker({required String trackerName, String? description,
     PositionFiltering? positionFiltering, bool? eventBridgeEnabled});
-Future<void> deleteTracker(String trackerName);          // borra el histórico
+Future<void> deleteTracker(String trackerName);          // deletes the history
 Future<TrackingPage<Tracker>> listTrackers({int? maxResults, String? nextToken});
 
-// El enlace que hace que las geovallas se evalúen SOLAS
+// The link that makes geofences get evaluated ON THEIR OWN
 Future<void> associateConsumer({required String trackerName,
-                                required String collectionArn});  // el ARN
+                                required String collectionArn});  // the ARN
 Future<void> disassociateConsumer({required String trackerName,
                                    required String collectionArn});
 Future<TrackingPage<String>> listConsumers({required String trackerName,
@@ -412,17 +412,17 @@ Future<TrackingPage<String>> listConsumers({required String trackerName,
 `DispatchPlanner.rank`, que sí llama a la matriz.
 
 ```dart
-// ── Lectura del GPS: el tipo de entrada de toda la capa
+// ── GPS reading: the input type for the whole layer
 PositionFix({
   required LatLng position,
   required DateTime timestamp,
-  double? accuracyMeters,      // el dato más valioso; pásalo siempre
-  double? speedKmh,            // del receptor (Doppler), no calculada
+  double? accuracyMeters,      // the most valuable field; always pass it
+  double? speedKmh,            // from the receiver (Doppler), not computed
   double? headingDegrees,
   double? altitudeMeters,
 })
 
-// ── Filtrar el ruido
+// ── Filter out the noise
 PositionFilter({
   double maxAccuracyMeters = 50,
   double noiseFactor = 2.0,
@@ -436,11 +436,11 @@ void reset()
 
 enum FixRejection { poorAccuracy, outOfOrder, withinNoise, impossibleSpeed }
 
-// ── Medir el viaje
+// ── Measure the trip
 TripRecorder({
   PositionFilter? filter,
   double stopSpeedKmh = 3,
-  double resumeSpeedKmh = 8,        // > stopSpeedKmh o lanza
+  double resumeSpeedKmh = 8,        // > stopSpeedKmh or it throws
   Duration minStopDuration = const Duration(seconds: 45),
   bool keepTrack = true,
 })
@@ -452,7 +452,7 @@ void reset()
 //              .stoppedDuration .stops .track .maxSpeedKmh
 //              .averageMovingSpeedKmh .rejections .acceptedFixes
 
-// ── Tarificar. TODOS los importes en unidades menores (céntimos), int.
+// ── Pricing. ALL amounts in minor units (cents), int.
 Tariff({
   required String currency,        // ISO 4217
   required int baseFare,
@@ -461,7 +461,7 @@ Tariff({
   int waitingPerMinute = 0,
   Duration waitingGrace = Duration.zero,
   int minimumFare = 0,
-  int minorUnitDigits = 2,         // 0 para CLP, JPY
+  int minorUnitDigits = 2,         // 0 for CLP, JPY
   FareRounding rounding = FareRounding.none,
   List<TariffBand> bands = const <TariffBand>[],
   List<Surcharge> surcharges = const <Surcharge>[],
@@ -471,7 +471,7 @@ FareBreakdown quote(TripSummary trip, {
   int tolls = 0,
   List<Surcharge> extraSurcharges = const <Surcharge>[],
 })
-FareBreakdown estimate({           // antes de empezar, desde una ruta
+FareBreakdown estimate({           // before starting, from a route
   required double distanceMeters,
   required Duration duration,
   DateTime? departure,
@@ -482,7 +482,7 @@ FareBreakdown estimate({           // antes de empezar, desde una ruta
 TariffBand({
   required String name,
   required Duration startOfDay,
-  required Duration endOfDay,      // < startOfDay ⇒ cruza la medianoche
+  required Duration endOfDay,      // < startOfDay ⇒ crosses midnight
   double multiplier = 1.0,
   Set<int> weekdays = const <int>{1,2,3,4,5,6,7},   // DateTime.monday = 1
 })
@@ -493,20 +493,20 @@ enum FareRounding { none, nearest5, nearest10, nearest50, nearestMajor,
 
 // FareBreakdown: .total .lines .formattedTotal .toReceipt() .currency
 
-// ── Seguir una ruta ya calculada
+// ── Follow an already calculated route
 RouteTracker(Route route, {
   double offRouteThresholdMeters = 45,
   int offRouteStrikes = 3,
   int searchWindowSegments = 60,
 })
 RouteProgress update(LatLng position, {DateTime? now})
-void resync()                      // tras una pausa larga sin posiciones
+void resync()                      // after a long gap without positions
 
 // RouteProgress: .remainingMeters .remainingDuration .eta .offRoute
 //                .fraction .deviationMeters .currentStep .nextStep
 //                .distanceToNextManeuverMeters .stepIndex
 
-// ── Subasta de carreras (modelo inDrive)
+// ── Ride auction (inDrive model)
 RideRequest({
   required String id, required LatLng pickup, required LatLng dropoff,
   required int proposedFare, required String currency,
@@ -522,9 +522,9 @@ DriverBid({
 })
 RideAuction({required RideRequest request,
              Duration duration = const Duration(minutes: 5)})
-void bid(DriverBid offer, {DateTime? now})     // sustituye la del mismo id
+void bid(DriverBid offer, {DateTime? now})     // replaces the one with the same id
 bool withdraw(String driverId)
-DriverBid accept(String driverId, {DateTime? now})   // lanza si caducó
+DriverBid accept(String driverId, {DateTime? now})   // throws if it expired
 void cancel()
 List<DriverBid> liveBids(DateTime now)
 AuctionState stateAt(DateTime now)
@@ -533,9 +533,9 @@ BidRanking({double priceWeight = 1, double etaWeight = 1,
             double ratingWeight = 0.5})
 List<DriverBid> sort(List<DriverBid> bids, {DateTime? now})
 
-// ── ¿Le compensa al conductor?
+// ── Is it worth it for the driver?
 DriverEconomics({
-  required int costPerKilometer,   // combustible + desgaste, NO solo gasolina
+  required int costPerKilometer,   // fuel + wear, NOT just gas
   double commissionRate = 0,
   int minimumNetPerHour = 0,
   double returnFactor = 0.0,
@@ -547,12 +547,12 @@ BidEvaluation evaluate({
   required double deadheadMeters, required Duration deadheadDuration,
   required double tripMeters, required Duration tripDuration,
 })
-int breakEvenFare({...los mismos cuatro...})   // qué contraofertar
+int breakEvenFare({...the same four...})   // what to counter-offer
 
 // BidEvaluation: .net .netPerHour .worthIt .drivingCost .commission
 //                .deadheadShare .engagedDuration
 
-// ── Precio sugerido al pasajero
+// ── Suggested fare for the passenger
 FareAdvisor({required Tariff tariff, double minimumRatio = 0.80,
              double maximumRatio = 1.40, double midpointRatio = 0.95,
              double steepness = 9.0})
@@ -562,27 +562,27 @@ FareSuggestion suggest({required double distanceMeters,
 double acceptanceProbability({required int offered, required int reference,
                               double demandFactor = 1.0})
 
-// ── Precio sugerido (modelo de puja, forma de inDrive)
+// ── Suggested price (bidding model, inDrive-style)
 MarketConditions({
   int availableDrivers = 0,
   int openRequests = 0,
   List<DemandSignal> signals = const <DemandSignal>[],
-  double returnEmptyProbability = 0,   // 0..1, vuelta de vacío
-  double congestionFactor = 1.0,       // duración con tráfico / sin tráfico
+  double returnEmptyProbability = 0,   // 0..1, coming back empty
+  double congestionFactor = 1.0,       // duration with traffic / without traffic
 })
 DemandSignal({required String name, required double multiplier})
-// constantes listas: DemandSignal.rain (1.15), .event (1.30), .noTransit (1.20)
+// ready-made constants: DemandSignal.rain (1.15), .event (1.30), .noTransit (1.20)
 
 PriceAdvisor({
   required Tariff tariff,
   required DriverEconomics economics,
-  double surgeExponent = 0.6,      // multiplicador = ratio ^ este exponente
+  double surgeExponent = 0.6,      // multiplier = ratio ^ this exponent
   double maxSurge = 2.5,
-  double minimumRatio = 0.85,      // solo si no hay conductores
-  double pickupAversion = 1.6,     // el tiempo muerto pesa más
+  double minimumRatio = 0.85,      // only if there are no drivers
+  double pickupAversion = 1.6,     // deadhead time weighs more
   double targetAcceptance = 0.5,
   double fastMargin = 1.08,
-  double fallbackSteepness = 9.0,  // ← inventado; calíbralo
+  double fallbackSteepness = 9.0,  // ← made up; calibrate it
   double detourFactor = 1.4,
   double urbanSpeedKmh = 24,
 })
@@ -592,10 +592,10 @@ SuggestedPrice suggest({
   List<DriverCandidate> nearbyDrivers = const <DriverCandidate>[],
   MarketConditions market = const MarketConditions(),
   DateTime? departure,
-  int tolls = 0,      // NO entra en el precio, se informa aparte
+  int tolls = 0,      // NOT part of the price, reported separately
   int fees = 0,
 })
-AcceptanceForecast forecast({    // para el deslizador del precio
+AcceptanceForecast forecast({    // for the price slider
   required int offered,
   required double distanceMeters,
   required Duration duration,
@@ -609,11 +609,11 @@ AcceptanceForecast forecast({    // para el deslizador del precio
 // AcceptanceForecast: .probability .driversLikelyToAccept
 //                     .driversConsidered .expectedPickup .estimated
 
-// ── Ajustar la tarifa a precios reales de tu ciudad
+// ── Fit the tariff to real prices in your city
 FareSample({
-  required double distanceMeters,   // de calculateRoutes, NO de la otra app
+  required double distanceMeters,   // from calculateRoutes, NOT from the other app
   required Duration duration,
-  required int observedFare,        // SIN peajes ni tasas
+  required int observedFare,        // WITHOUT tolls or fees
   String label = '',
 })
 TariffFit TariffCalibration.fit(List<FareSample> samples,
@@ -624,7 +624,7 @@ TariffFit TariffCalibration.fit(List<FareSample> samples,
 //            .distanceTimeCorrelation .splitIsReliable .isUsable
 //            .toTariff(currency: ...) .predict(...) .report(samples)
 
-// ── Elegir conductor.  shortlist es GRATIS; rank SÍ llama a la matriz.
+// ── Choose a driver.  shortlist is FREE; rank DOES call the matrix.
 DispatchPlanner({required RoutesClient routes, int shortlistSize = 12,
                  double maxRadiusMeters = 8000})
 List<DriverCandidate> shortlist(List<DriverLocation> drivers, LatLng pickup,
@@ -636,12 +636,12 @@ Future<List<DriverCandidate>> findNearest(List<DriverLocation> drivers,
     LatLng pickup, {Duration? staleAfter,
     TravelMode travelMode = TravelMode.car, DateTime? now})
 
-// ── Telemática
+// ── Telematics
 TelemetryAnalyzer({
   double harshAccelerationMps2 = 3.0,
   double harshBrakingMps2 = -3.5,
   double harshCorneringMps2 = 3.5,
-  double? speedLimitKmh,           // el paquete NO lo averigua
+  double? speedLimitKmh,           // the package does NOT look it up
   double speedToleranceKmh = 8,
   Duration minSpeedingDuration = const Duration(seconds: 10),
   Duration maxSampleGap = const Duration(seconds: 10),
@@ -651,7 +651,7 @@ DrivingScore score({double harshWeight = 4, double corneringWeight = 2,
                     double speedingWeight = 6})
 void reset()
 
-// ── Geometría de caminos
+// ── Path geometry
 double pathLength(List<LatLng> path)
 List<double> cumulativeDistances(List<LatLng> path)
 double crossTrackMeters(LatLng point, LatLng start, LatLng end)
@@ -665,37 +665,37 @@ List<LatLng> simplifyPath(List<LatLng> path, {required double toleranceMeters})
 ### `NativMapController` — lo que se usa de verdad
 
 ```dart
-// Cámara — nombres idénticos a google_maps_flutter
+// Camera — names identical to google_maps_flutter
 Future<void> animateCamera(CameraUpdate update, {Duration? duration});
 Future<void> moveCamera(CameraUpdate update);
-Future<CameraPosition?> getCameraPosition();   // null si el mapa no está listo
+Future<CameraPosition?> getCameraPosition();   // null if the map is not ready
 Future<LatLngBounds> getVisibleRegion();
 Future<double> getZoomLevel();
 Future<Offset> getScreenCoordinate(LatLng latLng);
 Future<LatLng> getLatLng(Offset screenCoordinate);
 Future<double> getMetersPerPixel(double latitude);
 
-// Marcadores
+// Markers
 Future<void> addMarker(Marker m);
-Future<void> addMarkers(Iterable<Marker> ms);   // USA ESTE con más de un puñado
+Future<void> addMarkers(Iterable<Marker> ms);   // USE THIS for more than a handful
 Future<void> updateMarker(Marker m);
 Future<void> removeMarker(MarkerId id);
-Future<void> setMarkers(Iterable<Marker> ms);   // deja EXACTAMENTE ese conjunto
+Future<void> setMarkers(Iterable<Marker> ms);   // leaves EXACTLY that set
 Future<void> clearMarkers();
 List<Marker> get markers;
 
-// Igual para polylines / polygons / circles:
+// Same for polylines / polygons / circles:
 //   addX · removeX(XId) · setXs(Iterable) · clearXs · get xs
 
-// Lo que Google no tiene
+// What Google doesn't have
 Future<void> addHeatmap(Heatmap h);
 Future<void> removeHeatmap(HeatmapId id);
-Future<void> addClusterManager(ClusterManager m);   // ANTES de los marcadores
+Future<void> addClusterManager(ClusterManager m);   // BEFORE the markers
 Future<double> getClusterExpansionZoom(Cluster c);
-NativOfflineManager? get offline;   // null si offlineEnabled: false
-StyleEditor get style;                // retocar capas en caliente
+NativOfflineManager? get offline;   // null if offlineEnabled: false
+StyleEditor get style;                // tweak layers at runtime
 
-// Estilo y capturas
+// Style and snapshots
 Future<void> setMapStyle(String styleUrl);
 Future<void> setCustomHeaders(Map<String, String> h, {List<String> urlFilter});
 Future<Uint8List> takeSnapshot({int? width, int? height});
@@ -706,32 +706,32 @@ Future<void> clearTileCache();
 
 ```dart
 NativMap(
-  styleUrl: ...,                        // requerido
-  initialCameraPosition: ...,           // requerido, SOLO al crear
+  styleUrl: ...,                        // required
+  initialCameraPosition: ...,           // required, ONLY at creation
   onMapCreated: (NativMapController c) {},
-  onStyleLoaded: () {},                 // en CADA carga, no solo la primera
-  onStyleError: (Object e) {},          // ENGÁNCHALO
+  onStyleLoaded: () {},                 // on EVERY load, not just the first
+  onStyleError: (Object e) {},          // HOOK IT UP
   onTap: (LatLng p) {},
   onLongPress: (LatLng p) {},
-  onMarkerTap: (Marker m) {},           // tiene prioridad sobre onTap
-  onClusterTap: (Cluster c) {},         // sin él, tocar un grupo lo abre solo
+  onMarkerTap: (Marker m) {},           // takes priority over onTap
+  onClusterTap: (Cluster c) {},         // without it, tapping a cluster expands it
   onPolylineTap: (Polyline p) {},
-  onCameraMove: (CameraPosition p) {},  // con antirrebote de 60 ms
-  onCameraIdle: () {},                  // ← PIDE DATOS AQUÍ, no en onCameraMove
+  onCameraMove: (CameraPosition p) {},  // debounced at 60 ms
+  onCameraIdle: () {},                  // ← FETCH DATA HERE, not in onCameraMove
   myLocationEnabled: false,
   myLocationTracking: MyLocationTracking.none,
   compassEnabled: true,
   zoomControlsEnabled: false,
   scaleBarEnabled: false,
-  attributionEnabled: true,             // ⚠️ quitarlo puede incumplir condiciones
+  attributionEnabled: true,             // ⚠️ removing it may breach the terms
   rotateGesturesEnabled: true,
   scrollGesturesEnabled: true,
   zoomGesturesEnabled: true,
   tiltGesturesEnabled: true,
   minMaxZoomPreference: MinMaxZoomPreference.unbounded,
   cameraTargetBounds: null,
-  offlineEnabled: false,                // true para que `offline` no sea null
-  customHeaders: null,                  // para SigV4 en las teselas
+  offlineEnabled: false,                // true so that `offline` is not null
+  customHeaders: null,                  // for SigV4 on the tiles
   padding: EdgeInsets.zero,
   styleLoadTimeout: Duration(seconds: 20),
 )
@@ -763,19 +763,19 @@ try {
   await maps.places.searchText(queryText: 'x');
 } on AlsApiException catch (e) {
   e.statusCode;             // 400, 403, 404, 429, 5xx
-  e.isConfigurationError;   // true en 400 y 403 → NO reintentes
-  e.isRetryable;            // true en 429 y 5xx
-  e.hint;                   // ← LEE ESTO: la causa concreta, escrita
-  e.requestId;              // lo primero que pide el soporte de AWS
+  e.isConfigurationError;   // true on 400 and 403 → do NOT retry
+  e.isRetryable;            // true on 429 and 5xx
+  e.hint;                   // ← READ THIS: the specific cause, spelled out
+  e.requestId;              // the first thing AWS support asks for
 } on BudgetExhaustedException catch (e) {
-  e.requestedUnits;         // lo que pedía la operación rechazada
-  e.resetsAt;               // cuándo vuelve a haber presupuesto
+  e.requestedUnits;         // what the rejected operation requested
+  e.resetsAt;               // when budget becomes available again
 } on AlsTransportException {
-  // No llegó a haber respuesta → NO se ha facturado nada
+  // No response was received → NOTHING has been billed
 } on NativMapsConfigurationException {
-  // Falta la clave. Se lanza ANTES de enviar
+  // Missing key. Thrown BEFORE sending
 } on AlsParseException {
-  // 200 pero la forma cambió. No reintentes: mira el cuerpo real
+  // 200 but the shape changed. Don't retry: look at the actual body
 }
 ```
 
@@ -792,25 +792,25 @@ umbrales, `maxResults`, filtros excluyentes). No se ha gastado nada.
 ### Barra de búsqueda de destino
 
 ```dart
-// 1 · al teclear, con antirrebote de 300 ms.
-//     `suggest`, NO `autocomplete`: autocompletar solo completa direcciones,
-//     y «Quicentro» o «Aeropuerto Mariscal Sucre» dan cero resultados.
+// 1 · on each keystroke, debounced at 300 ms.
+//     `suggest`, NOT `autocomplete`: autocomplete only completes addresses,
+//     so "Quicentro" or "Aeropuerto Mariscal Sucre" return zero results.
 _debounce = Timer(const Duration(milliseconds: 300), () async {
   final r = await maps.places.suggest(
-    query: texto,
-    biasPosition: posicionActual,                       // ordena
-    filter: const SearchFilter(includeCountries: ['ECU']),  // descarta
-    additionalFeatures: const [PlaceFeature.core],      // ← trae la posición
+    query: text,
+    biasPosition: currentPosition,                      // ranks
+    filter: const SearchFilter(includeCountries: ['ECU']),  // filters out
+    additionalFeatures: const [PlaceFeature.core],      // ← brings the position
   );
-  setState(() => _sugerencias = r.results);
+  setState(() => _suggestions = r.results);
 });
 
-// 2 · Un lugar ya trae su posición: elegirlo no cuesta otra petición.
-//     Solo una sugerencia de tipo búsqueda pide la segunda.
-final posicion = sugerencia.place?.position ??
-    (await maps.places.searchText(queryId: sugerencia.queryId))
+// 2 · A place already has its position: picking it costs no extra request.
+//     Only a query-type suggestion needs the second one.
+final position = suggestion.place?.position ??
+    (await maps.places.searchText(queryId: suggestion.queryId))
         .places.first.position!;
-await controlador.animateCamera(CameraUpdate.newLatLngZoom(posicion, 16));
+await controller.animateCamera(CameraUpdate.newLatLngZoom(position, 16));
 ```
 
 `autocomplete` + `getPlace` sigue siendo lo adecuado para un formulario de
@@ -819,168 +819,168 @@ await controlador.animateCamera(CameraUpdate.newLatLngZoom(posicion, 16));
 ### Cobrar una carrera de principio a fin
 
 ```dart
-final registrador = TripRecorder();
-final tarifa = Tariff(currency: 'USD', baseFare: 250, perKilometer: 110,
+final recorder = TripRecorder();
+final tariff = Tariff(currency: 'USD', baseFare: 250, perKilometer: 110,
     perMinute: 35, waitingPerMinute: 30,
     waitingGrace: const Duration(minutes: 3), minimumFare: 500);
 
-suscripcion = flujoDelGps.listen((posicion) {
-  final estado = registrador.add(PositionFix(
-    position: LatLng(posicion.latitude, posicion.longitude),
-    timestamp: posicion.timestamp,
-    accuracyMeters: posicion.accuracy,   // ← imprescindible
-    speedKmh: posicion.speed * 3.6,      // ← del receptor
+subscription = gpsStream.listen((position) {
+  final update = recorder.add(PositionFix(
+    position: LatLng(position.latitude, position.longitude),
+    timestamp: position.timestamp,
+    accuracyMeters: position.accuracy,   // ← essential
+    speedKmh: position.speed * 3.6,      // ← from the receiver
   ));
-  mostrarEnPantalla(estado.distanceMeters, estado.speedKmh);
+  showOnScreen(update.distanceMeters, update.speedKmh);
 });
 
-// Al terminar:
-final viaje = registrador.finish();
-// Peajes en centavos: tollCostByCurrency da dólares, y .round() sobre 0,40 da 0.
-final importe = tarifa.quote(viaje, tolls: ruta.tollCostInMinorUnits('USD'));
-guardar(viaje, importe.lines);   // guarda el DESGLOSE, no solo el total
+// When finished:
+final trip = recorder.finish();
+// Tolls in cents: tollCostByCurrency gives dollars, and .round() on 0.40 gives 0.
+final fare = tariff.quote(trip, tolls: route.tollCostInMinorUnits('USD'));
+save(trip, fare.lines);   // save the BREAKDOWN, not just the total
 ```
 
 ### Sugerirle un precio al pasajero
 
 ```dart
-// 1 · La ruta da distancia, duración CON TRÁFICO y peajes.
-final ruta = (await maps.routes.calculateRoutes(
-  origin: recogida, destination: destino,
+// 1 · The route gives distance, duration WITH TRAFFIC, and tolls.
+final route = (await maps.routes.calculateRoutes(
+  origin: pickup, destination: destination,
 )).best!;
 
-// 2 · La matriz da el tiempo REAL de recogida de cada conductor.
-final cercanos = await planificador.findNearest(conectados, recogida);
+// 2 · The matrix gives each driver's REAL pickup time.
+final nearby = await planner.findNearest(onlineDrivers, pickup);
 
-// 3 · Y con eso sale el precio.
-final precio = asesor.suggest(
-  distanceMeters: ruta.distanceMeters,
-  duration: ruta.duration,
-  nearbyDrivers: cercanos,
+// 3 · And from that comes the price.
+final price = advisor.suggest(
+  distanceMeters: route.distanceMeters,
+  duration: route.duration,
+  nearbyDrivers: nearby,
   market: MarketConditions(
-    availableDrivers: cercanos.length,
-    openRequests: peticionesSinAsignar,
-    signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+    availableDrivers: nearby.length,
+    openRequests: unassignedRequests,
+    signals: <DemandSignal>[if (isRaining) DemandSignal.rain],
   ),
-  tolls: ruta.tollCostInMinorUnits('USD'),   // centavos, no dólares
+  tolls: route.tollCostInMinorUnits('USD'),   // cents, not dollars
 );
 
-deslizador
-  ..min = precio.minimum
-  ..value = precio.recommended;
+slider
+  ..min = price.minimum
+  ..value = price.recommended;
 
-// Al mover el deslizador, sin ninguna petición:
-final f = asesor.forecast(
-  offered: loQueMarcaElDeslizador,
-  distanceMeters: ruta.distanceMeters,
-  duration: ruta.duration,
-  nearbyDrivers: cercanos,
+// When the slider moves, with no request at all:
+final f = advisor.forecast(
+  offered: sliderValue,
+  distanceMeters: route.distanceMeters,
+  duration: route.duration,
+  nearbyDrivers: nearby,
 );
-etiqueta.text = f.estimated
-    ? 'Precio orientativo'
-    : '${f.driversLikelyToAccept} de ${f.driversConsidered} conductores';
+label.text = f.estimated
+    ? 'Approximate price'
+    : '${f.driversLikelyToAccept} of ${f.driversConsidered} drivers';
 ```
 
 ### Decidir si aceptar una carrera (conductor)
 
 ```dart
-const asesor = BidAdvisor(currency: 'USD', minorUnitDigits: 2,
+const advisor = BidAdvisor(currency: 'USD', minorUnitDigits: 2,
   economics: DriverEconomics(costPerKilometer: 20, commissionRate: 0.20,
       minimumNetPerHour: 1500));
 
-final analisis = asesor.evaluate(
-  fare: peticion.proposedFare,
-  deadheadMeters: hastaRecoger.distanceMeters,
-  deadheadDuration: hastaRecoger.duration,
-  tripMeters: elTrayecto.distanceMeters,
-  tripDuration: elTrayecto.duration,
+final evaluation = advisor.evaluate(
+  fare: request.proposedFare,
+  deadheadMeters: toPickup.distanceMeters,
+  deadheadDuration: toPickup.duration,
+  tripMeters: trip.distanceMeters,
+  tripDuration: trip.duration,
 );
 
-if (analisis.worthIt) {
-  aceptar();
+if (evaluation.worthIt) {
+  accept();
 } else {
-  contraofertar(asesor.breakEvenFare(/* los mismos cuatro */));
+  counterOffer(advisor.breakEvenFare(/* the same four */));
 }
 ```
 
 ### Ofrecer la carrera a quien llegue antes de verdad
 
 ```dart
-final planificador = DispatchPlanner(routes: maps.routes);
-final finalistas = await planificador.findNearest(
-  conductoresConectados, peticion.pickup,
-  staleAfter: const Duration(minutes: 2),   // descarta posiciones viejas
+final planner = DispatchPlanner(routes: maps.routes);
+final finalists = await planner.findNearest(
+  onlineDrivers, request.pickup,
+  staleAfter: const Duration(minutes: 2),   // drops stale positions
 );
-for (final c in finalistas.take(5)) {
-  notificar(c.driver.driverId, llegaEn: c.drivingDuration!);
+for (final c in finalists.take(5)) {
+  notify(c.driver.driverId, arrivesIn: c.drivingDuration!);
 }
 ```
 
 ### Filtrar antes de pagar la matriz
 
 ```dart
-// Gratis: aritmética local
-final cercanos = unidades
-  ..sort((a, b) => a.distanceTo(aviso).compareTo(b.distanceTo(aviso)));
+// Free: local arithmetic
+final nearby = vehicles
+  ..sort((a, b) => a.distanceTo(incident).compareTo(b.distanceTo(incident)));
 
-// 3 unidades en vez de 20
-final matriz = await maps.routes.calculateRouteMatrix(
-  origins: cercanos.take(3).toList(),
-  destinations: [aviso],
+// 3 units instead of 20
+final matrix = await maps.routes.calculateRouteMatrix(
+  origins: nearby.take(3).toList(),
+  destinations: [incident],
 );
 ```
 
 ### Mover marcadores sin duplicarlos
 
 ```dart
-// copyWith CONSERVA el markerId → el marcador se mueve.
-// Crear uno nuevo con otro id deja el anterior clavado en el mapa.
-await controlador.addMarkers([
-  for (final m in controlador.markers)
-    m.copyWith(position: nuevaPosicion(m), rotation: nuevoRumbo(m)),
+// copyWith KEEPS the markerId → the marker moves.
+// Creating a new one with another id leaves the old one stuck on the map.
+await controller.addMarkers([
+  for (final m in controller.markers)
+    m.copyWith(position: newPosition(m), rotation: newHeading(m)),
 ]);
 ```
 
 ### Avisar ANTES de que un vehículo salga de la zona
 
 ```dart
-final aviso = await maps.geofencing.forecastGeofenceEvents(
-  collectionName: 'zonas-permitidas',
-  position: ultimaPosicion,
-  speedKmh: velocidadActual,             // SIN ESTO no predice nada
+final forecast = await maps.geofencing.forecastGeofenceEvents(
+  collectionName: 'allowed-zones',
+  position: lastPosition,
+  speedKmh: currentSpeed,             // WITHOUT THIS it predicts nothing
   timeHorizon: const Duration(minutes: 10),
 );
 
-// `breaches` deja fuera los IDLE, que dicen «sigue donde estaba».
-for (final e in aviso.breaches) {
-  alertar('${e.eventType.name} ${e.geofenceId} en '
-          '${e.timeUntilBreach?.inMinutes} min');
+// `breaches` leaves out IDLE events, which say "still where it was".
+for (final e in forecast.breaches) {
+  alert('${e.eventType.name} ${e.geofenceId} in '
+        '${e.timeUntilBreach?.inMinutes} min');
 }
 ```
 
 ### Comprobar una zona sin gastar una petición
 
 ```dart
-// Local y gratis. Para pintar el estado en la interfaz.
-final zona = GeofenceGeometry.circle(center: bodega, radiusMeters: 500);
-if (zona.contains(posicionDelVehiculo)) { ... }
+// Local and free. For drawing the state in the UI.
+final zone = GeofenceGeometry.circle(center: warehouse, radiusMeters: 500);
+if (zone.contains(vehiclePosition)) { ... }
 
-// La evaluación OFICIAL —la que dispara eventos— es otra cosa:
+// The OFFICIAL evaluation —the one that fires events— is something else:
 await maps.geofencing.batchEvaluateGeofences(
-  collectionName: 'zonas',
+  collectionName: 'zones',
   positions: [DevicePositionUpdate(
-    deviceId: imei, position: p, sampleTime: horaDelGps)],
+    deviceId: deviceId, position: p, sampleTime: gpsTime)],
 );
-// ↑ Devuelve solo errores. Los eventos llegan por EventBridge.
+// ↑ Returns only errors. Events arrive through EventBridge.
 ```
 
 ### Día y noche
 
 ```dart
-final estilos = maps.maps.dayNightStyleUrls(MapStyle.standard);
+final styles = maps.maps.dayNightStyleUrls(MapStyle.standard);
 NativMap(
-  styleUrl: esDeNoche ? estilos.dark! : estilos.light!,
-  // Cambiar esta cadena recarga el estilo y reinstala las superposiciones solo.
+  styleUrl: isNight ? styles.dark! : styles.light!,
+  // Changing this string reloads the style and reinstalls the overlays by itself.
   ...
 );
 ```
@@ -989,16 +989,16 @@ NativMap(
 
 ```dart
 final r = await maps.routes.calculateIsolines(
-  origin: ultimaPosicion,
+  origin: lastPosition,
   thresholds: Thresholds.time([const Duration(minutes: 8)]),
   travelMode: TravelMode.scooter,
 );
-await controlador.addPolygon(
-  Polygon.fromIsoline(r.isolines.first, polygonId: const PolygonId('zona')),
+await controller.addPolygon(
+  Polygon.fromIsoline(r.isolines.first, polygonId: const PolygonId('zone')),
 );
-// ⚠️ Si la isócrona trae varios polígonos (un río sin puentes), recorre
-// `isolines.first.polygons` y crea uno por cada uno. Aplanarlos une las dos
-// orillas con una recta sobre el agua.
+// ⚠️ If the isoline has several polygons (a river with no bridges), iterate
+// `isolines.first.polygons` and create one for each. Flattening them joins both
+// banks with a straight line across the water.
 ```
 
 ---
@@ -1006,33 +1006,33 @@ await controlador.addPolygon(
 ## 6 · Antipatrones que producen fallos silenciosos
 
 ```dart
-// ❌ Pedir en cada movimiento de cámara → decenas de peticiones por gesto
+// ❌ Fetching on every camera move → dozens of requests per gesture
 onCameraMove: (p) => maps.places.searchNearby(position: p.target),
 // ✅
-onCameraIdle: () => _buscarEnLaVistaActual(),
+onCameraIdle: () => _searchCurrentView(),
 
-// ❌ Un cliente por pantalla → cada uno con sus cachías vacías
+// ❌ One client per screen → each one with its own empty caches
 Widget build(_) { final maps = NativMaps(...); }
-// ✅ uno compartido en toda la app
+// ✅ one shared across the whole app
 
-// ❌ La celda con error trae ceros, y un cero parece «lo más cerca»
-final mejor = matriz.cell(i, 0).duration;
+// ❌ An error cell holds zeros, and a zero looks like "the closest"
+final best = matrix.cell(i, 0).duration;
 // ✅
-if (matriz.cell(i, 0).isValid) { ... }
+if (matrix.cell(i, 0).isValid) { ... }
 
-// ❌ `locality` es la ciudad entera, a kilómetros del punto
-final direccion = lugares.first.formattedAddress;
+// ❌ `locality` is the whole city, kilometers away from the point
+final address = places.first.formattedAddress;
 // ✅
-if (lugares.first.placeType?.isPrecise ?? false) { ... }
+if (places.first.placeType?.isPrecise ?? false) { ... }
 
-// ❌ Sin granularidad, 30 min = miles de vértices y la interfaz se congela
+// ❌ Without granularity, 30 min = thousands of vertices and the UI freezes
 calculateIsolines(origin: p, thresholds: Thresholds.time([Duration(minutes: 30)]),
                   granularity: const IsolineGranularity());
-// ✅ deja el valor por defecto, que ya trae maxPoints: 300
+// ✅ keep the default, which already has maxPoints: 300
 
-// ❌ La URL lleva la clave dentro
-logger.info('estilo: ${maps.maps.styleDescriptorUrl(MapStyle.standard)}');
-// ✅ nunca registres esa URL
+// ❌ The URL has the key inside
+logger.info('style: ${maps.maps.styleDescriptorUrl(MapStyle.standard)}');
+// ✅ never log that URL
 ```
 
 ---
@@ -1040,147 +1040,147 @@ logger.info('estilo: ${maps.maps.styleDescriptorUrl(MapStyle.standard)}');
 ### Sumar la distancia entre lecturas del GPS
 
 ```dart
-// ❌ Un coche aparcado acumula kilómetros: el receptor rebota dentro de su
-//    círculo de incertidumbre, y el pasajero paga ese rebote.
-for (var i = 1; i < posiciones.length; i++) {
-  total += posiciones[i - 1].distanceTo(posiciones[i]);
+// ❌ A parked car racks up kilometers: the receiver bounces around inside its
+//    uncertainty circle, and the passenger pays for that bouncing.
+for (var i = 1; i < positions.length; i++) {
+  total += positions[i - 1].distanceTo(positions[i]);
 }
 
 // ✅
-final registrador = TripRecorder();
-for (final p in lecturas) registrador.add(p);
-final total = registrador.finish().distanceMeters;
+final recorder = TripRecorder();
+for (final p in readings) recorder.add(p);
+final total = recorder.finish().distanceMeters;
 ```
 
 ### Pasar `PositionFix` sin `accuracyMeters`
 
 ```dart
-// ❌ Sin la incertidumbre no hay forma de distinguir avance lento de rebote,
-//    y el filtro solo puede aplicar el suelo absoluto de 3 m.
+// ❌ Without the uncertainty there's no way to tell slow progress from bouncing,
+//    and the filter can only apply the absolute 3 m floor.
 PositionFix(position: p, timestamp: t)
 
 // ✅
-PositionFix(position: p, timestamp: t, accuracyMeters: lectura.accuracy,
-    speedKmh: lectura.speed * 3.6)
+PositionFix(position: p, timestamp: t, accuracyMeters: reading.accuracy,
+    speedKmh: reading.speed * 3.6)
 ```
 
 ### Guardar solo el total de la carrera
 
 ```dart
-// ❌ Seis meses después llega la reclamación y no hay cómo justificarlo.
-guardar(importe.total);
+// ❌ Six months later the complaint arrives and there's no way to justify it.
+save(fare.total);
 
-// ✅ El desglose trae la cuenta de cada línea: «12,40 km × 1,10».
-guardar(importe.total, importe.lines);
+// ✅ The breakdown has the math for each line: "12.40 km × 1.10".
+save(fare.total, fare.lines);
 ```
 
 ### Usar `double` para el dinero
 
 ```dart
-// ❌ 0,10 no existe en coma flotante binaria; la caja descuadra a fin de mes.
-double tarifa = 1.10;
+// ❌ 0.10 has no exact binary float; the till won't balance at month end.
+double rate = 1.10;
 
-// ✅ Unidades menores, enteras. El redondeo ocurre una vez, al final.
-const perKilometer = 110;   // céntimos
+// ✅ Minor units, as integers. Rounding happens once, at the end.
+const perKilometer = 110;   // cents
 ```
 
 ### Ordenar conductores por distancia en línea recta
 
 ```dart
-// ❌ El que está a 300 m al otro lado del río tarda quince minutos.
-conductores.sort((a, b) => a.position.distanceTo(punto)
-    .compareTo(b.position.distanceTo(punto)));
+// ❌ The driver 300 m away across the river takes fifteen minutes.
+drivers.sort((a, b) => a.position.distanceTo(point)
+    .compareTo(b.position.distanceTo(point)));
 
-// ✅ Gratis primero, matriz solo para los finalistas.
-final mejores = await planificador.findNearest(conductores, punto);
+// ✅ Free first, matrix only for the finalists.
+final best = await planner.findNearest(drivers, point);
 ```
 
 ### Recalcular la ruta al primer punto que se salga
 
 ```dart
-// ❌ Una lectura mala coloca el coche a 80 m de su carril. En una calle
-//    estrecha pasa varias veces por minuto, y cada recálculo se factura.
-if (posicion.distanceTo(ruta.points.first) > 50) await recalcular();
+// ❌ One bad reading puts the car 80 m from its lane. On a narrow street it
+//    happens several times a minute, and every recalculation is billed.
+if (position.distanceTo(route.points.first) > 50) await recalculate();
 
-// ✅ RouteTracker exige varias lecturas seguidas antes de darlo por bueno.
-final progreso = seguimiento.update(posicion);
-if (progreso.offRoute) await recalcular();
+// ✅ RouteTracker requires several readings in a row before trusting it.
+final progress = tracker.update(position);
+if (progress.offRoute) await recalculate();
 ```
 
 ### Recortar el rastro antes de medirlo
 
 ```dart
-// ❌ Douglas–Peucker quita justo los puntos de las curvas suaves: la
-//    distancia siempre sale menor, y se cobra de menos.
-final total = pathLength(simplifyPath(rastro, toleranceMeters: 5));
+// ❌ Douglas–Peucker removes exactly the points on gentle curves: the
+//    distance always comes out shorter, and you undercharge.
+final total = pathLength(simplifyPath(track, toleranceMeters: 5));
 
-// ✅ Primero se mide, después se recorta para guardar.
-final total = registrador.finish().distanceMeters;
-final paraGuardar = simplifyPath(viaje.track, toleranceMeters: 5);
+// ✅ Measure first, then simplify for storage.
+final total = recorder.finish().distanceMeters;
+final toStore = simplifyPath(trip.track, toleranceMeters: 5);
 ```
 
 ### Enseñar `acceptanceProbability` como si fuera un dato
 
 ```dart
-// ❌ «87 % de probabilidad» con dos decimales: nadie lo vuelve a cuestionar.
-Text('${(p * 100).toStringAsFixed(1)} % de aceptación');
+// ❌ "87 % probability" with two decimals: nobody ever questions it again.
+Text('${(p * 100).toStringAsFixed(1)}% acceptance');
 
-// ✅ Es una curva calibrable, no una medición. Enséñala como orientación
-//    cualitativa hasta que la ajustes con tu propio historial.
-Text(p > 0.6 ? 'Buen precio' : 'Puede que nadie conteste');
+// ✅ It is a tunable curve, not a measurement. Show it as qualitative
+//    guidance until you calibrate it with your own history.
+Text(p > 0.6 ? 'Good price' : 'Nobody may answer');
 ```
 
 ### Enseñar la probabilidad de aceptación cuando es una estimación
 
 ```dart
-// ❌ `estimated: true` significa que detrás hay una curva sin calibrar o
-//    tiempos en línea recta. Un porcentaje con decimales ahí es mentira.
-Text('${(f.probability * 100).toStringAsFixed(1)} % de aceptación');
+// ❌ `estimated: true` means there's an uncalibrated curve behind it, or
+//    straight-line times. A percentage with decimals there is a lie.
+Text('${(f.probability * 100).toStringAsFixed(1)}% acceptance');
 
 // ✅
 Text(f.estimated
-    ? 'Precio orientativo'
-    : '${f.driversLikelyToAccept} de ${f.driversConsidered} aceptarían');
+    ? 'Approximate price'
+    : '${f.driversLikelyToAccept} of ${f.driversConsidered} would accept');
 ```
 
 ### Meter los peajes dentro del precio sugerido
 
 ```dart
-// ❌ El peaje no se negocia y no se lo lleva el conductor. Dentro del
-//    precio, la puja se distorsiona y el conductor cree que gana más.
-final ofrecer = precio.recommended + peajes;
+// ❌ Tolls aren't negotiable and the driver doesn't keep them. Inside the
+//    price, the bidding gets distorted and the driver thinks they earn more.
+final offer = price.recommended + tolls;
 
-// ✅ Van aparte, como en inDrive.
-final ofrecer = precio.recommended;
-final aparte = precio.extrasPaidSeparately;
+// ✅ They go separately, as in inDrive.
+final offer = price.recommended;
+final extras = price.extrasPaidSeparately;
 ```
 
 ### Calibrar la tarifa con muestras de hora punta
 
 ```dart
-// ❌ La demanda se cuela DENTRO de los coeficientes, y luego MarketConditions
-//    la vuelve a aplicar: se cobra dos veces.
-// ✅ Toma las muestras en horas tranquilas. La demanda es una capa aparte.
+// ❌ Demand leaks INTO the coefficients, and then MarketConditions
+//    applies it again: you charge twice.
+// ✅ Take the samples during quiet hours. Demand is a separate layer.
 ```
 
 ### Fiarte del reparto km/minuto sin mirar la correlación
 
 ```dart
-// ❌ En ciudad, kilómetros y minutos van de la mano. El ajuste predice bien
-//    el total y el reparto entre los dos puede ser arbitrario.
-final tarifa = ajuste.toTariff(currency: 'USD');
+// ❌ In cities, kilometers and minutes go hand in hand. The fit predicts the
+//    total well, and the split between the two can be arbitrary.
+final tariff = fit.toTariff(currency: 'USD');
 
 // ✅
-if (!ajuste.splitIsReliable) {
-  // Añade muestras que rompan la relación: un corto en atasco y un largo
-  // por autopista a las seis de la mañana.
+if (!fit.splitIsReliable) {
+  // Add samples that break the correlation: a short trip in a traffic jam and
+  // a long one on the highway at six in the morning.
 }
 ```
 
 ## 7 · Nombres exactos de los enums
 
 ```dart
-TravelMode      .car .truck .pedestrian .scooter        // NO .motorcycle
+TravelMode      .car .truck .pedestrian .scooter        // NOT .motorcycle
 MapStyle        .standard .monochrome .hybrid .satellite
 MapColorScheme  .light .dark
 IntendedUse     .singleUse .storage
@@ -1196,9 +1196,9 @@ MapTraffic      .all .congestion
 MapTerrain      .hillshade .terrain3d
 MapBuildings    .buildings3d
 MapPoiDensity   .off .verySparse .sparse .standard .dense .veryDense
-AlsService      .places .routes .maps               // firman geo-places/-routes/-maps
-                .geofencing .geofencingControl      // firman `geo` a secas
-                .tracking .trackingControl          // los `*Control` usan cp.
+AlsService      .places .routes .maps               // sign as geo-places/-routes/-maps
+                .geofencing .geofencingControl      // sign as plain `geo`
+                .tracking .trackingControl          // the `*Control` ones use cp.
 PositionFiltering .timeBased .distanceBased .accuracyBased
 ForecastedEventType .enter .exit .idle
 Cap             .buttCap .roundCap .squareCap
