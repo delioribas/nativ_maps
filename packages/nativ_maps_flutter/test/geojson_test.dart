@@ -231,4 +231,40 @@ void main() {
       expect(expression[2], <Object>['heatmap-density']);
     });
   });
+
+  group('anclaje de marcadores', () {
+    test('la punta de un alfiler es bottom y un vehículo es center', () {
+      expect(GeoJson.iconAnchor(const Offset(0.5, 1)), 'bottom');
+      expect(GeoJson.iconAnchor(const Offset(0.5, 0.5)), 'center');
+      expect(GeoJson.iconAnchor(Offset.zero), 'top-left');
+      expect(GeoJson.iconAnchor(const Offset(1, 0.5)), 'right');
+    });
+
+    test('el ancla viaja con cada marcador', () {
+      final json = GeoJson.markers([
+        Marker(
+          markerId: const MarkerId('taxi'),
+          position: LatLng(-0.18, -78.48),
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
+        ),
+      ]);
+      final properties =
+          ((json['features'] as List<dynamic>).single
+                  as Map<String, dynamic>)['properties']
+              as Map<String, dynamic>;
+
+      // Con `icon-anchor: bottom` fijo, un icono centrado quedaba medio
+      // icono por encima de su posición.
+      expect(properties['anchor'], 'center');
+      expect(properties['flat'], isTrue);
+    });
+
+    test('el texto baja más cuanto más arriba esté el ancla', () {
+      final pin = GeoJson.labelOffset(const Offset(0.5, 1));
+      final centered = GeoJson.labelOffset(const Offset(0.5, 0.5));
+
+      expect(pin[1], lessThan(centered[1]));
+    });
+  });
 }

@@ -404,4 +404,46 @@ void main() {
       expect(p.formatAmount(p.recommended), isNot(contains(',')));
     });
   });
+
+  group('redondeo', () {
+    // El caso real que destapó el fallo: ryvell, Quito, 1,6 km y 3 min.
+    // Salía «Mínimo 1,28 $» al lado de «Recomendado 1,50 $».
+    const quito = Tariff(
+      currency: 'USD',
+      baseFare: 50,
+      perKilometer: 40,
+      perMinute: 6,
+      minimumFare: 150,
+      rounding: FareRounding.nearest5,
+    );
+    const economics = DriverEconomics(
+      costPerKilometer: 12,
+      commissionRate: 0.10,
+      minimumNetPerHour: 400,
+    );
+
+    test('las tres cifras siguen la regla de redondeo de la tarifa', () {
+      const advisor = PriceAdvisor(tariff: quito, economics: economics);
+      final price = advisor.suggest(
+        distanceMeters: 1600,
+        duration: const Duration(minutes: 3),
+        market: const MarketConditions(
+          signals: <DemandSignal>[DemandSignal.rain],
+        ),
+      );
+
+      expect(price.minimum % 5, 0);
+      expect(price.recommended % 5, 0);
+      expect(price.fast % 5, 0);
+      expect(price.minimum, lessThanOrEqualTo(price.recommended));
+      expect(price.recommended, lessThanOrEqualTo(price.fast));
+    });
+
+    test('sin regla de redondeo no se toca nada', () {
+      expect(
+        const Tariff(currency: 'USD', baseFare: 0).applyRounding(128),
+        128,
+      );
+    });
+  });
 }

@@ -14,6 +14,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' as ml;
 // ignore: unnecessary_import
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/nativ_maps.dart';
+import 'package:nativ_maps_flutter/src/internal/default_pin.dart';
 import 'package:nativ_maps_flutter/src/internal/geojson.dart';
 import 'package:nativ_maps_flutter/src/internal/layers.dart';
 import 'package:nativ_maps_flutter/src/offline/offline_manager.dart';
@@ -513,7 +514,7 @@ class NativMapController {
       final features = await _native.queryRenderedFeatures(
         Point<double>(screenPoint.dx, screenPoint.dy),
         <String>[
-          LayerInstaller.markerLayerId,
+          ...LayerInstaller.markerLayerIds,
           for (final id in _clusterManagers.keys)
             LayerInstaller.clusterMarkerLayerId(id),
         ],
@@ -682,7 +683,8 @@ class NativMapController {
   Future<void> _uploadIconIfNeeded(BitmapDescriptor icon) async {
     if (!icon.needsUpload || _uploadedImages.contains(icon.name)) return;
     try {
-      await _native.addImage(icon.name, icon.bytes!);
+      final bytes = icon.bytes ?? await DefaultPin.png(icon.hue ?? 0);
+      await _native.addImage(icon.name, bytes);
       _uploadedImages.add(icon.name);
     } on Object catch (error) {
       debugPrint(

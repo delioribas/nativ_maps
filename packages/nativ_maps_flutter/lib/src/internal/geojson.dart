@@ -59,12 +59,42 @@ abstract final class GeoJson {
                   'label': m.label ?? '',
                   'anchorX': m.anchor.dx,
                   'anchorY': m.anchor.dy,
+                  'anchor': iconAnchor(m.anchor),
+                  'labelOffset': labelOffset(m.anchor),
                   'flat': m.flat,
                   if (m.icon.hue != null) 'hue': m.icon.hue,
                 },
               },
         ],
       };
+
+  /// El `icon-anchor` de MapLibre más cercano a [anchor].
+  ///
+  /// Google ancla con un `Offset` libre; MapLibre, con nueve posiciones con
+  /// nombre. Se redondea a la más cercana: `(0.5, 1)` es `bottom` —la punta
+  /// de un alfiler— y `(0.5, 0.5)` es `center` —un vehículo visto desde
+  /// arriba—, que son los dos que se usan de verdad.
+  static String iconAnchor(Offset anchor) {
+    String pick(double v, String low, String high) =>
+        v < 0.25 ? low : (v > 0.75 ? high : '');
+    final x = pick(anchor.dx, 'left', 'right');
+    final y = pick(anchor.dy, 'top', 'bottom');
+    if (x.isEmpty && y.isEmpty) return 'center';
+    if (x.isEmpty) return y;
+    if (y.isEmpty) return x;
+    return '$y-$x';
+  }
+
+  /// Cuánto baja el texto, en `em`, para quedar debajo del icono.
+  ///
+  /// El texto se coloca respecto al punto, no al icono: con el icono anclado
+  /// por el centro, el desplazamiento de un alfiler lo dejaría encima de la
+  /// mitad de abajo. Se calcula para un icono de unos 40 puntos de alto, que
+  /// es el del alfiler por defecto.
+  static List<double> labelOffset(Offset anchor) => <double>[
+    0,
+    (1 - anchor.dy.clamp(0.0, 1.0)) * 3.4 + 0.8,
+  ];
 
   /// Las polilíneas como colección de líneas.
   ///

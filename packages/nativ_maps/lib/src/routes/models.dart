@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
+import 'dart:math' as math;
+
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 import 'package:nativ_maps/src/core/json.dart';
@@ -538,6 +540,18 @@ class Route {
     }
     return totals;
   }
+
+  /// Los peajes en [currency], en **unidades menores**: centavos con los
+  /// dos decimales por defecto, o lo que diga [minorUnitDigits] (0 para CLP
+  /// o JPY).
+  ///
+  /// Es la unidad que esperan `Tariff`, `PriceAdvisor` y `BidAdvisor`.
+  /// [tollCostByCurrency] da unidades mayores —`0.4` dólares—, y redondear
+  /// ese valor tal cual, que es el error fácil, convierte un peaje de 0,40 en
+  /// cero.
+  int tollCostInMinorUnits(String currency, {int minorUnitDigits = 2}) =>
+      ((tollCostByCurrency[currency] ?? 0) * math.pow(10, minorUnitDigits))
+          .round();
 
   /// La distancia en kilómetros, redondeada a un decimal.
   double get distanceKm => distanceMeters / 1000.0;

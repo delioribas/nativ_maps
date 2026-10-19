@@ -815,5 +815,20 @@ void main() {
 
       expect(respuesta.best!.tolls.single.systemRef, 'Peaje Oyacoto');
     });
+
+    test('los peajes en unidades menores no se redondean a cero', () async {
+      service.stub('/v2/routes', _rutaDeDosTramos());
+
+      final ruta = (await maps.routes.calculateRoutes(
+        origin: LatLng(-0.1807, -78.4678),
+        destination: LatLng(-0.1900, -78.4750),
+      )).best!;
+
+      // AWS manda el peaje en dólares: 0.4. `.round()` sobre eso da 0.
+      expect(ruta.tollCostByCurrency['USD'], 0.4);
+      expect(ruta.tollCostInMinorUnits('USD'), 40);
+      expect(ruta.tollCostInMinorUnits('USD', minorUnitDigits: 0), 0);
+      expect(ruta.tollCostInMinorUnits('EUR'), 0);
+    });
   });
 }

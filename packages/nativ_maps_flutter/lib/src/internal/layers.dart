@@ -43,8 +43,20 @@ class LayerInstaller {
   /// Fuente de los marcadores sin agrupar.
   static const String markerSourceId = 'nativ-markers-src';
 
-  /// Capa de los marcadores sin agrupar.
+  /// Capa de los marcadores sin agrupar que miran a la pantalla.
   static const String markerLayerId = 'nativ-markers-layer';
+
+  /// Capa de los marcadores planos (`Marker.flat`), que giran con el mapa.
+  ///
+  /// Es la más baja de las dos: lo que tenga que quedar debajo de los
+  /// marcadores —un mapa de calor, una línea discontinua— va debajo de esta.
+  static const String markerFlatLayerId = 'nativ-markers-flat-layer';
+
+  /// Las dos capas de marcadores, para el hit-test.
+  static const List<String> markerLayerIds = <String>[
+    markerLayerId,
+    markerFlatLayerId,
+  ];
 
   /// Fuente de las polilíneas continuas.
   static const String lineSourceId = 'nativ-lines-src';
@@ -141,43 +153,70 @@ class LayerInstaller {
       ),
     );
 
-    // 3 · Marcadores, encima.
+    // 3 · Marcadores, encima: primero los planos y encima los que miran a la
+    // pantalla.
+    //
+    // Son dos capas porque `icon-rotation-alignment` **no admite
+    // expresiones** en la especificación de estilos: con un `case` sobre
+    // `flat`, MapLibre rechaza la propiedad y la capa entera se queda sin
+    // dibujar —sin un error que llegue a Dart—. Una capa por valor, cada una
+    // con su filtro, es la forma que admite.
+    await _tryAdd(
+      () => _native.addSymbolLayer(
+        markerSourceId,
+        markerFlatLayerId,
+        _markerProperties(rotationAlignment: 'map'),
+        filter: <Object>[
+          '==',
+          <Object>['get', 'flat'],
+          true,
+        ],
+      ),
+    );
     await _tryAdd(
       () => _native.addSymbolLayer(
         markerSourceId,
         markerLayerId,
-        const ml.SymbolLayerProperties(
-          iconImage: <Object>['get', 'icon'],
-          iconSize: <Object>['get', 'iconScale'],
-          iconRotate: <Object>['get', 'rotation'],
-          iconOpacity: <Object>['get', 'alpha'],
-          iconAllowOverlap: true,
-          iconIgnorePlacement: false,
-          // `map` hace que el icono gire con el mapa, que es lo que quiere el
-          // marcador de un vehículo; los planos lo anulan con `iconRotate`.
-          iconRotationAlignment: <Object>[
-            'case',
-            <Object>['get', 'flat'],
-            'map',
-            'viewport',
-          ],
-          iconAnchor: 'bottom',
-          symbolSortKey: <Object>['get', 'zIndex'],
-          textField: <Object>['get', 'label'],
-          textSize: 12.0,
-          textOffset: <Object>[
-            'literal',
-            <double>[0, 0.8],
-          ],
-          textAnchor: 'top',
-          textHaloWidth: 1.2,
-          textHaloColor: 'rgba(255,255,255,0.9)',
-          textAllowOverlap: false,
-          textOptional: true,
-        ),
+        _markerProperties(rotationAlignment: 'viewport'),
+        filter: <Object>[
+          '!=',
+          <Object>['get', 'flat'],
+          true,
+        ],
       ),
     );
   }
+
+  /// Las propiedades de una capa de marcadores.
+  ///
+  /// [rotationAlignment] es `map` para los planos —el icono de un vehículo
+  /// gira con el mapa— y `viewport` para los demás.
+  static ml.SymbolLayerProperties _markerProperties({
+    required String rotationAlignment,
+  }) => ml.SymbolLayerProperties(
+    iconImage: <Object>['get', 'icon'],
+    iconSize: <Object>['get', 'iconScale'],
+    iconRotate: <Object>['get', 'rotation'],
+    iconOpacity: <Object>['get', 'alpha'],
+    iconAllowOverlap: true,
+    iconIgnorePlacement: false,
+    iconRotationAlignment: rotationAlignment,
+    iconAnchor: <Object>['get', 'anchor'],
+    symbolSortKey: <Object>['get', 'zIndex'],
+    textField: <Object>['get', 'label'],
+    textSize: 12.0,
+    textOffset: <Object>[
+      'array',
+      'number',
+      2,
+      <Object>['get', 'labelOffset'],
+    ],
+    textAnchor: 'top',
+    textHaloWidth: 1.2,
+    textHaloColor: 'rgba(255,255,255,0.9)',
+    textAllowOverlap: false,
+    textOptional: true,
+  );
 
   /// Instala las capas de un agrupador.
   ///
@@ -276,7 +315,7 @@ class LayerInstaller {
         minzoom: heatmap.minZoom,
         maxzoom: heatmap.maxZoom,
         // Debajo de los marcadores: un mapa de calor encima los taparía.
-        belowLayerId: markerLayerId,
+        belowLayerId: markerFlatLayerId,
       ),
     );
   }
@@ -345,7 +384,7 @@ class LayerInstaller {
               lineCap: 'butt',
               lineJoin: 'round',
             ),
-            belowLayerId: markerLayerId,
+            belowLayerId: markerFlatLayerId,
           ),
         );
       }

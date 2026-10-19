@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.1
+
+**Los marcadores, probados por fin en un dispositivo.** La 0.5.0 se probó
+contra AWS; esta, en un emulador Android (Pixel 7, Android 15) con una app
+real que la usa —ryvell, Quito—. Salieron tres fallos del mapa que ninguna
+prueba sin dispositivo podía ver, uno de la capa de cálculo y dos de la
+documentación.
+
+### Corregido
+
+| Qué | Qué pasaba |
+|---|---|
+| `BitmapDescriptor.defaultMarker` y `defaultMarkerWithHue` | **no se dibujaban nunca**: la imagen `nativ-default-marker` no se registraba en ningún sitio. Ahora el paquete pinta el alfiler, uno por color, y lo registra en el estilo |
+| Capa de marcadores | usaba `icon-rotation-alignment` con una expresión, que la especificación de MapLibre no admite, y MapLibre rechazaba la propiedad. Ahora son dos capas, planos y verticales |
+| `Marker.anchor` | se ignoraba: todo icono se anclaba por abajo, y uno centrado —un vehículo— quedaba medio icono desplazado. Ahora se respeta, redondeado a las nueve posiciones de MapLibre, y el texto baja para no pisar el icono |
+| `PriceAdvisor.suggest` | mínimo, recomendado y rápido no pasaban por el redondeo de la tarifa: «Mínimo 1,28 $» junto a «Recomendado 1,50 $» |
+| Documentación: peajes | cinco ejemplos hacían `tollCostByCurrency['USD']?.round()`, que redondea dólares: un peaje de 0,40 contaba como 0 |
+| Documentación: buscador | recomendaba `autocomplete` para buscar destinos, pero solo completa direcciones: «Quicentro» o «Aeropuerto Mariscal Sucre» daban cero resultados. Ahora recomienda `suggest` con `PlaceFeature.core`, que además trae la posición |
+
+### Añadido
+
+- `Route.tollCostInMinorUnits(currency)`: los peajes en la unidad que esperan
+  `Tariff`, `PriceAdvisor` y `BidAdvisor`.
+- `Tariff.applyRounding(amount)`: la regla de redondeo de la tarifa, para
+  cualquier importe que se enseñe junto a uno suyo.
+- `BitmapDescriptor.hueRed`, `hueAzure`… en el mismo sitio que en
+  `google_maps_flutter`: el código migrado compila sin cambios. `MarkerHue`
+  sigue.
+
 ## 0.5.0
 
 **Primera pasada contra Amazon Location de verdad.** Las 17 operaciones que

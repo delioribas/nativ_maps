@@ -452,7 +452,7 @@ poner antes de cualquier operación facturada.
 
 # Búsqueda
 
-## 18 · Barra de búsqueda, el patrón barato
+## 18 · Barra de búsqueda de destino
 
 ```dart
 Timer? _debounce;
@@ -464,28 +464,36 @@ void _alEscribir(String texto) {
   // 300 ms: por debajo se disparan peticiones a media palabra;
   // por encima se nota el retraso al escribir.
   _debounce = Timer(const Duration(milliseconds: 300), () async {
-    final sugerencias = await maps.places.autocomplete(
+    final respuesta = await maps.places.suggest(
       query: texto,
       biasPosition: posicionActual,                            // ORDENA
       filter: const SearchFilter(includeCountries: ['ECU']),   // DESCARTA
+      additionalFeatures: const [PlaceFeature.core],           // POSICIÓN
       maxResults: 6,
     );
-    setState(() => _sugerencias = sugerencias);
+    setState(() => _sugerencias = respuesta.results);
   });
 }
 
-// Y SOLO al elegir una:
-Future<void> _elegir(AutocompleteSuggestion s) async {
-  final lugar = await maps.places.getPlace(s.placeId!);
-  await _mapa!.animateCamera(
-    CameraUpdate.newLatLngZoom(lugar.position!, 16),
-  );
+// Un lugar ya trae su posición. Solo una sugerencia de tipo búsqueda
+// —«gasolineras cerca»— pide una segunda petición, y solo la elegida.
+Future<void> _elegir(SuggestResult s) async {
+  final posicion = s.place?.position ??
+      (await maps.places.searchText(queryId: s.queryId))
+          .places.first.position!;
+  await _mapa!.animateCamera(CameraUpdate.newLatLngZoom(posicion, 16));
 }
 ```
 
-**`autocomplete` no devuelve coordenadas, y está bien:** el usuario todavía no
-ha elegido. Se paga la segunda petición **solo por la que elige**, no por las
-veinte que ve.
+**`suggest` y no `autocomplete`.** Autocompletar solo completa
+**direcciones**: con «Quicentro» o «Aeropuerto Mariscal Sucre» —que es adonde
+va la gente— devuelve cero resultados (comprobado contra AWS, Quito, octubre
+de 2026). `suggest` encuentra lugares y direcciones, y con `core` trae la
+posición, así que elegir una no cuesta otra petición.
+
+`autocomplete` + `getPlace` sigue siendo lo adecuado para un **formulario de
+dirección postal**: ahí se escribe una calle y un número, y se paga la segunda
+petición solo por la que se elige.
 
 `biasPosition` y `filter` **no son excluyentes**: el sesgo ordena, el filtro
 descarta. Lo que sí es excluyente es rellenar `boundingBox` y `circle` a la vez
@@ -1651,7 +1659,7 @@ final ruta = (await maps.routes.calculateRoutes(
 final estimado = tarifa.estimate(
   distanceMeters: ruta.distanceMeters,
   duration: ruta.duration,
-  tolls: ruta.tollCostByCurrency['EUR']?.round() ?? 0,
+  tolls: ruta.tollCostInMinorUnits('EUR'),   // céntimos, no euros
 );
 
 print('Unos ${estimado.formattedTotal} ${estimado.currency}');
@@ -1917,7 +1925,7 @@ final precio = asesor.suggest(
     openRequests: peticionesSinAsignar,
     signals: <DemandSignal>[if (llueve) DemandSignal.rain],
   ),
-  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+  tolls: ruta.tollCostInMinorUnits('USD'),   // centavos, no dólares
 );
 ```
 

@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.5.0
+  nativ_maps_flutter: ^0.5.1
 ```
 
 ```dart
@@ -106,13 +106,13 @@ packages/
 
 | Método | Endpoint | Para qué |
 |---|---|---|
-| `autocomplete` | `POST /v2/autocomplete` | escribir una dirección |
+| `autocomplete` | `POST /v2/autocomplete` | completar una dirección postal — **no encuentra lugares** |
 | `searchText` | `POST /v2/search-text` | buscar un lugar por nombre |
 | `reverseGeocode` | `POST /v2/reverse-geocode` | de coordenada a dirección dictable |
 | `getPlace` | `GET /v2/place/{id}` | ficha completa |
 | `geocode` | `POST /v2/geocode` | de dirección a coordenada, **con precisión** |
 | `searchNearby` | `POST /v2/search-nearby` | qué hay cerca de un punto |
-| `suggest` | `POST /v2/suggest` | sugerencia más barata que autocomplete |
+| `suggest` | `POST /v2/suggest` | el buscador de destino: lugares y direcciones, con posición |
 
 ### Routes · 5
 
@@ -230,7 +230,7 @@ final precio = asesor.suggest(
     openRequests: sinAsignar,
     signals: <DemandSignal>[if (llueve) DemandSignal.rain],
   ),
-  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+  tolls: ruta.tollCostInMinorUnits('USD'),   // centavos, no dólares
 );
 
 print(precio.explain());

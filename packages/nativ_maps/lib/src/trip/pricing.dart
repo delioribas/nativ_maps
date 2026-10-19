@@ -294,7 +294,7 @@ class SuggestedPrice {
 ///     openRequests: peticionesSinAsignar,
 ///     signals: <DemandSignal>[if (llueve) DemandSignal.rain],
 ///   ),
-///   tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+///   tolls: ruta.tollCostInMinorUnits('USD'),
 /// );
 /// print(precio.explain());
 /// ```
@@ -564,18 +564,24 @@ class PriceAdvisor {
       );
     }
 
+    // Las tres cifras se enseñan juntas: con la regla de redondeo de la
+    // tarifa, o el mínimo sale en `1,28` al lado de un recomendado de `1,50`.
+    // Redondear no altera el orden, así que mínimo ≤ recomendado ≤ rápido se
+    // sigue cumpliendo.
+    final recommended = tariff.applyRounding(recommendedPrice);
+
     return SuggestedPrice(
       currency: tariff.currency,
       minorUnitDigits: tariff.minorUnitDigits,
       reference: reference,
-      minimum: math.min(floorPrice, recommendedPrice),
-      recommended: recommendedPrice,
-      fast: fastPrice,
+      minimum: tariff.applyRounding(math.min(floorPrice, recommendedPrice)),
+      recommended: recommended,
+      fast: tariff.applyRounding(fastPrice),
       extrasPaidSeparately: tolls + fees,
       demandMultiplier: multiplier,
       factors: List<PriceFactor>.unmodifiable(factors),
       forecast: forecast(
-        offered: recommendedPrice,
+        offered: recommended,
         nearbyDrivers: nearbyDrivers,
         distanceMeters: distanceMeters,
         duration: duration,

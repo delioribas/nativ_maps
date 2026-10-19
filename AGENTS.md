@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
-  nativ_maps_flutter: ^0.5.0
+  nativ_maps_flutter: ^0.5.1
 
   # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
   # nunca con una rama. Añádelos solo si los necesitas.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.5.0
+      ref: v0.5.1
   nativ_maps_google:     # SOLO si migras de google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.5.0
+      ref: v0.5.1
 ```
 
 ```dart
@@ -55,7 +55,7 @@ produce un fallo **silencioso**.
 | 6 | `calculateIsolines` **siempre** con `granularity` | Sin `maxPoints`, 30 min = miles de vértices y la interfaz se congela. El valor por defecto ya trae 300 |
 | 7 | La matriz cuesta **por par** | 10×10 = 100 unidades. Filtra por `distanceTo()` —gratis— antes de llamar |
 | 8 | Las isócronas cuestan **por umbral** | 5 umbrales = 5 unidades |
-| 9 | Un `Place` de `autocomplete` **no trae posición** | Llama a `getPlace(placeId)` solo con la que el usuario elija |
+| 9 | `autocomplete` **solo completa direcciones** y no trae posición | Para «¿a dónde vas?» usa `suggest` con `PlaceFeature.core`: encuentra lugares (un centro comercial, el aeropuerto) y ya trae la posición. Con `autocomplete`, «Quicentro» da cero resultados |
 | 10 | Comprueba `MatrixCell.isValid` antes de usar los números | Una celda con error trae **ceros**, y un cero parece «lo más cerca posible» |
 | 11 | Comprueba `PlaceType.isPrecise` en `reverseGeocode` | Un `locality` significa «no encontré el portal, te doy la ciudad» — kilómetros de diferencia |
 | 12 | **Geovallas y rastreo NO aceptan clave de API** | Se corta antes de enviar. Hacen falta `ProxyCredentials` o `nativ_maps_sigv4` |
@@ -789,25 +789,32 @@ umbrales, `maxResults`, filtros excluyentes). No se ha gastado nada.
 
 ## 5 · Patrones correctos
 
-### Barra de búsqueda (el patrón barato)
+### Barra de búsqueda de destino
 
 ```dart
-// 1 · al teclear, con antirrebote de 300 ms
+// 1 · al teclear, con antirrebote de 300 ms.
+//     `suggest`, NO `autocomplete`: autocompletar solo completa direcciones,
+//     y «Quicentro» o «Aeropuerto Mariscal Sucre» dan cero resultados.
 _debounce = Timer(const Duration(milliseconds: 300), () async {
-  final s = await maps.places.autocomplete(
+  final r = await maps.places.suggest(
     query: texto,
     biasPosition: posicionActual,                       // ordena
     filter: const SearchFilter(includeCountries: ['ECU']),  // descarta
+    additionalFeatures: const [PlaceFeature.core],      // ← trae la posición
   );
-  setState(() => _sugerencias = s);
+  setState(() => _sugerencias = r.results);
 });
 
-// 2 · SOLO al elegir una, se paga la segunda petición
-final lugar = await maps.places.getPlace(sugerencia.placeId!);
-await controlador.animateCamera(
-  CameraUpdate.newLatLngZoom(lugar.position!, 16),
-);
+// 2 · Un lugar ya trae su posición: elegirlo no cuesta otra petición.
+//     Solo una sugerencia de tipo búsqueda pide la segunda.
+final posicion = sugerencia.place?.position ??
+    (await maps.places.searchText(queryId: sugerencia.queryId))
+        .places.first.position!;
+await controlador.animateCamera(CameraUpdate.newLatLngZoom(posicion, 16));
 ```
+
+`autocomplete` + `getPlace` sigue siendo lo adecuado para un formulario de
+**dirección postal**, donde lo que se escribe es una calle y un número.
 
 ### Cobrar una carrera de principio a fin
 
@@ -829,8 +836,8 @@ suscripcion = flujoDelGps.listen((posicion) {
 
 // Al terminar:
 final viaje = registrador.finish();
-final importe = tarifa.quote(viaje, tolls: ruta.tollCostByCurrency['USD']
-    ?.round() ?? 0);
+// Peajes en centavos: tollCostByCurrency da dólares, y .round() sobre 0,40 da 0.
+final importe = tarifa.quote(viaje, tolls: ruta.tollCostInMinorUnits('USD'));
 guardar(viaje, importe.lines);   // guarda el DESGLOSE, no solo el total
 ```
 
@@ -855,7 +862,7 @@ final precio = asesor.suggest(
     openRequests: peticionesSinAsignar,
     signals: <DemandSignal>[if (llueve) DemandSignal.rain],
   ),
-  tolls: ruta.tollCostByCurrency['USD']?.round() ?? 0,
+  tolls: ruta.tollCostInMinorUnits('USD'),   // centavos, no dólares
 );
 
 deslizador

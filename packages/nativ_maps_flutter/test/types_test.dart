@@ -1,8 +1,11 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
+import 'package:nativ_maps_flutter/src/internal/default_pin.dart';
 
 void main() {
   group('CameraUpdate', () {
@@ -201,17 +204,45 @@ void main() {
   });
 
   group('BitmapDescriptor', () {
-    test('el marcador por defecto no necesita subirse', () {
-      expect(BitmapDescriptor.defaultMarker.needsUpload, isFalse);
+    // El estilo no trae ningún icono de marcador: si el alfiler por defecto
+    // no se registra, el marcador no se dibuja y nada avisa. Así fue hasta
+    // la 0.5.0, y una prueba que decía lo contrario lo daba por bueno.
+    test('el alfiler por defecto se registra en el estilo', () {
+      expect(BitmapDescriptor.defaultMarker.needsUpload, isTrue);
+      expect(BitmapDescriptor.defaultMarker.isDefaultPin, isTrue);
     });
 
-    test('los tintes con nombre de Google están', () {
+    test('cada color es una imagen distinta', () {
+      final verde = BitmapDescriptor.defaultMarkerWithHue(MarkerHue.hueGreen);
+      final azul = BitmapDescriptor.defaultMarkerWithHue(MarkerHue.hueAzure);
+
+      // Con el mismo nombre, el segundo color pisaría al primero en el
+      // estilo y todos los alfileres saldrían del último que se registró.
+      expect(verde.name, isNot(azul.name));
+      expect(verde.needsUpload, isTrue);
+    });
+
+    test('los iconos del estilo no se suben', () {
+      expect(BitmapDescriptor.fromStyleImage('poi-bus').needsUpload, isFalse);
+    });
+
+    test('los tintes de Google están donde Google los pone', () {
       expect(MarkerHue.hueRed, 0.0);
-      expect(MarkerHue.hueAzure, 210.0);
+      expect(BitmapDescriptor.hueAzure, MarkerHue.hueAzure);
       expect(
-        BitmapDescriptor.defaultMarkerWithHue(MarkerHue.hueGreen).hue,
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen).hue,
         120.0,
       );
+    });
+
+    testWidgets('el alfiler se pinta como PNG a 3×', (tester) async {
+      final png = await tester.runAsync(() => DefaultPin.png(210));
+
+      // Firma PNG y las dimensiones de la cabecera IHDR.
+      expect(png!.sublist(0, 4), <int>[0x89, 0x50, 0x4E, 0x47]);
+      final header = ByteData.sublistView(png, 16, 24);
+      expect(header.getUint32(0), (DefaultPin.width * 3).ceil());
+      expect(header.getUint32(4), (DefaultPin.height * 3).ceil());
     });
   });
 }

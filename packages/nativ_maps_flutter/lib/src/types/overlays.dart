@@ -122,17 +122,25 @@ class HeatmapId {
 class BitmapDescriptor {
   const BitmapDescriptor._({required this.name, this.bytes, this.hue});
 
-  /// El marcador por defecto del estilo.
+  static const String _defaultPinPrefix = 'nativ-default-marker-';
+
+  /// El alfiler rojo por defecto, como el de Google.
+  ///
+  /// Lo dibuja el propio paquete: el estilo no trae ningún icono de marcador.
   static const BitmapDescriptor defaultMarker = BitmapDescriptor._(
-    name: 'nativ-default-marker',
+    name: '${_defaultPinPrefix}0',
+    hue: hueRed,
   );
 
-  /// El marcador por defecto teñido de un color.
+  /// El alfiler por defecto teñido de un color.
   ///
-  /// [hue] va de 0 a 360, como en `google_maps_flutter`. Las constantes
-  /// `hueRed`, `hueAzure`… de Google están en [MarkerHue].
+  /// [hue] va de 0 a 360, como en `google_maps_flutter`, y las mismas
+  /// constantes valen: [hueAzure], [hueGreen]… (también en [MarkerHue]).
   static BitmapDescriptor defaultMarkerWithHue(double hue) =>
-      BitmapDescriptor._(name: 'nativ-default-marker', hue: hue);
+      BitmapDescriptor._(
+        name: '$_defaultPinPrefix${hue.round() % 360}',
+        hue: hue,
+      );
 
   /// Un icono a partir de los bytes de una imagen PNG.
   ///
@@ -157,8 +165,49 @@ class BitmapDescriptor {
   /// El tinte, de 0 a 360.
   final double? hue;
 
+  /// ¿Es uno de los alfileres por defecto, que dibuja el paquete?
+  @internal
+  bool get isDefaultPin => bytes == null && name.startsWith(_defaultPinPrefix);
+
   /// ¿Hay que subir esta imagen al estilo?
-  bool get needsUpload => bytes != null;
+  ///
+  /// Los alfileres por defecto también: si no se registran, la capa pide una
+  /// imagen que no existe y el marcador no se dibuja.
+  bool get needsUpload => bytes != null || isDefaultPin;
+
+  // Los tintes de `google_maps_flutter`, en el mismo sitio que allí:
+  // `BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure)`
+  // compila sin cambiar nada.
+
+  /// Rojo, el color por defecto.
+  static const double hueRed = MarkerHue.hueRed;
+
+  /// Naranja.
+  static const double hueOrange = MarkerHue.hueOrange;
+
+  /// Amarillo.
+  static const double hueYellow = MarkerHue.hueYellow;
+
+  /// Verde.
+  static const double hueGreen = MarkerHue.hueGreen;
+
+  /// Cian.
+  static const double hueCyan = MarkerHue.hueCyan;
+
+  /// Azul.
+  static const double hueAzure = MarkerHue.hueAzure;
+
+  /// Azul oscuro.
+  static const double hueBlue = MarkerHue.hueBlue;
+
+  /// Violeta.
+  static const double hueViolet = MarkerHue.hueViolet;
+
+  /// Magenta.
+  static const double hueMagenta = MarkerHue.hueMagenta;
+
+  /// Rosa.
+  static const double hueRose = MarkerHue.hueRose;
 
   @override
   bool operator ==(Object other) =>

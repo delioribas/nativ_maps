@@ -488,7 +488,7 @@ class Tariff {
     }
 
     // ── Redondeo, una sola vez y al final
-    final rounded = _applyRounding(total);
+    final rounded = applyRounding(total);
     if (rounded != total) {
       lines.add(
         FareLine(
@@ -554,7 +554,14 @@ class Tariff {
     return null;
   }
 
-  int _applyRounding(int amount) {
+  /// Redondea [amount], en unidades menores, con la regla [rounding] de esta
+  /// tarifa.
+  ///
+  /// Es la misma que aplica [quote] al total. Cualquier importe que se le
+  /// enseñe al pasajero junto a una cifra de esta tarifa —un mínimo de puja,
+  /// un precio sugerido— tiene que pasar por aquí, o saldrán `1,28` al lado
+  /// de un `1,50`.
+  int applyRounding(int amount) {
     final majorUnit = math.pow(10, minorUnitDigits).toInt();
     return switch (rounding) {
       FareRounding.none => amount,
