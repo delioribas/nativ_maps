@@ -7,6 +7,9 @@ la primera, sin abrir ningún `.dart`.
 Si eres una persona, [README.md](README.md) es más agradable y
 [doc/RECETAS.md](doc/RECETAS.md) tiene los ejemplos completos.
 
+**¿Va a producción?** La clave de API no puede ir dentro de la app: lee la
+[sección 9](#9--en-producción-la-clave-en-tu-servidor) antes de entregar nada.
+
 ---
 
 ## 0 · Lo mínimo
@@ -37,6 +40,10 @@ import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 **Un solo import.** `nativ_maps_flutter` reexporta el núcleo entero. Nunca
 importes `package:nativ_maps/nativ_maps.dart` en una app Flutter: no hace
 falta y duplica los símbolos.
+
+**`ApiKeyCredentials` es para desarrollar.** Una clave dentro de un APK se
+extrae en minutos. En producción: `ProxyCredentials` y uno de los servidores
+de `proxies/` —[sección 9](#9--en-producción-la-clave-en-tu-servidor)—.
 
 ---
 
@@ -291,7 +298,9 @@ String? spritesUrl(MapStyle style,         // WITHOUT extension: MapLibre append
 ### `maps.geofencing` — firmas exactas
 
 ⚠️ **Exige SigV4.** Con `ApiKeyCredentials` lanza
-`NativMapsConfigurationException` **antes de enviar**.
+`NativMapsConfigurationException` **antes de enviar**. Con `ProxyCredentials`
+funciona: firma el proxy, con credenciales IAM que tengan `geo:*` sobre la
+colección (sección 9).
 
 ```dart
 Future<Geofence> putGeofence({
@@ -800,6 +809,18 @@ todo lo del framework sin atrapar los errores de programación de tu app.
 `ArgumentError` se lanza **antes de enviar** en los límites duros (matriz,
 umbrales, `maxResults`, filtros excluyentes). No se ha gastado nada.
 
+**Por un proxy**, los errores de AWS llegan tal cual —el mismo `statusCode`, el
+mismo `hint`—, y además estos, que son del proxy:
+
+| `statusCode` | Qué pasa |
+|---|---|
+| `401` | el token de la app no vale: sesión caducada. Renuévalo (sección 9) y reintenta **una** vez |
+| `400` sin `requestId` | el proxy no sabe a dónde reenviar: paquete anterior a 0.9.1, o un proxy propio que no sigue el contrato |
+| `500` | el servidor no tiene credenciales de AWS, o caducaron. No es culpa de la app |
+| `502` | el proxy no llegó a AWS en 60 s. Reintentable |
+
+Un error que trae `requestId` viene de AWS; uno sin él, del proxy.
+
 ---
 
 ## 5 · Patrones correctos
@@ -1214,7 +1235,7 @@ JointType       .mitered .round .bevel
 
 ## 8 · Antes de dar por buena la integración
 
-1. `dart run melos run verify` en la raíz → formato, análisis y las 434 pruebas.
+1. `dart run melos run verify` en la raíz → formato, análisis y las 435 pruebas.
    Y `tool/test_floor.sh <bin de Flutter 3.32>`: el suelo, con cada paquete
    resuelto suelto, como lo ve quien lo instala.
 2. Android: AGP **8.x** (no 9.x) y **JDK 21**. Ver «Limitaciones conocidas» en
@@ -1223,3 +1244,156 @@ JointType       .mitered .round .bevel
    otro sitio puede incumplir las condiciones del proveedor de datos.
 4. Para mapas sin conexión: leer la **Sección 82 de los AWS Service Terms**
    antes de enviar la app.
+5. **En producción, ninguna clave en la app**: `ProxyCredentials`, el
+   `NativMap` con `customHeaders` desde el primer `build`, y el proxy pasando
+   `dart test -P proxy` —las 26— contra el despliegue real. Lista completa en
+   la sección 9.
+
+---
+
+## 9 · En producción: la clave en tu servidor
+
+La app no lleva **ningún secreto de AWS**. Habla con un servidor tuyo —el
+proxy—, que comprueba la sesión del usuario, se autentica ante Amazon Location
+y reenvía. Contrato completo: [doc/PROXY.md](doc/PROXY.md).
+
+| | `ApiKeyCredentials` | **`ProxyCredentials`** | `SigV4Credentials` (`nativ_maps_sigv4`) |
+|---|---|---|---|
+| Secreto en el teléfono | la clave, extraíble | **ninguno** | credenciales temporales de Cognito |
+| Operaciones | 17 (sin geovallas ni rastreo) | **las 44** | las 44 |
+| Límites por usuario | no | **sí, en el proxy** | no |
+| Para | desarrollar | **producción** | producción sin backend propio |
+
+### En la app
+
+```dart
+// ONE client for the whole app, created once the user has a session.
+// The map is read on every request: keep it and update it on renewal.
+final auth = <String, String>{'Authorization': 'Bearer ${session.token}'};
+
+final maps = NativMaps(
+  region: 'us-east-1',
+  credentials: ProxyCredentials(
+    baseUrl: Uri.parse('https://api.example.com/geo'),
+    headers: auth,
+  ),
+  budget: Budget(maxUnits: 500),
+);
+
+// When the session renews: no new client.
+auth['Authorization'] = 'Bearer ${session.token}';
+
+// The map fetches the style and the tiles by itself: it needs the token too.
+NativMap(
+  styleUrl: maps.maps.styleDescriptorUrl(MapStyle.standard)!, // already the proxy's
+  // REQUIRED, from the FIRST build. Build a NEW map in build() from the
+  // current token: a changed map is re-applied; the same instance mutated
+  // is not.
+  customHeaders: {'Authorization': 'Bearer ${session.token}'},
+  initialCameraPosition: ...,
+  onStyleError: (e) => report(e),   // a 401 here = the token didn't reach it
+)
+```
+
+| Regla | Si la rompes |
+|---|---|
+| `customHeaders` **desde el primer `build`** | el estilo se pidió sin token: `401` y mapa en blanco. Con ellas, el mapa arranca vacío y pide el estilo cuando ya están puestas |
+| El `styleUrl` sale de `maps.maps.styleDescriptorUrl` | escrito a mano, apunta a AWS y no al proxy |
+| Las cabeceras del mapa van **solo** al host del `styleUrl` y a `amazonaws.com` | nada: es a propósito, para que el token no llegue a un tercero |
+| `nativ_maps_flutter` **≥ 0.9.1** | en la 0.9.0, Android nunca mandaba las cabeceras del mapa |
+
+### El servidor: no lo escribas, elige uno
+
+Seis implementaciones del mismo contrato en [`proxies/`](proxies). Las seis
+pasan las 26 pruebas de conformidad contra AWS, firmando con SigV4 y con clave
+de API.
+
+| Si el backend es… | Usa | Montado en |
+|---|---|---|
+| ninguno todavía | [`proxies/aws-lambda`](proxies/aws-lambda) · **sin ninguna clave**: firma el rol; plantilla SAM con la política exacta | `sam deploy --guided` |
+| JavaScript / TypeScript | [`proxies/node`](proxies/node) | Express, Fastify, NestJS |
+| Go | [`proxies/go`](proxies/go) | `net/http`, chi, gin, echo |
+| Python | [`proxies/python`](proxies/python) | FastAPI, Flask |
+| PHP | [`proxies/php`](proxies/php) | Laravel, Slim |
+| JVM | [`proxies/java`](proxies/java) | Spring Boot |
+
+Todos: un núcleo sin framework más un servidor mínimo, y **las mismas
+variables**:
+
+| Variable | | |
+|---|---|---|
+| `PROXY_TOKEN` | obligatoria | token de prueba. **En producción, sustituye `authorize` por la comprobación de tu sesión** (JWT, cookie…) |
+| `AWS_REGION` | obligatoria | la región del mapa |
+| `ALS_API_KEY` | opcional | clave para lugares, rutas y mapas en vez de SigV4. Geovallas y rastreo firman siempre |
+| `PROXY_BASE_PATH` | `/geo` | dónde se monta |
+| `PROXY_PUBLIC_URL` | se deduce | la URL pública, si hay un balanceador o una CDN delante |
+| `PORT` | `8080` | |
+
+Credenciales de AWS por la cadena estándar: el rol de la Lambda, ECS o EC2
+—sin claves— o `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`.
+
+### Lo que hace el proxy, por si escribes el tuyo
+
+1. **Comprueba al usuario antes que nada.** Sin sesión, `401` y no se reenvía.
+2. Destino = cabecera `X-Nativ-Host`. Sin ella, solo rutas del mapa
+   (`/v2/styles|tiles|glyphs|static/`) → `maps.geo.{región}.amazonaws.com`.
+3. **Valida el host, coincidencia completa**, o `400`:
+   `^(places|routes|maps|geofencing|tracking|cp\.geofencing|cp\.tracking)\.geo\.([a-z0-9-]+)\.amazonaws\.com$`.
+   Firma: `places`→`geo-places`, `routes`→`geo-routes`, `maps`→`geo-maps`,
+   el resto `geo`.
+4. Quita cualquier `key` de la consulta; firma con SigV4 o añade su clave.
+5. Reenvía método, ruta, consulta —con parámetros repetidos— y cuerpo, con
+   solo `host`, `content-type` y la firma. **Nunca** el `Authorization` de la
+   app.
+6. Devuelve estado y cuerpo tal cual —también los errores de AWS—, byte a
+   byte.
+7. **Reescribe el descriptor de estilo**: `https://maps.geo.{región}.amazonaws.com`
+   → la URL pública del proxy, y **quita todo `key=`**, que AWS mete en cada
+   URL de tesela.
+8. No sigue redirecciones; 60 s de espera y `502`; registra solo método, ruta y
+   estado.
+
+### IAM
+
+```json
+{"Version": "2012-10-17", "Statement": [
+  {"Effect": "Allow", "Action": ["geo-places:*", "geo-routes:*", "geo-maps:*"],
+   "Resource": "*"},
+  {"Effect": "Allow", "Action": "geo:*", "Resource": [
+    "arn:aws:geo:us-east-1:<cuenta>:geofence-collection/*",
+    "arn:aws:geo:us-east-1:<cuenta>:tracker/*"]},
+  {"Effect": "Allow", "Action": ["geo:ListGeofenceCollections", "geo:ListTrackers"],
+   "Resource": "*"}
+]}
+```
+
+Sin geovallas ni rastreo, basta el primer bloque. La plantilla de Lambda trae
+la misma política acción por acción.
+
+### Comprobar el despliegue
+
+```sh
+cd packages/nativ_maps
+PROXY_URL=https://api.example.com/geo PROXY_TOKEN=<a valid session token> \
+  dart test -P proxy
+```
+
+Las 26: lo que el proxy tiene que rechazar, lo que el paquete manda, el mapa
+como lo pide el motor —sin ninguna `key=` a la vista— y los cuatro hosts que
+firman como `geo`. Crea y borra sus propios recursos `nativ-maps-proxy-…`.
+
+En el dispositivo, la app de ejemplo corre entera por un proxy:
+`flutter run --dart-define=ALS_PROXY_URL=… --dart-define=ALS_PROXY_TOKEN=…`
+(`10.0.2.2` es el ordenador visto desde el emulador de Android).
+
+### Antes de entregar
+
+- [ ] Ninguna `ApiKeyCredentials` ni clave en el código de producción.
+- [ ] HTTPS delante del proxy.
+- [ ] `authorize` es la comprobación de **tu** sesión, no `PROXY_TOKEN`.
+- [ ] La lista de hosts del punto 3, tal cual.
+- [ ] Límites por usuario en el proxy —la matriz cobra por par— y un tope en
+      AWS Budgets.
+- [ ] Una CDN delante solo para `/v2/tiles/`, `/v2/glyphs/` y `/v2/styles/`;
+      nunca para lugares o rutas, que son de cada usuario.
+- [ ] `dart test -P proxy` en verde contra el despliegue real.

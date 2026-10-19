@@ -198,8 +198,8 @@ comodines.
 
 Seis implementaciones del mismo contrato, con **la misma estructura** —un
 núcleo que no depende de ningún framework más un adaptador mínimo— y **las
-mismas variables**. Las seis están comprobadas con la prueba de conformidad
-de la sección 6.
+mismas variables**. Las seis pasan las 26 pruebas de conformidad de la
+sección 6 contra AWS, firmando con SigV4 y con clave de API.
 
 | Variable | Obligatoria | Para qué |
 |---|---|---|

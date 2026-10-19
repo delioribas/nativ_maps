@@ -13,8 +13,8 @@ autentican ante Amazon Location, y **la clave nunca llega al teléfono**.
 | [`java/`](java) | `HttpServer` del JDK; Spring Boot |
 
 Mismas variables, mismo comportamiento, misma estructura —un núcleo sin
-framework y un servidor mínimo—, y las seis comprobadas con la misma prueba
-de conformidad contra AWS.
+framework y un servidor mínimo—, y las seis pasan las 26 pruebas de
+conformidad contra AWS, firmando con SigV4 y con clave de API.
 
 **Empieza por [doc/PROXY.md](../doc/PROXY.md)**: qué tiene que hacer un proxy,
 la política IAM, cómo probar el tuyo y qué revisar antes de producción.

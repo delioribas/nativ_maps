@@ -252,6 +252,28 @@ void main() {
       );
     });
 
+    test('ProxyCredentials lee sus cabeceras en cada petición', () async {
+      // Es lo que permite renovar el token de sesión sin rehacer el cliente:
+      // la app guarda el mapa y cambia el valor dentro.
+      final cabeceras = <String, String>{'Authorization': 'Bearer viejo'};
+      final proxy = ProxyCredentials(
+        baseUrl: Uri.parse('https://api.miempresa.com/geo'),
+        headers: cabeceras,
+      );
+      Future<String?> token() async {
+        final peticion = http.Request(
+          'POST',
+          proxy.baseUri(AlsService.places, 'us-east-1'),
+        );
+        await proxy.sign(peticion, AlsService.places, 'us-east-1');
+        return peticion.headers['Authorization'];
+      }
+
+      expect(await token(), 'Bearer viejo');
+      cabeceras['Authorization'] = 'Bearer nuevo';
+      expect(await token(), 'Bearer nuevo');
+    });
+
     test('HeaderCredentials se consulta en cada petición', () async {
       service.stub('/v2/search-text', <String, dynamic>{
         'ResultItems': <dynamic>[],

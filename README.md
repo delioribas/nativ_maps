@@ -490,7 +490,7 @@ Location.
 | Versión | **0.9.2**, candidata a 1.0.0 |
 | Operaciones | **44 de 44**, todas ejecutadas contra Amazon Location de verdad: 17 con clave de API y 27 con IAM firmadas con SigV4 |
 | Enums | todos los valores que viajan en una petición, comprobados contra el servicio: **111 comprobaciones** |
-| Pruebas | **434 verdes** sin red, y aparte las de AWS real (`-P live`) |
+| Pruebas | **435 verdes** sin red, y aparte las de AWS real (`-P live`) |
 | Suelo | probado con **Flutter 3.32** —el mínimo declarado— y con la última |
 | Pub points | **160/160** en los dos paquetes publicados, medido con `pana` |
 | App de ejemplo | los nueve demos recorridos en un **emulador Android** y en el **simulador de iOS**, con toques y arrastres reales |

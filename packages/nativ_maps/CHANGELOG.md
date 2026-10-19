@@ -22,6 +22,12 @@ partir de `1.0.0`, no.
 - `setMarkers` puts the markers in place before uploading their icons, like
   `addMarker` already did, so a style that loads in between re-uploads them.
 
+### Documented
+
+- **`ProxyCredentials.headers` is read on every request**: a renewed session
+  token goes in the same map, with no new client. Now documented, and covered
+  by a test so it stays that way.
+
 ## 0.9.1
 
 **The signing proxy, end to end.** `ProxyCredentials` was the recommended way

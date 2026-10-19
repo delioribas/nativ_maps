@@ -93,6 +93,19 @@ final class ProxyCredentials implements Credentials {
 
   /// Headers added to every request: usually your own backend's
   /// `Authorization`.
+  ///
+  /// They're read on every request, so a renewed session token doesn't need
+  /// a new client: keep the map and change the value in it.
+  ///
+  /// ```dart
+  /// final auth = {'Authorization': 'Bearer ${session.token}'};
+  /// final maps = NativMaps(
+  ///   region: 'us-east-1',
+  ///   credentials: ProxyCredentials(baseUrl: proxyUrl, headers: auth),
+  /// );
+  /// // When the session renews:
+  /// auth['Authorization'] = 'Bearer ${session.token}';
+  /// ```
   final Map<String, String> headers;
 
   @override
