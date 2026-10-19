@@ -38,6 +38,15 @@ class LayerInstaller {
   /// discontinuas de un mapa saldrían con el mismo patrón.
   final Map<String, String> _dashLayers = <String, String>{};
 
+  /// Ninguna capa del paquete es interactiva para `maplibre_gl`.
+  ///
+  /// El plugin marca toda capa como interactiva por defecto, y un toque sobre
+  /// una capa interactiva sale por `onFeatureTapped` y **no** por
+  /// `onMapClick`. Como el paquete resuelve él mismo qué hay bajo el dedo
+  /// —`markerAt`, `clusterAt`, `polylineAt`—, con las capas interactivas ni
+  /// `onMarkerTap` ni los globos ni `onTap` sobre un polígono llegaban nunca.
+  static const bool _interactive = false;
+
   // ─── Identificadores ──────────────────────────────────────────────────
 
   /// Fuente de los marcadores sin agrupar.
@@ -122,6 +131,7 @@ class LayerInstaller {
           fillColor: <Object>['get', 'fill'],
           fillSortKey: <Object>['get', 'zIndex'],
         ),
+        enableInteraction: _interactive,
       ),
     );
     await _tryAdd(
@@ -133,6 +143,7 @@ class LayerInstaller {
           lineWidth: <Object>['get', 'strokeWidth'],
           lineJoin: 'round',
         ),
+        enableInteraction: _interactive,
       ),
     );
 
@@ -150,6 +161,7 @@ class LayerInstaller {
           lineJoin: 'round',
           lineSortKey: <Object>['get', 'zIndex'],
         ),
+        enableInteraction: _interactive,
       ),
     );
 
@@ -171,6 +183,7 @@ class LayerInstaller {
           <Object>['get', 'flat'],
           true,
         ],
+        enableInteraction: _interactive,
       ),
     );
     await _tryAdd(
@@ -183,6 +196,7 @@ class LayerInstaller {
           <Object>['get', 'flat'],
           true,
         ],
+        enableInteraction: _interactive,
       ),
     );
   }
@@ -249,6 +263,7 @@ class LayerInstaller {
           circleStrokeColor: 'rgba(255,255,255,0.85)',
         ),
         filter: <Object>['has', 'point_count'],
+        enableInteraction: _interactive,
       ),
     );
 
@@ -265,6 +280,7 @@ class LayerInstaller {
           textIgnorePlacement: true,
         ),
         filter: <Object>['has', 'point_count'],
+        enableInteraction: _interactive,
       ),
     );
 
@@ -273,17 +289,14 @@ class LayerInstaller {
       () => _native.addSymbolLayer(
         clusterSourceId(id),
         clusterMarkerLayerId(id),
-        const ml.SymbolLayerProperties(
-          iconImage: <Object>['get', 'icon'],
-          iconSize: <Object>['get', 'iconScale'],
-          iconRotate: <Object>['get', 'rotation'],
-          iconAllowOverlap: true,
-          iconAnchor: 'bottom',
-        ),
+        // Las mismas propiedades que los marcadores sin agrupar: sin ellas,
+        // un marcador perdía el texto y el ancla al salir de un grupo.
+        _markerProperties(rotationAlignment: 'viewport'),
         filter: <Object>[
           '!',
           <Object>['has', 'point_count'],
         ],
+        enableInteraction: _interactive,
       ),
     );
   }
@@ -316,6 +329,8 @@ class LayerInstaller {
         maxzoom: heatmap.maxZoom,
         // Debajo de los marcadores: un mapa de calor encima los taparía.
         belowLayerId: markerFlatLayerId,
+        // Sin `enableInteraction`: el plugin no hace interactivo un mapa de
+        // calor.
       ),
     );
   }
@@ -385,6 +400,7 @@ class LayerInstaller {
               lineJoin: 'round',
             ),
             belowLayerId: markerFlatLayerId,
+            enableInteraction: _interactive,
           ),
         );
       }

@@ -378,6 +378,11 @@ class Marker {
   final double iconScale;
 
   /// Un texto debajo del icono. La matrícula, por ejemplo.
+  ///
+  /// Si choca con otro marcador o con otro texto, **se oculta** hasta que se
+  /// acerca el zoom y deja de chocar; el icono se sigue viendo. Es lo que
+  /// evita que cien matrículas juntas sean una mancha ilegible, pero
+  /// significa que un texto no se garantiza a cualquier zoom.
   final String? label;
 
   /// Qué hacer al tocarlo.

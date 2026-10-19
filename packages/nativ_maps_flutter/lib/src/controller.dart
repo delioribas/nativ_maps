@@ -146,21 +146,35 @@ class NativMapController {
     return camera?.zoom ?? 0;
   }
 
-  /// De coordenada geográfica a píxeles de pantalla.
+  /// Píxeles del motor por cada píxel lógico de Flutter.
+  ///
+  /// `maplibre_gl` da y pide las posiciones de pantalla en **píxeles físicos**
+  /// en Android y en **puntos** en iOS. El widget fija aquí la densidad de la
+  /// pantalla en Android y 1 en el resto, y [getScreenCoordinate] y
+  /// [getLatLng] trabajan siempre en píxeles lógicos.
+  @internal
+  double nativePixelRatio = 1;
+
+  /// De coordenada geográfica a posición en pantalla, en **píxeles lógicos**
+  /// de Flutter —los de `Positioned`—, igual en Android que en iOS.
+  ///
+  /// `google_maps_flutter` devuelve píxeles físicos en Android y lógicos en
+  /// iOS; aquí no, y por eso un widget colocado con esto cae en su sitio en
+  /// las dos.
   Future<Offset> getScreenCoordinate(LatLng latLng) async {
     _checkAlive();
     final point = await _native.toScreenLocation(
       ml.LatLng(latLng.latitude, latLng.longitude),
     );
-    return Offset(point.x.toDouble(), point.y.toDouble());
+    return Offset(point.x.toDouble(), point.y.toDouble()) / nativePixelRatio;
   }
 
-  /// De píxeles de pantalla a coordenada geográfica.
+  /// De una posición en pantalla, en píxeles lógicos, a coordenada
+  /// geográfica. La inversa de [getScreenCoordinate].
   Future<LatLng> getLatLng(Offset screenCoordinate) async {
     _checkAlive();
-    final latLng = await _native.toLatLng(
-      Point<double>(screenCoordinate.dx, screenCoordinate.dy),
-    );
+    final native = screenCoordinate * nativePixelRatio;
+    final latLng = await _native.toLatLng(Point<double>(native.dx, native.dy));
     return LatLng(latLng.latitude, latLng.longitude);
   }
 

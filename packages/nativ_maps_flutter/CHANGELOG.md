@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.3
+
+**Tocar el mapa, probado por fin en un dispositivo.** La 0.5.1 probó que los
+marcadores se dibujan; esta, que se pueden tocar. Probado con la app de
+ejemplo en un emulador Android (Pixel 7, Android 15) y en el simulador de iOS
+(iPhone 15).
+
+### Corregido
+
+| Qué | Qué pasaba |
+|---|---|
+| `onMarkerTap`, `onPolylineTap`, `onClusterTap`, los globos y `onTap` sobre un polígono | **no llegaban nunca**. `maplibre_gl` hace interactiva toda capa, y un toque sobre una capa interactiva sale por `onFeatureTapped` y no por `onMapClick`, que es donde el paquete resuelve qué hay bajo el dedo. Ahora las capas del paquete no son interactivas y el mapa pide `featureTapsTriggersMapClick` |
+| Globo (`InfoWindow`) en Android | salía fuera de la pantalla: `maplibre_gl` da el toque en píxeles físicos y el globo, que es un widget, se colocaba en lógicos. Ahora se coloca bien y se ancla al marcador |
+| `getScreenCoordinate` y `getLatLng` | devolvían y pedían píxeles físicos en Android y lógicos en iOS. Ahora **píxeles lógicos de Flutter en las dos**, los de `Positioned`. En Android cambia el valor que devuelven |
+| Marcadores dentro de un `ClusterManager` | al salir de un grupo perdían el texto y el ancla: su capa no usaba las mismas propiedades que la de los marcadores sueltos |
+
+### Documentado
+
+- `Marker.label` se oculta si choca con otro marcador o texto, y vuelve al
+  acercar el zoom.
+
+### Añadido
+
+- `example/integration_test/recorrido_test.dart`: recorre las superposiciones
+  en un dispositivo o simulador real y deja cada estado en pantalla para
+  capturarlo.
+- `tool/test_floor.sh`: análisis y pruebas de los dos paquetes de pub.dev con
+  Flutter 3.32, cada uno resuelto suelto, como lo ve quien lo instala.
+
 ## 0.5.2
 
 **`nativ_maps_flutter` 0.5.1 no compilaba en Flutter 3.32**, el suelo que

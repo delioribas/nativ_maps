@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # The only one on pub.dev. Brings the widget and all 44 operations.
-  nativ_maps_flutter: ^0.5.2
+  nativ_maps_flutter: ^0.5.3
 
   # The other two are NOT published: consume them via git, pinned to a TAG and
   # never to a branch. Add them only if you need them.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.5.2
+      ref: v0.5.3
   nativ_maps_google:     # ONLY if you are migrating from google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.5.2
+      ref: v0.5.3
 ```
 
 ```dart
@@ -671,8 +671,8 @@ Future<void> moveCamera(CameraUpdate update);
 Future<CameraPosition?> getCameraPosition();   // null if the map is not ready
 Future<LatLngBounds> getVisibleRegion();
 Future<double> getZoomLevel();
-Future<Offset> getScreenCoordinate(LatLng latLng);
-Future<LatLng> getLatLng(Offset screenCoordinate);
+Future<Offset> getScreenCoordinate(LatLng latLng);   // Flutter LOGICAL pixels,
+Future<LatLng> getLatLng(Offset screenCoordinate);   // on Android AND iOS
 Future<double> getMetersPerPixel(double latitude);
 
 // Markers
@@ -1209,7 +1209,9 @@ JointType       .mitered .round .bevel
 
 ## 8 · Antes de dar por buena la integración
 
-1. `dart run melos run verify` en la raíz → formato, análisis y las 186 pruebas.
+1. `dart run melos run verify` en la raíz → formato, análisis y las 399 pruebas.
+   Y `tool/test_floor.sh <bin de Flutter 3.32>`: el suelo, con cada paquete
+   resuelto suelto, como lo ve quien lo instala.
 2. Android: AGP **8.x** (no 9.x) y **JDK 21**. Ver «Limitaciones conocidas» en
    el README.
 3. La atribución tiene que verse. `attributionEnabled: false` sin enseñarla en

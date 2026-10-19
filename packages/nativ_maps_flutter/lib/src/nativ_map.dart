@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:math' show Point;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
 import 'package:nativ_maps/nativ_maps.dart';
@@ -270,6 +271,11 @@ class _NativMapState extends State<NativMap> {
         onMapCreated: _onMapCreated,
         onStyleLoadedCallback: _onStyleLoaded,
         onMapClick: _onMapClick,
+        // Sin esto, un toque sobre una capa interactiva —una que añada la
+        // app con `style`, por ejemplo— no llega a `onMapClick`, y con él se
+        // pierden `onMarkerTap`, los globos y `onTap`. Las capas del paquete
+        // ya no son interactivas; esto cubre las demás.
+        featureTapsTriggersMapClick: true,
         onMapLongClick: _onMapLongClick,
         onCameraIdle: _onCameraIdle,
         onCameraMove: (_) => _onCameraMove(),
@@ -333,6 +339,7 @@ class _NativMapState extends State<NativMap> {
       onOverlaysChanged: _onOverlaysChanged,
       offline: _offline,
     );
+    controller.nativePixelRatio = _nativePixelRatio;
     _controller = controller;
 
     if (widget.customHeaders != null) {
@@ -396,12 +403,30 @@ class _NativMapState extends State<NativMap> {
     if (_openInfoWindowMarker != null && mounted) setState(() {});
   }
 
+  /// Píxeles del motor por píxel lógico: la densidad en Android, donde
+  /// `maplibre_gl` habla en píxeles físicos, y 1 en iOS y en la web.
+  double get _nativePixelRatio =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+      ? MediaQuery.devicePixelRatioOf(context)
+      : 1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller?.nativePixelRatio = _nativePixelRatio;
+  }
+
   // ─── Gestos ───────────────────────────────────────────────────────────
 
   Future<void> _onMapClick(Point<double> point, ml.LatLng coordinates) async {
     final controller = _controller;
     if (controller == null) return;
+    // En unidades del motor, que es lo que espera `queryRenderedFeatures`
+    // para el hit-test. El globo, que es un widget de Flutter, se coloca en
+    // píxeles lógicos: en Android hay que dividir por la densidad, o sale
+    // fuera de la pantalla.
     final screenPoint = Offset(point.x, point.y);
+    final logicalPoint = screenPoint / controller.nativePixelRatio;
 
     final cluster = await controller.clusterAt(screenPoint);
     if (cluster != null) {
@@ -421,7 +446,7 @@ class _NativMapState extends State<NativMap> {
 
     final marker = await controller.markerAt(screenPoint);
     if (marker != null) {
-      _showInfoWindow(marker, screenPoint);
+      _showInfoWindow(marker, logicalPoint);
       marker.onTap?.call();
       widget.onMarkerTap?.call(marker);
       return; // El toque no se propaga: es lo que hace Google.
@@ -482,6 +507,9 @@ class _NativMapState extends State<NativMap> {
       _openInfoWindowMarker = marker;
       _infoWindowOffset = at;
     });
+    // Se abre donde tocó el dedo, que es al instante, y se ancla enseguida a
+    // la posición del marcador: si no, el globo tapa el propio icono.
+    unawaited(_refreshInfoWindowPosition());
   }
 
   void _hideInfoWindow() {

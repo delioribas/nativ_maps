@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.5.2
+  nativ_maps_flutter: ^0.5.3
 ```
 
 ```dart
