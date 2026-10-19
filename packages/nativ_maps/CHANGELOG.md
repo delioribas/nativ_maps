@@ -4,6 +4,24 @@ Este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 Mientras la versión mayor sea `0`, una versión menor puede romper la API; a
 partir de `1.0.0`, no.
 
+## 0.9.2
+
+### Fixed
+
+- **Markers and overlays added before the style finished loading no longer
+  fail.** `setMarkers`, `addMarker` and the sync that pushes overlays to the
+  map talked to it before its style was ready —from `onMapCreated`, or in the
+  middle of a style switch— and the native side answered `STYLE_NOT_READY`.
+  The next style load usually put them back, which is why it went unnoticed;
+  when it landed at the wrong moment, a marker was left without its icon.
+  They now wait for the style, and what changes meanwhile goes out in one
+  push.
+- **A dashed polyline whose layer failed to install now shows up.** The layer
+  was recorded as installed before it was, and wasn't tried again until the
+  next style change.
+- `setMarkers` puts the markers in place before uploading their icons, like
+  `addMarker` already did, so a style that loads in between re-uploads them.
+
 ## 0.9.1
 
 **The signing proxy, end to end.** `ProxyCredentials` was the recommended way

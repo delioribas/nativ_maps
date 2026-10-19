@@ -241,17 +241,20 @@ class NativMapController {
   Future<void> setMarkers(Iterable<Marker> markers) async {
     _checkAlive();
     final wanted = <MarkerId, Marker>{for (final m in markers) m.markerId: m};
-    var changed = _markers.length != wanted.length;
-    for (final entry in wanted.entries) {
-      if (_markers[entry.key] != entry.value) {
-        changed = true;
-        await _uploadIconIfNeeded(entry.value.icon);
-      }
-    }
-    if (!changed) return;
+    final changedIcons = <BitmapDescriptor>[
+      for (final entry in wanted.entries)
+        if (_markers[entry.key] != entry.value) entry.value.icon,
+    ];
+    if (changedIcons.isEmpty && _markers.length == wanted.length) return;
+    // Into the collection first, like addMarker: a style that finishes
+    // loading while the icons go up re-uploads what's in the collection, and
+    // a marker still outside it would be left without its icon.
     _markers
       ..clear()
       ..addAll(wanted);
+    for (final icon in changedIcons) {
+      await _uploadIconIfNeeded(icon);
+    }
     _scheduleSync();
   }
 
@@ -863,10 +866,22 @@ class NativMapController {
   /// Without this, adding two hundred markers in a loop would be two hundred
   /// trips across the platform channel with the whole collection each time
   /// —quadratic work—. With this, it's one.
+  ///
+  /// It waits for the style: pushed before it loads —from `onMapCreated`, or
+  /// during a style switch— the data failed with `STYLE_NOT_READY`. What
+  /// changes meanwhile goes in the same push.
   void _scheduleSync() {
     if (_syncScheduled || _disposed) return;
     _syncScheduled = true;
     scheduleMicrotask(() async {
+      try {
+        await _ensureStyleReady();
+      } on Object {
+        // The style never loaded, and the widget already reported it. When a
+        // style does load, its reinstall pushes everything.
+        _syncScheduled = false;
+        return;
+      }
       if (_disposed) return;
       await syncNow();
     });
@@ -875,6 +890,10 @@ class NativMapController {
   Future<void> _uploadIconIfNeeded(BitmapDescriptor icon) async {
     if (!icon.needsUpload || _uploadedImages.contains(icon.name)) return;
     try {
+      // An image only goes into a loaded style: before, or in the middle of
+      // a style switch, it failed with `STYLE_NOT_READY`.
+      await _ensureStyleReady();
+      if (_disposed) return;
       final bytes = icon.bytes ?? await DefaultPin.png(icon.hue ?? 0);
       await _native.addImage(icon.name, bytes);
       _uploadedImages.add(icon.name);

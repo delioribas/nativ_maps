@@ -56,3 +56,6 @@ proxies/**/.venv/
 proxies/**/__pycache__/
 proxies/**/build/
 proxies/**/dist/
+
+# Python, en tool/ y donde sea
+__pycache__/

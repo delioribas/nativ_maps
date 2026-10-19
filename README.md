@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.9.1
+  nativ_maps_flutter: ^0.9.2
 ```
 
 ```dart
@@ -487,7 +487,7 @@ Location.
 
 | | |
 |---|---|
-| Versión | **0.9.1**, candidata a 1.0.0 |
+| Versión | **0.9.2**, candidata a 1.0.0 |
 | Operaciones | **44 de 44**, todas ejecutadas contra Amazon Location de verdad: 17 con clave de API y 27 con IAM firmadas con SigV4 |
 | Enums | todos los valores que viajan en una petición, comprobados contra el servicio: **111 comprobaciones** |
 | Pruebas | **434 verdes** sin red, y aparte las de AWS real (`-P live`) |

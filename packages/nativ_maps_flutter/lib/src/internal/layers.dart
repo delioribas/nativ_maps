@@ -544,13 +544,15 @@ class LayerInstaller {
       final sourceId = '$dashedLineLayerId-src-${entry.key}';
       final layerId = '$dashedLineLayerId-${entry.key}';
       if (!_dashLayers.containsKey(entry.key)) {
-        _dashLayers[entry.key] = layerId;
         await _tryAdd(() => _native.addGeoJsonSource(sourceId, GeoJson.empty));
         final dash = GeoJson.dashArray(
           entry.value.first.patterns,
           entry.value.first.width,
         );
-        await _tryAdd(
+        // Recorded only once the layer is there: recorded before, a layer
+        // that failed to go in was never tried again, and its dashed lines
+        // never showed up.
+        final installed = await _tryAdd(
           () => _native.addLineLayer(
             sourceId,
             layerId,
@@ -566,6 +568,7 @@ class LayerInstaller {
             enableInteraction: _interactive,
           ),
         );
+        if (installed) _dashLayers[entry.key] = layerId;
       }
       await push(sourceId, GeoJson.polylines(entry.value));
     }
@@ -582,9 +585,12 @@ class LayerInstaller {
   /// style change there's no cheap way to know which ones survived. Trying it
   /// and swallowing the duplicate error is simpler and faster than checking the
   /// layer list before each one.
-  Future<void> _tryAdd(Future<void> Function() action) async {
+  ///
+  /// Whether it's there now: added, or already there.
+  Future<bool> _tryAdd(Future<void> Function() action) async {
     try {
       await action();
+      return true;
     } on Object catch (error) {
       final message = error.toString();
       final alreadyExists =
@@ -594,6 +600,7 @@ class LayerInstaller {
       if (!alreadyExists) {
         debugPrint('nativ_maps: al instalar una capa — $error');
       }
+      return alreadyExists;
     }
   }
 

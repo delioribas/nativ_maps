@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
-import 'dart:io' show Platform;
+import 'dart:convert';
+import 'dart:io' show HttpClient, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,12 @@ import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 /// | `RED: off` / `RED: on` | modo avión |
 /// | `ROTAR: horizontal` / `ROTAR: vertical` | gira la pantalla |
 ///
+/// El vigilante es `tool/vigilante.py`. Cuenta las órdenes que ya cumplió y la
+/// prueba espera a cada una antes de seguir: con esperas fijas, una captura
+/// lenta dejaba en cola el toque siguiente, la prueba comprobaba antes de que
+/// ocurriera, y en cada pasada fallaba algo distinto. Sin vigilante, vuelve a
+/// las esperas fijas.
+///
 /// Los gestos, la red y el giro solo existen en Android, donde `adb` los
 /// hace de verdad. En iOS el simulador no admite toques desde fuera sin
 /// permiso de accesibilidad, así que esos pasos se saltan y se dice.
@@ -31,8 +38,8 @@ import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 /// final, para que una pasada sirva para ver el estado entero.
 ///
 /// ```sh
-/// flutter test integration_test/completo_test.dart -d <dispositivo> \
-///   --dart-define=ALS_API_KEY=... --dart-define=ALS_REGION=us-east-1
+/// ALS_API_KEY=... python3 tool/vigilante.py \
+///   android emulator-5554 completo_test.dart /tmp/capturas
 /// ```
 void main() {
   // Sin esto, el binding de las pruebas en vivo se traga los toques reales
@@ -42,6 +49,12 @@ void main() {
       true;
 
   final gestos = Platform.isAndroid;
+
+  // Donde el vigilante cuenta lo que ya hizo. `10.0.2.2` es el ordenador
+  // visto desde el emulador.
+  final vigilante = Uri.parse(
+    'http://${Platform.isAndroid ? '10.0.2.2' : '127.0.0.1'}:18300/hechas',
+  );
 
   testWidgets('los nueve demos, completos', (tester) async {
     final fallos = <String>[];
@@ -88,10 +101,46 @@ void main() {
       }
     }
 
-    Future<void> captura(String nombre) async {
-      debugPrint('CAPTURA: $nombre');
-      await hold(3000);
+    // Las órdenes escritas para el vigilante.
+    var ordenes = 0;
+
+    Future<int?> cumplidas() => tester.runAsync<int?>(() async {
+      final cliente = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 2);
+      try {
+        final respuesta = await (await cliente.getUrl(vigilante)).close();
+        return int.tryParse(
+          (await respuesta.transform(utf8.decoder).join()).trim(),
+        );
+      } on Object {
+        return null;
+      } finally {
+        cliente.close(force: true);
+      }
+    });
+
+    /// Escribe una orden para el vigilante y espera a que la cumpla.
+    ///
+    /// Si no contesta —no lo hay, o el modo avión corta también el camino
+    /// hasta el ordenador—, espera [sinVigilante] y sigue; la orden siguiente
+    /// vuelve a preguntar.
+    Future<void> orden(String linea, {int sinVigilante = 3000}) async {
+      ordenes++;
+      debugPrint(linea);
+      final limite = DateTime.now().add(const Duration(seconds: 30));
+      while (DateTime.now().isBefore(limite)) {
+        final hechas = await cumplidas();
+        if (hechas == null) {
+          await hold(sinVigilante);
+          return;
+        }
+        if (hechas >= ordenes) return;
+        await hold(100);
+      }
+      debugPrint('AVISO: el vigilante no confirmó «$linea» en 30 s');
     }
+
+    Future<void> captura(String nombre) => orden('CAPTURA: $nombre');
 
     /// Busca [finder] desplazando lo que haga falta: el panel y el menú son
     /// listas perezosas, y lo que no se ve todavía no existe.
@@ -142,11 +191,13 @@ void main() {
         return false;
       }
       final dpr = tester.view.devicePixelRatio;
-      debugPrint(
+      await orden(
         'GESTO: $tipo ${(logico.dx * dpr).round()} '
         '${(logico.dy * dpr).round()}',
+        sinVigilante: 1000,
       );
-      await hold(tipo == 'mantener' ? 4000 : 2500);
+      // Ya ocurrió: lo que queda es que la app lo procese.
+      await hold(tipo == 'mantener' ? 3000 : 1500);
       return true;
     }
 
@@ -164,9 +215,10 @@ void main() {
       }
       final dpr = tester.view.devicePixelRatio;
       int px(double v) => (v * dpr).round();
-      debugPrint(
+      await orden(
         'GESTO: arrastrar ${px(desde.dx)} ${px(desde.dy)} '
         '${px(hasta.dx)} ${px(hasta.dy)} $ms',
+        sinVigilante: 0,
       );
       // Vuelve a mitad del arrastre: lo que sigue se ve con el mapa en
       // movimiento.
@@ -294,10 +346,10 @@ void main() {
       }
     }
     if (gestos) {
-      debugPrint('ROTAR: horizontal');
+      await orden('ROTAR: horizontal', sinVigilante: 0);
       await hold(7000);
       await captura('02-girada');
-      debugPrint('ROTAR: vertical');
+      await orden('ROTAR: vertical', sinVigilante: 0);
       await hold(7000);
       comprobar(
         hayTexto('3 marcadores'),
@@ -556,12 +608,12 @@ void main() {
       // El mapa nuevo, sin red y con la caché normal vacía: solo puede
       // pintar lo que tenga la región descargada.
       await pulsar('Vaciar caché');
-      debugPrint('RED: off');
+      await orden('RED: off', sinVigilante: 0);
       await hold(4000);
       await volver();
       await abrir('Sin conexión');
       await captura('08-sin-red');
-      debugPrint('RED: on');
+      await orden('RED: on', sinVigilante: 0);
       await hold(5000);
     }
     final borrar = find.byIcon(Icons.delete_outline);
