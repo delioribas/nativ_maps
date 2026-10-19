@@ -1,41 +1,41 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:nativ_maps_google/src/google_map_style.dart';
 
-/// Aplica un estilo JSON de Google Maps sobre el estilo de Amazon Location.
+/// Applies a Google Maps JSON style on top of the Amazon Location style.
 extension GoogleStyleApplier on NativMapController {
-  /// Traduce y aplica [style], y cuenta qué pasó.
+  /// Translates and applies [style], and reports what happened.
   ///
-  /// ## Cómo traduce
+  /// ## How it translates
   ///
-  /// 1. Pide al motor la lista de capas del estilo cargado.
-  /// 2. Para cada regla de Google, busca las capas cuyo identificador contenga
-  ///    alguna de las palabras clave de su `featureType` —la tabla está
-  ///    completa y visible en [GoogleMapStyle.featureKeywords]—.
-  /// 3. Separa geometría de etiquetas según el `elementType`.
-  /// 4. Aplica los *stylers* en el orden que documenta Google: color absoluto,
-  ///    tinte, saturación, brillo, gamma, inversión.
+  /// 1. It asks the engine for the list of layers in the loaded style.
+  /// 2. For each Google rule, it looks for the layers whose id contains any of
+  ///    the keywords of its `featureType` —the table is complete and visible
+  ///    in [GoogleMapStyle.featureKeywords]—.
+  /// 3. It separates geometry from labels according to the `elementType`.
+  /// 4. It applies the *stylers* in the order Google documents: absolute
+  ///    color, tint, saturation, brightness, gamma, inversion.
   ///
-  /// Las transformaciones **relativas** —saturación, brillo, gamma— necesitan
-  /// leer el color actual de la capa. Cuando el estilo lo define con una
-  /// expresión que depende del zoom —lo normal en las vías—, no hay un color
-  /// que transformar y la regla se anota como no aplicada. Es la limitación
-  /// principal de esta traducción, y por eso está en el informe.
+  /// The **relative** transformations —saturation, brightness, gamma— need to
+  /// read the layer's current color. When the style defines it with a
+  /// zoom-dependent expression —the usual case for roads—, there is no color
+  /// to transform and the rule is recorded as not applied. It is the main
+  /// limitation of this translation, and that is why it is in the report.
   ///
-  /// ## Cuándo llamarlo
+  /// ## When to call it
   ///
-  /// En `NativMap.onStyleLoaded`, **no** en `onMapCreated`: un cambio de
-  /// `styleUrl` recarga el estilo desde el servidor y deshace todo esto.
+  /// In `NativMap.onStyleLoaded`, **not** in `onMapCreated`: a change of
+  /// `styleUrl` reloads the style from the server and undoes all of this.
   ///
   /// ```dart
   /// NativMap(
   ///   styleUrl: url,
-  ///   initialCameraPosition: camara,
-  ///   onMapCreated: (c) => controlador = c,
+  ///   initialCameraPosition: camera,
+  ///   onMapCreated: (c) => controller = c,
   ///   onStyleLoaded: () async {
-  ///     final informe = await controlador.setGoogleMapStyle(temaOscuro);
-  ///     if (!informe.isComplete) debugPrint('$informe');
+  ///     final report = await controller.setGoogleMapStyle(darkTheme);
+  ///     if (!report.isComplete) debugPrint('$report');
   ///   },
   /// )
   /// ```
@@ -90,8 +90,8 @@ extension GoogleStyleApplier on NativMapController {
     var changed = false;
 
     for (final styler in rule.stylers) {
-      // `visibility` se resuelve primero y por separado: apagar una capa hace
-      // irrelevante todo lo demás que se le pida.
+      // `visibility` is resolved first and on its own: turning a layer off
+      // makes everything else asked of it irrelevant.
       if (styler.visibility != null) {
         await style.setVisible(layer.id, visible: styler.visibility != 'off');
         changed = true;
@@ -103,7 +103,7 @@ extension GoogleStyleApplier on NativMapController {
         continue;
       }
 
-      // Un color absoluto no necesita leer el actual.
+      // An absolute color doesn't need to read the current one.
       if (styler.color != null &&
           styler.hue == null &&
           styler.saturation == null &&
@@ -114,9 +114,9 @@ extension GoogleStyleApplier on NativMapController {
         continue;
       }
 
-      // El resto son transformaciones relativas: hace falta el color actual.
+      // The rest are relative transformations: the current color is needed.
       final current = await style.getColor(layer.id) ?? styler.color;
-      if (current == null) continue; // color por expresión: nada que operar
+      if (current == null) continue; // color via expression: nothing to work on
       if (await style.setColor(layer.id, styler.applyTo(current))) {
         changed = true;
       }

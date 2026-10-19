@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:async';
 import 'dart:math' show Point;
@@ -13,7 +13,7 @@ import 'package:nativ_maps_flutter/src/offline/offline_manager.dart';
 import 'package:nativ_maps_flutter/src/types/camera.dart';
 import 'package:nativ_maps_flutter/src/types/overlays.dart';
 
-/// El widget del mapa.
+/// The map widget.
 ///
 /// ```dart
 /// NativMap(
@@ -23,23 +23,23 @@ import 'package:nativ_maps_flutter/src/types/overlays.dart';
 ///     zoom: 13,
 ///   ),
 ///   onMapCreated: (controller) => _controller = controller,
-///   onTap: (posicion) => print('tocado en $posicion'),
+///   onTap: (position) => print('tapped at $position'),
 /// )
 /// ```
 ///
-/// ## Qué hace distinto de `google_maps_flutter`
+/// ## What it does differently from `google_maps_flutter`
 ///
-/// **Las superposiciones van por el controlador, no por parámetros.** En
-/// Google se pasa `markers: {…}` al widget y cada cambio reconstruye el árbol.
-/// Aquí se llama a `controller.addMarker(...)`, y el widget no se reconstruye
-/// para mover un vehículo. Con doscientos vehículos actualizándose cada pocos
-/// segundos, la diferencia se ve.
+/// **Overlays go through the controller, not through parameters.** In Google
+/// you pass `markers: {…}` to the widget and every change rebuilds the tree.
+/// Here you call `controller.addMarker(...)`, and the widget doesn't rebuild
+/// to move a vehicle. With two hundred vehicles updating every few seconds,
+/// the difference shows.
 ///
-/// Quien prefiera el estilo declarativo de Google lo tiene en el paquete
-/// `nativ_maps_google`, que añade los parámetros `markers:`, `polylines:` y
-/// compañía como extensión.
+/// Anyone who prefers Google's declarative style has it in the
+/// `nativ_maps_google` package, which adds the `markers:`, `polylines:` and
+/// related parameters as an extension.
 class NativMap extends StatefulWidget {
-  /// Crea el mapa.
+  /// Creates the map.
   const NativMap({
     required this.styleUrl,
     required this.initialCameraPosition,
@@ -72,157 +72,157 @@ class NativMap extends StatefulWidget {
     this.styleLoadTimeout = const Duration(seconds: 20),
   });
 
-  /// La URL del descriptor de estilo.
+  /// The style descriptor URL.
   ///
-  /// Sale de `MapsClient.styleDescriptorUrl`. Cambiarla en caliente cambia el
-  /// estilo del mapa y reinstala las superposiciones, así que alternar entre
-  /// claro y oscuro es cambiar esta propiedad.
+  /// It comes from `MapsClient.styleDescriptorUrl`. Changing it at runtime
+  /// changes the map style and reinstalls the overlays, so switching between
+  /// light and dark is just changing this property.
   final String styleUrl;
 
-  /// Dónde empieza la cámara.
+  /// Where the camera starts.
   ///
-  /// Solo se lee al crear el mapa. Para moverlo después está el controlador.
+  /// It's only read when the map is created. To move it afterwards, use the
+  /// controller.
   final CameraPosition initialCameraPosition;
 
-  /// Se llama una vez, con el controlador ya listo.
+  /// Called once, with the controller ready.
   final void Function(NativMapController controller)? onMapCreated;
 
-  /// Se llama cada vez que termina de cargar un estilo.
+  /// Called every time a style finishes loading.
   ///
-  /// También en los cambios de estilo, no solo en el primero.
+  /// Also on style changes, not just on the first one.
   final VoidCallback? onStyleLoaded;
 
-  /// Se llama si el estilo no carga en [styleLoadTimeout].
+  /// Called if the style doesn't load within [styleLoadTimeout].
   ///
-  /// **Merece la pena engancharlo.** El estilo no carga por tres motivos, y
-  /// los tres son de configuración: clave inválida, región equivocada o sin
-  /// red. Sin esto, el usuario ve un rectángulo gris sin ninguna explicación.
+  /// **It's worth hooking up.** The style fails to load for three reasons, and
+  /// all three are configuration: invalid key, wrong region or no network.
+  /// Without this, the user sees a gray rectangle with no explanation at all.
   final void Function(Object error)? onStyleError;
 
-  /// Se llama al tocar el mapa, en cualquier sitio.
+  /// Called on a tap anywhere on the map.
   final void Function(LatLng position)? onTap;
 
-  /// Se llama al mantener pulsado.
+  /// Called on a long press.
   final void Function(LatLng position)? onLongPress;
 
-  /// Se llama al tocar un marcador.
+  /// Called on a tap on a marker.
   ///
-  /// Tiene prioridad sobre [onTap]: si el toque cae en un marcador, [onTap]
-  /// **no** se llama. Es lo que espera quien viene de Google.
+  /// It takes priority over [onTap]: if the tap lands on a marker, [onTap] is
+  /// **not** called. It's what anyone coming from Google expects.
   final void Function(Marker marker)? onMarkerTap;
 
-  /// Se llama al tocar un grupo de marcadores.
+  /// Called on a tap on a cluster of markers.
   ///
-  /// Si no se pasa, el mapa acerca hasta el zoom en el que ese grupo se
-  /// separa, que es lo que casi siempre se quiere.
+  /// If it isn't passed, the map zooms in to the level at which that cluster
+  /// splits apart, which is what you almost always want.
   final void Function(Cluster cluster)? onClusterTap;
 
-  /// Se llama al tocar una polilínea.
+  /// Called on a tap on a polyline.
   final void Function(Polyline polyline)? onPolylineTap;
 
-  /// Se llama mientras la cámara se mueve.
+  /// Called while the camera moves.
   ///
-  /// Va con antirrebote: en un movimiento continuo llega unas dieciséis veces
-  /// por segundo como mucho, no una por fotograma. Sin eso, una operación cara
-  /// enganchada aquí bloquea el desplazamiento.
+  /// It's debounced: during a continuous move it arrives about sixteen times
+  /// per second at most, not once per frame. Without that, an expensive
+  /// operation hooked up here blocks panning.
   final void Function(CameraPosition position)? onCameraMove;
 
-  /// Se llama cuando la cámara se para.
+  /// Called when the camera stops.
   ///
-  /// **Es el sitio correcto para pedir datos**: pedir en cada
-  /// [onCameraMove] son decenas de peticiones por gesto.
+  /// **It's the right place to fetch data**: fetching on every
+  /// [onCameraMove] means dozens of requests per gesture.
   final VoidCallback? onCameraIdle;
 
-  /// ¿Se enseña el punto azul de la ubicación?
+  /// Whether the blue location dot is shown.
   final bool myLocationEnabled;
 
-  /// Si la cámara sigue a la ubicación, y cómo.
+  /// Whether the camera follows the location, and how.
   final MyLocationTracking myLocationTracking;
 
-  /// ¿Se enseña la brújula al girar el mapa?
+  /// Whether the compass is shown when the map is rotated.
   final bool compassEnabled;
 
-  /// ¿Se enseñan los botones de más y menos zoom?
+  /// Whether the zoom in and zoom out buttons are shown.
   ///
-  /// Son widgets de Flutter dibujados encima, no controles nativos: se pueden
-  /// sustituir montando los tuyos sobre el mapa en un `Stack`.
+  /// They're Flutter widgets drawn on top, not native controls: you can
+  /// replace them by mounting your own over the map in a `Stack`.
   final bool zoomControlsEnabled;
 
-  /// ¿Se enseña la barra de escala?
+  /// Whether the scale bar is shown.
   final bool scaleBarEnabled;
 
-  /// ¿Se enseña el botón de atribución?
+  /// Whether the attribution button is shown.
   ///
-  /// **Desactivarlo puede incumplir las condiciones del proveedor de datos.**
-  /// La atribución es obligatoria y visible; si se quita este botón hay que
-  /// enseñarla en otro sitio de la pantalla.
+  /// **Turning it off may breach the data provider's terms.** Attribution is
+  /// mandatory and must be visible; if you remove this button you have to
+  /// show it somewhere else on the screen.
   final bool attributionEnabled;
 
-  /// ¿Se puede girar el mapa?
+  /// Whether the map can be rotated.
   final bool rotateGesturesEnabled;
 
-  /// ¿Se puede desplazar?
+  /// Whether it can be panned.
   final bool scrollGesturesEnabled;
 
-  /// ¿Se puede hacer zoom con los dedos?
+  /// Whether it can be zoomed with the fingers.
   final bool zoomGesturesEnabled;
 
-  /// ¿Se puede inclinar?
+  /// Whether it can be tilted.
   final bool tiltGesturesEnabled;
 
-  /// Los límites de zoom.
+  /// The zoom limits.
   final MinMaxZoomPreference minMaxZoomPreference;
 
-  /// El rectángulo fuera del cual no se puede desplazar el mapa.
+  /// The rectangle the map can't be panned out of.
   final LatLngBounds? cameraTargetBounds;
 
-  /// ¿Se prepara el gestor de mapas sin conexión?
+  /// Whether the offline map manager is set up.
   ///
-  /// Con `false` —el valor por defecto—, `NativMapController.offline`
-  /// devuelve `null`. Se pide explícitamente porque descargar mapas tiene
-  /// implicaciones legales que hay que resolver antes; ver
-  /// [NativOfflineManager].
+  /// With `false` —the default—, `NativMapController.offline` returns `null`.
+  /// It has to be requested explicitly because downloading maps has legal
+  /// implications that must be settled first; see [NativOfflineManager].
   final bool offlineEnabled;
 
-  /// Cabeceras HTTP propias para las peticiones del mapa.
+  /// Custom HTTP headers for the map's requests.
   ///
-  /// Es lo que hace posible autenticar **las teselas** con SigV4 o con un
-  /// proxy. Sin esto, el estilo solo se puede autenticar con la clave en la
-  /// URL, que es el camino que no debe salir de desarrollo.
+  /// It's what makes it possible to authenticate **the tiles** with SigV4 or
+  /// through a proxy. Without this, the style can only be authenticated with
+  /// the key in the URL, which is the path that must not leave development.
   final Map<String, String>? customHeaders;
 
-  /// Margen interior del mapa.
+  /// The map's inner padding.
   ///
-  /// Desplaza el centro de la cámara y los controles nativos. Sirve para que
-  /// una hoja inferior no tape el punto que se acaba de centrar.
+  /// It shifts the camera center and the native controls. It keeps a bottom
+  /// sheet from covering the point that was just centered.
   final EdgeInsets padding;
 
-  /// Cuánto se espera a que cargue el estilo antes de llamar a [onStyleError].
+  /// How long to wait for the style to load before calling [onStyleError].
   ///
-  /// Existe porque el evento de «estilo cargado» **no llega nunca** si el
-  /// estilo falla. Sin un límite, todo lo que espera a ese evento se queda
-  /// colgado en silencio y la pantalla se queda gris para siempre.
+  /// It exists because the "style loaded" event **never arrives** if the style
+  /// fails. Without a limit, everything waiting on that event hangs silently
+  /// and the screen stays gray forever.
   final Duration styleLoadTimeout;
 
   @override
   State<NativMap> createState() => _NativMapState();
 }
 
-/// Si la cámara sigue a la ubicación del usuario, y cómo.
+/// Whether the camera follows the user's location, and how.
 enum MyLocationTracking {
-  /// No la sigue.
+  /// It doesn't follow it.
   none,
 
-  /// La cámara se centra en la ubicación.
+  /// The camera centers on the location.
   follow,
 
-  /// Se centra y además gira con la brújula del dispositivo.
+  /// It centers and also rotates with the device's compass.
   followWithHeading,
 
-  /// Se centra y gira con el rumbo del GPS.
+  /// It centers and rotates with the GPS heading.
   ///
-  /// Con el dispositivo en movimiento es más estable que la brújula, que se
-  /// desvía cerca de metales y motores.
+  /// With the device moving, it's steadier than the compass, which drifts near
+  /// metal and engines.
   followWithBearing,
 }
 
@@ -235,19 +235,27 @@ class _NativMapState extends State<NativMap> {
   Timer? _cameraDebounce;
   Marker? _openInfoWindowMarker;
   Offset? _infoWindowOffset;
+  ml.MapLibreMapController? _native;
+
+  /// Whether the first `onCameraIdle` —the one for the initial camera— has
+  /// gone out.
+  bool _initialIdleSent = false;
+
+  /// Where the camera was the last time `onCameraIdle` went out.
+  CameraPosition? _lastIdle;
 
   @override
   void didUpdateWidget(covariant NativMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // El estilo se lee en cada reconstrucción, no solo al crear el mapa. Si no,
-    // alternar entre claro y oscuro cambiando esta propiedad no haría nada, y
-    // esa es precisamente la razón de que `dayNightStyleUrls` exista.
+    // The style is read on every rebuild, not only when the map is created.
+    // Otherwise, switching between light and dark by changing this property
+    // would do nothing, and that's precisely why `dayNightStyleUrls` exists.
     if (oldWidget.styleUrl != widget.styleUrl && _controller != null) {
       _styleReady = Completer<void>();
       unawaited(
         _controller!.setMapStyle(widget.styleUrl).catchError((Object error) {
-          // Un estilo que no carga no debe tumbar la pantalla: el mapa se
-          // queda con el anterior, que es lo que el usuario ya estaba viendo.
+          // A style that doesn't load must not bring down the screen: the map
+          // keeps the previous one, which is what the user was already seeing.
           widget.onStyleError?.call(error);
         }),
       );
@@ -271,13 +279,13 @@ class _NativMapState extends State<NativMap> {
         onMapCreated: _onMapCreated,
         onStyleLoadedCallback: _onStyleLoaded,
         onMapClick: _onMapClick,
-        // Sin esto, un toque sobre una capa interactiva —una que añada la
-        // app con `style`, por ejemplo— no llega a `onMapClick`, y con él se
-        // pierden `onMarkerTap`, los globos y `onTap`. Las capas del paquete
-        // ya no son interactivas; esto cubre las demás.
+        // Without this, a tap on an interactive layer —one the app adds with
+        // `style`, for example— doesn't reach `onMapClick`, and with it
+        // `onMarkerTap`, the info windows and `onTap` are lost. The package's
+        // layers are no longer interactive; this covers the rest.
         featureTapsTriggersMapClick: true,
         onMapLongClick: _onMapLongClick,
-        onCameraIdle: _onCameraIdle,
+        onCameraIdle: () => unawaited(_onCameraIdle()),
         onCameraMove: (_) => _onCameraMove(),
         trackCameraPosition: widget.onCameraMove != null,
         myLocationEnabled: widget.myLocationEnabled,
@@ -320,10 +328,12 @@ class _NativMapState extends State<NativMap> {
     ],
   );
 
-  // ─── Ciclo de vida ────────────────────────────────────────────────────
+  // ─── Lifecycle ───────────────────────────────────────────────────────
 
   Future<void> _onMapCreated(ml.MapLibreMapController native) async {
     _installer = LayerInstaller(native);
+    _native = native;
+    native.onFeatureDrag.add(_onFeatureDrag);
 
     if (widget.offlineEnabled) {
       _offline = NativOfflineManager(
@@ -356,8 +366,8 @@ class _NativMapState extends State<NativMap> {
 
     widget.onMapCreated?.call(controller);
 
-    // Arma el vigilante del tiempo de carga: sin esto, un estilo que no carga
-    // deja la pantalla gris para siempre y sin explicación.
+    // Arms the load-time watchdog: without this, a style that doesn't load
+    // leaves the screen gray forever, with no explanation.
     unawaited(
       _ensureStyleReady().catchError((Object error) {
         if (mounted) widget.onStyleError?.call(error);
@@ -367,18 +377,25 @@ class _NativMapState extends State<NativMap> {
 
   Future<void> _onStyleLoaded() async {
     if (!_styleReady.isCompleted) _styleReady.complete();
-    // Un cambio de estilo borra todas las capas y fuentes; sin reinstalarlas,
-    // pasar a modo oscuro haría desaparecer todos los marcadores.
+    // A style change deletes every layer and source; without reinstalling
+    // them, switching to dark mode would make every marker disappear.
     await _controller?.reinstallAfterStyleChange();
     if (mounted) widget.onStyleLoaded?.call();
+    // The native side doesn't send an idle for the initial camera, and
+    // `google_maps_flutter` does: a "pick a location" pin waits for it to look
+    // up the first address. It goes out once, when there's a map to ask.
+    if (!_initialIdleSent && mounted) {
+      _initialIdleSent = true;
+      await _onCameraIdle();
+    }
   }
 
-  /// Espera a que el estilo cargue, con límite.
+  /// Waits for the style to load, with a time limit.
   ///
-  /// El evento de estilo cargado **no llega nunca** si el estilo falla —clave
-  /// caducada, región equivocada, sin red—, y esas son justo las tres cosas
-  /// que más se equivocan la primera vez que se configura. Sin este límite,
-  /// todo lo que espera aquí se queda colgado en silencio.
+  /// The style-loaded event **never arrives** if the style fails —expired key,
+  /// wrong region, no network—, and those are exactly the three things most
+  /// often gotten wrong the first time it's configured. Without this limit,
+  /// everything waiting here hangs silently.
   Future<void> _ensureStyleReady() async {
     if (_styleReady.isCompleted) return;
     await _styleReady.future.timeout(
@@ -393,18 +410,33 @@ class _NativMapState extends State<NativMap> {
     );
   }
 
-  /// Se llama tras cada sincronización de superposiciones.
+  /// Called after every overlay sync.
   ///
-  /// Solo reconstruye si hay un globo abierto: su posición en pantalla depende
-  /// de dónde esté el marcador. Sin globo abierto, `build` no lee ninguna
-  /// superposición —se pintan empujando GeoJSON, no reconstruyendo widgets— y
-  /// llamar a `setState` sería trabajo tirado.
+  /// It only rebuilds if there's an open info window: its position on screen
+  /// depends on where the marker is. Without an open info window, `build`
+  /// reads no overlay at all —they're painted by pushing GeoJSON, not by
+  /// rebuilding widgets— and calling `setState` would be wasted work.
   void _onOverlaysChanged() {
-    if (_openInfoWindowMarker != null && mounted) setState(() {});
+    final open = _openInfoWindowMarker;
+    if (open == null || !mounted) return;
+    // The marker of an open info window may have been removed, hidden or
+    // moved. Removed or hidden, the window closes, as in Google: before, it
+    // stayed on screen pointing at nothing.
+    final current = _controller?.markerById(open.markerId);
+    if (current == null || !current.visible) {
+      _hideInfoWindow();
+      return;
+    }
+    if (!identical(current, open)) {
+      setState(() => _openInfoWindowMarker = current);
+      unawaited(_refreshInfoWindowPosition());
+      return;
+    }
+    setState(() {});
   }
 
-  /// Píxeles del motor por píxel lógico: la densidad en Android, donde
-  /// `maplibre_gl` habla en píxeles físicos, y 1 en iOS y en la web.
+  /// Engine pixels per logical pixel: the pixel density on Android, where
+  /// `maplibre_gl` speaks in physical pixels, and 1 on iOS and on the web.
   double get _nativePixelRatio =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android
       ? MediaQuery.devicePixelRatioOf(context)
@@ -416,15 +448,15 @@ class _NativMapState extends State<NativMap> {
     _controller?.nativePixelRatio = _nativePixelRatio;
   }
 
-  // ─── Gestos ───────────────────────────────────────────────────────────
+  // ─── Gestures ────────────────────────────────────────────────────────
 
   Future<void> _onMapClick(Point<double> point, ml.LatLng coordinates) async {
     final controller = _controller;
     if (controller == null) return;
-    // En unidades del motor, que es lo que espera `queryRenderedFeatures`
-    // para el hit-test. El globo, que es un widget de Flutter, se coloca en
-    // píxeles lógicos: en Android hay que dividir por la densidad, o sale
-    // fuera de la pantalla.
+    // In engine units, which is what `queryRenderedFeatures` expects for the
+    // hit-test. The info window, being a Flutter widget, is placed in logical
+    // pixels: on Android you have to divide by the pixel density, or it ends
+    // up off the screen.
     final screenPoint = Offset(point.x, point.y);
     final logicalPoint = screenPoint / controller.nativePixelRatio;
 
@@ -433,9 +465,9 @@ class _NativMapState extends State<NativMap> {
       if (widget.onClusterTap != null) {
         widget.onClusterTap!(cluster);
       } else {
-        // Sin manejador, tocar un grupo lo abre. Es lo que espera cualquiera
-        // que haya usado un mapa, y `google_maps_flutter` no puede hacerlo
-        // porque agrupa fuera del motor.
+        // Without a handler, tapping a cluster opens it. It's what anyone who
+        // has used a map expects, and `google_maps_flutter` can't do it
+        // because it clusters outside the engine.
         final zoom = await controller.getClusterExpansionZoom(cluster);
         await controller.animateCamera(
           CameraUpdate.newLatLngZoom(cluster.position, zoom),
@@ -449,7 +481,7 @@ class _NativMapState extends State<NativMap> {
       _showInfoWindow(marker, logicalPoint);
       marker.onTap?.call();
       widget.onMarkerTap?.call(marker);
-      return; // El toque no se propaga: es lo que hace Google.
+      return; // The tap doesn't propagate: that's what Google does.
     }
 
     if (widget.onPolylineTap != null) {
@@ -471,11 +503,11 @@ class _NativMapState extends State<NativMap> {
     );
   }
 
-  /// Antirrebote del movimiento de cámara.
+  /// Debounce for the camera movement.
   ///
-  /// El evento nativo llega una vez por fotograma. Sin antirrebote, una
-  /// operación cara enganchada a [NativMap.onCameraMove] convierte un
-  /// desplazamiento fluido en uno a tirones.
+  /// The native event arrives once per frame. Without a debounce, an expensive
+  /// operation hooked up to [NativMap.onCameraMove] turns smooth panning into
+  /// stuttering.
   void _onCameraMove() {
     if (widget.onCameraMove == null) return;
     _cameraDebounce?.cancel();
@@ -489,14 +521,62 @@ class _NativMapState extends State<NativMap> {
     });
   }
 
-  void _onCameraIdle() {
+  Future<void> _onCameraIdle() async {
+    final controller = _controller;
+    // Before there's a controller and a style, there's no camera anyone can
+    // ask about; the initial idle is sent from `_onStyleLoaded` instead.
+    if (controller == null || !_styleReady.isCompleted) return;
+
+    // A debounced move still pending would land *after* this idle and leave
+    // the app believing the camera is still moving. It's dropped, and the
+    // resting position goes out as the last move, before the idle.
+    final movePending = _cameraDebounce?.isActive ?? false;
+    _cameraDebounce?.cancel();
+
+    final position = await controller.getCameraPosition();
+    if (!mounted) return;
+    // One idle per resting place: the native side sometimes reports the same
+    // stop twice, and every idle tends to trigger a billed request.
+    if (position != null && _sameCamera(position, _lastIdle)) return;
+    _lastIdle = position;
+
+    if (movePending && position != null) widget.onCameraMove?.call(position);
     widget.onCameraIdle?.call();
     if (_openInfoWindowMarker != null) {
       unawaited(_refreshInfoWindowPosition());
     }
   }
 
-  // ─── Globo de información ─────────────────────────────────────────────
+  static bool _sameCamera(CameraPosition a, CameraPosition? b) =>
+      b != null &&
+      (a.target.latitude - b.target.latitude).abs() < 1e-9 &&
+      (a.target.longitude - b.target.longitude).abs() < 1e-9 &&
+      (a.zoom - b.zoom).abs() < 1e-6 &&
+      (a.bearing - b.bearing).abs() < 1e-6 &&
+      (a.tilt - b.tilt).abs() < 1e-6;
+
+  void _onFeatureDrag(
+    Point<double> point,
+    ml.LatLng origin,
+    ml.LatLng current,
+    ml.LatLng delta,
+    String id,
+    ml.Annotation? annotation,
+    ml.DragEventType eventType,
+  ) {
+    // An info window doesn't follow its marker while it's dragged; it's
+    // closed, as Google does.
+    if (eventType == ml.DragEventType.start) _hideInfoWindow();
+    unawaited(
+      _controller?.handleMarkerDrag(
+        id,
+        LatLng(current.latitude, current.longitude),
+        eventType,
+      ),
+    );
+  }
+
+  // ─── Info window ─────────────────────────────────────────────────────
 
   void _showInfoWindow(Marker marker, Offset at) {
     if (marker.infoWindow.isEmpty) {
@@ -507,8 +587,9 @@ class _NativMapState extends State<NativMap> {
       _openInfoWindowMarker = marker;
       _infoWindowOffset = at;
     });
-    // Se abre donde tocó el dedo, que es al instante, y se ancla enseguida a
-    // la posición del marcador: si no, el globo tapa el propio icono.
+    // It opens where the finger tapped, which is instant, and right away it
+    // anchors to the marker's position: otherwise, the info window covers the
+    // icon itself.
     unawaited(_refreshInfoWindowPosition());
   }
 
@@ -528,7 +609,7 @@ class _NativMapState extends State<NativMap> {
       final offset = await controller.getScreenCoordinate(marker.position);
       if (mounted) setState(() => _infoWindowOffset = offset);
     } on Object {
-      // El mapa puede no estar listo. El globo se queda donde estaba.
+      // The map may not be ready. The info window stays where it was.
     }
   }
 
@@ -557,8 +638,8 @@ class _NativMapState extends State<NativMap> {
         );
 
     return Positioned(
-      // Se resta el ancho a ojo porque el widget aún no está medido; el
-      // `FractionalTranslation` lo centra de verdad una vez montado.
+      // The width is subtracted by eye because the widget isn't measured yet;
+      // the `FractionalTranslation` truly centers it once mounted.
       left: offset.dx,
       top: offset.dy,
       child: FractionalTranslation(
@@ -606,6 +687,7 @@ class _NativMapState extends State<NativMap> {
   @override
   void dispose() {
     _cameraDebounce?.cancel();
+    _native?.onFeatureDrag.remove(_onFeatureDrag);
     _controller?.dispose();
     super.dispose();
   }

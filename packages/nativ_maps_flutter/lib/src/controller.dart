@@ -1,16 +1,16 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:async';
 import 'dart:math' show Point;
-import 'dart:ui' show Offset;
+import 'dart:ui' show Offset, Rect;
 
 import 'package:flutter/foundation.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
-// `meta` importado explícitamente, aunque en Flutter 3.44+ el linter lo marque
-// como redundante: `package:flutter/foundation.dart` **no reexporta
-// `@internal`** hasta versiones recientes, y este paquete declara suelo en
-// Flutter 3.32. Sin este import, quien lo use en 3.32 se encuentra doce
-// errores de `undefined_annotation`.
+// `meta` is imported explicitly, even though on Flutter 3.44+ the linter flags
+// it as redundant: `package:flutter/foundation.dart` **does not re-export
+// `@internal`** until recent versions, and this package declares Flutter 3.32
+// as its floor. Without this import, anyone using it on 3.32 runs into twelve
+// `undefined_annotation` errors.
 // ignore: unnecessary_import
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/nativ_maps.dart';
@@ -22,45 +22,47 @@ import 'package:nativ_maps_flutter/src/style_editor.dart';
 import 'package:nativ_maps_flutter/src/types/camera.dart';
 import 'package:nativ_maps_flutter/src/types/overlays.dart';
 
-/// El mando del mapa.
+/// The remote control for the map.
 ///
-/// Llega por `NativMap.onMapCreated` y vive mientras viva el widget.
+/// It arrives through `NativMap.onMapCreated` and lives as long as the widget
+/// does.
 ///
-/// ## La forma es la de `google_maps_flutter`
+/// ## The shape is that of `google_maps_flutter`
 ///
 /// `animateCamera`, `moveCamera`, `getVisibleRegion`, `getZoomLevel`,
-/// `getScreenCoordinate`, `getLatLng`, `setMapStyle`, `takeSnapshot`… se
-/// llaman igual y hacen lo mismo. Quien viene de Google no tiene nada que
-/// aprender para la mitad de esto.
+/// `getScreenCoordinate`, `getLatLng`, `setMapStyle`, `takeSnapshot`… have the
+/// same names and do the same thing. Anyone coming from Google has nothing to
+/// learn for half of this.
 ///
-/// ## Lo que Google no tiene
+/// ## What Google doesn't have
 ///
-/// [offline] —descargar regiones para usar el mapa sin red—, [heatmaps] con
-/// rampa de color propia, y el agrupado nativo de [ClusterManager].
+/// [offline] —downloading regions to use the map without a network—,
+/// [heatmaps] with their own color ramp, and the native clustering of
+/// [ClusterManager].
 ///
-/// ## Cómo se extiende para un proyecto concreto
+/// ## How to extend it for a specific project
 ///
-/// **No añadiendo métodos aquí.** Un framework para dieciocho proyectos no
-/// puede saber qué es un vehículo ni qué es una muestra de agua. Cada proyecto
-/// escribe su propia `extension` sobre este mismo controlador:
+/// **Not by adding methods here.** A framework for eighteen projects can't
+/// know what a vehicle is, or a water sample. Each project writes its own
+/// `extension` on this same controller:
 ///
 /// ```dart
-/// extension MapaDeRastreo on NativMapController {
-///   Future<void> mostrarVehiculo(Vehiculo v) => addMarker(
+/// extension TrackingMap on NativMapController {
+///   Future<void> showVehicle(Vehicle v) => addMarker(
 ///         Marker(
 ///           markerId: MarkerId(v.id),
-///           position: v.posicion,
-///           rotation: v.rumbo,
+///           position: v.position,
+///           rotation: v.heading,
 ///           flat: true,
 ///         ),
 ///       );
 /// }
 /// ```
 ///
-/// Una `extension` no hereda ni envuelve: no tiene coste en ejecución, no
-/// bloquea el núcleo y borrarla no rompe nada debajo.
+/// An `extension` neither inherits nor wraps: it has no runtime cost, it
+/// doesn't lock the core, and deleting it breaks nothing underneath.
 class NativMapController {
-  /// Uso interno: lo construye el widget.
+  /// Internal use: the widget builds it.
   @internal
   NativMapController({
     required ml.MapLibreMapController native,
@@ -75,12 +77,12 @@ class NativMapController {
        _onOverlaysChanged = onOverlaysChanged,
        _offline = offline;
 
-  /// Retoca el estilo del mapa en caliente: apagar capas, cambiar colores,
-  /// ajustar grosores.
+  /// Tweaks the map style at runtime: turning layers off, changing colors,
+  /// adjusting widths.
   ///
-  /// Lo que se cambie aquí **no sobrevive a un cambio de `styleUrl`**: hay que
-  /// volver a aplicarlo en `NativMap.onStyleLoaded`, que se llama en cada
-  /// carga precisamente por esto.
+  /// What you change here **does not survive a `styleUrl` change**: you have
+  /// to apply it again in `NativMap.onStyleLoaded`, which is called on every
+  /// load precisely for this reason.
   final StyleEditor style;
 
   final ml.MapLibreMapController _native;
@@ -96,33 +98,36 @@ class NativMapController {
   final Map<HeatmapId, Heatmap> _heatmaps = <HeatmapId, Heatmap>{};
   final Map<ClusterManagerId, ClusterManager> _clusterManagers =
       <ClusterManagerId, ClusterManager>{};
+  final Map<GroundOverlayId, GroundOverlay> _groundOverlays =
+      <GroundOverlayId, GroundOverlay>{};
+  final Map<TileOverlayId, TileOverlay> _tileOverlays =
+      <TileOverlayId, TileOverlay>{};
   final Set<String> _uploadedImages = <String>{};
 
   bool _disposed = false;
   bool _syncScheduled = false;
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Cámara — los mismos nombres que en google_maps_flutter
+  //  Camera — the same names as in google_maps_flutter
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Mueve la cámara con animación.
+  /// Moves the camera with an animation.
   Future<void> animateCamera(CameraUpdate update, {Duration? duration}) async {
     _checkAlive();
     await _native.animateCamera(await _toNative(update), duration: duration);
   }
 
-  /// Mueve la cámara de golpe, sin animación.
+  /// Moves the camera at once, without an animation.
   Future<void> moveCamera(CameraUpdate update) async {
     _checkAlive();
     await _native.moveCamera(await _toNative(update));
   }
 
-  /// La posición actual de la cámara.
+  /// The current camera position.
   ///
-  /// Devuelve `null` si el mapa todavía no ha terminado de crearse. Se
-  /// devuelve `null` en vez de un valor por defecto porque una cámara en
-  /// `LatLng(0, 0)` con zoom 0 es un valor legítimo y se usaría como si fuera
-  /// cierto.
+  /// Returns `null` if the map hasn't finished being created yet. It returns
+  /// `null` instead of a default value because a camera at `LatLng(0, 0)` with
+  /// zoom 0 is a legitimate value and would be used as if it were true.
   Future<CameraPosition?> getCameraPosition() async {
     _checkAlive();
     final native = await _native.queryCameraPosition();
@@ -130,7 +135,7 @@ class NativMapController {
     return _fromNativeCamera(native);
   }
 
-  /// El rectángulo que se ve ahora mismo en pantalla.
+  /// The rectangle visible on screen right now.
   Future<LatLngBounds> getVisibleRegion() async {
     _checkAlive();
     final region = await _native.getVisibleRegion();
@@ -140,27 +145,27 @@ class NativMapController {
     );
   }
 
-  /// El nivel de zoom actual.
+  /// The current zoom level.
   Future<double> getZoomLevel() async {
     final camera = await getCameraPosition();
     return camera?.zoom ?? 0;
   }
 
-  /// Píxeles del motor por cada píxel lógico de Flutter.
+  /// Engine pixels per Flutter logical pixel.
   ///
-  /// `maplibre_gl` da y pide las posiciones de pantalla en **píxeles físicos**
-  /// en Android y en **puntos** en iOS. El widget fija aquí la densidad de la
-  /// pantalla en Android y 1 en el resto, y [getScreenCoordinate] y
-  /// [getLatLng] trabajan siempre en píxeles lógicos.
+  /// `maplibre_gl` returns and takes screen positions in **physical pixels**
+  /// on Android and in **points** on iOS. The widget sets the screen's pixel
+  /// density here on Android and 1 everywhere else, and [getScreenCoordinate]
+  /// and [getLatLng] always work in logical pixels.
   @internal
   double nativePixelRatio = 1;
 
-  /// De coordenada geográfica a posición en pantalla, en **píxeles lógicos**
-  /// de Flutter —los de `Positioned`—, igual en Android que en iOS.
+  /// From a geographic coordinate to a screen position, in Flutter **logical
+  /// pixels** —the ones `Positioned` uses—, the same on Android as on iOS.
   ///
-  /// `google_maps_flutter` devuelve píxeles físicos en Android y lógicos en
-  /// iOS; aquí no, y por eso un widget colocado con esto cae en su sitio en
-  /// las dos.
+  /// `google_maps_flutter` returns physical pixels on Android and logical ones
+  /// on iOS; not here, and that's why a widget placed with this lands in the
+  /// right spot on both.
   Future<Offset> getScreenCoordinate(LatLng latLng) async {
     _checkAlive();
     final point = await _native.toScreenLocation(
@@ -169,8 +174,8 @@ class NativMapController {
     return Offset(point.x.toDouble(), point.y.toDouble()) / nativePixelRatio;
   }
 
-  /// De una posición en pantalla, en píxeles lógicos, a coordenada
-  /// geográfica. La inversa de [getScreenCoordinate].
+  /// From a screen position, in logical pixels, to a geographic coordinate.
+  /// The inverse of [getScreenCoordinate].
   Future<LatLng> getLatLng(Offset screenCoordinate) async {
     _checkAlive();
     final native = screenCoordinate * nativePixelRatio;
@@ -178,24 +183,23 @@ class NativMapController {
     return LatLng(latLng.latitude, latLng.longitude);
   }
 
-  /// Cuántos metros mide un píxel a esta latitud y este zoom.
+  /// How many meters one pixel spans at this latitude and this zoom.
   ///
-  /// Es lo que hace falta para decidir el nivel de detalle de lo que se
-  /// dibuja: por debajo de cierto tamaño real, un polígono no merece la pena
-  /// pintarlo.
+  /// It's what you need to decide the level of detail of what gets drawn:
+  /// below a certain real size, a polygon isn't worth painting.
   Future<double> getMetersPerPixel(double latitude) async {
     _checkAlive();
     return _native.getMetersPerPixelAtLatitude(latitude);
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Marcadores
+  //  Markers
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Los marcadores que hay ahora mismo.
+  /// The markers on the map right now.
   List<Marker> get markers => List<Marker>.unmodifiable(_markers.values);
 
-  /// Añade o reemplaza un marcador.
+  /// Adds or replaces a marker.
   Future<void> addMarker(Marker marker) async {
     _checkAlive();
     _markers[marker.markerId] = marker;
@@ -203,11 +207,11 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Añade o reemplaza varios marcadores de una vez.
+  /// Adds or replaces several markers at once.
   ///
-  /// **Es lo que hay que usar con más de un puñado.** Añadirlos de uno en uno
-  /// funciona —la sincronización se agrupa igual—, pero esto evita también las
-  /// subidas repetidas de la misma imagen.
+  /// **This is what to use for more than a handful.** Adding them one by one
+  /// works —the sync is batched all the same—, but this also avoids uploading
+  /// the same image over and over.
   Future<void> addMarkers(Iterable<Marker> markers) async {
     _checkAlive();
     for (final marker in markers) {
@@ -217,23 +221,23 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Cambia un marcador que ya existe.
+  /// Changes a marker that already exists.
   ///
-  /// Equivale a [addMarker]; existe con este nombre porque es el que usa
-  /// `google_maps_flutter`.
+  /// Equivalent to [addMarker]; it exists under this name because it's the one
+  /// `google_maps_flutter` uses.
   Future<void> updateMarker(Marker marker) => addMarker(marker);
 
-  /// Quita un marcador.
+  /// Removes a marker.
   Future<void> removeMarker(MarkerId markerId) async {
     _checkAlive();
     if (_markers.remove(markerId) != null) _scheduleSync();
   }
 
-  /// Deja exactamente el conjunto de marcadores indicado.
+  /// Leaves exactly the given set of markers.
   ///
-  /// Es la operación que corresponde a un `setState` con la lista entera:
-  /// calcula qué sobra y qué falta en vez de borrar y volver a poner todo, que
-  /// produce un parpadeo visible.
+  /// It's the operation that matches a `setState` with the whole list: it
+  /// works out what's extra and what's missing instead of removing everything
+  /// and putting it back, which causes a visible flicker.
   Future<void> setMarkers(Iterable<Marker> markers) async {
     _checkAlive();
     final wanted = <MarkerId, Marker>{for (final m in markers) m.markerId: m};
@@ -251,7 +255,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita todos los marcadores.
+  /// Removes every marker.
   Future<void> clearMarkers() async {
     _checkAlive();
     if (_markers.isEmpty) return;
@@ -260,20 +264,20 @@ class NativMapController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Polilíneas, polígonos y círculos
+  //  Polylines, polygons and circles
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Las polilíneas que hay ahora mismo.
+  /// The polylines on the map right now.
   List<Polyline> get polylines =>
       List<Polyline>.unmodifiable(_polylines.values);
 
-  /// Añade o reemplaza una polilínea.
+  /// Adds or replaces a polyline.
   ///
   /// ```dart
-  /// final ruta = (await maps.routes.calculateRoutes(...)).best!;
-  /// // Sin convertir nada: los puntos de la ruta son LatLng de este paquete.
+  /// final route = (await maps.routes.calculateRoutes(...)).best!;
+  /// // No conversion at all: the route's points are this package's LatLng.
   /// await controller.addPolyline(
-  ///   Polyline(polylineId: const PolylineId('ruta'), points: ruta.points),
+  ///   Polyline(polylineId: const PolylineId('route'), points: route.points),
   /// );
   /// ```
   Future<void> addPolyline(Polyline polyline) async {
@@ -282,13 +286,13 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita una polilínea.
+  /// Removes a polyline.
   Future<void> removePolyline(PolylineId polylineId) async {
     _checkAlive();
     if (_polylines.remove(polylineId) != null) _scheduleSync();
   }
 
-  /// Deja exactamente el conjunto de polilíneas indicado.
+  /// Leaves exactly the given set of polylines.
   Future<void> setPolylines(Iterable<Polyline> polylines) async {
     _checkAlive();
     _polylines
@@ -297,7 +301,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita todas las polilíneas.
+  /// Removes every polyline.
   Future<void> clearPolylines() async {
     _checkAlive();
     if (_polylines.isEmpty) return;
@@ -305,23 +309,23 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Los polígonos que hay ahora mismo.
+  /// The polygons on the map right now.
   List<Polygon> get polygons => List<Polygon>.unmodifiable(_polygons.values);
 
-  /// Añade o reemplaza un polígono.
+  /// Adds or replaces a polygon.
   Future<void> addPolygon(Polygon polygon) async {
     _checkAlive();
     _polygons[polygon.polygonId] = polygon;
     _scheduleSync();
   }
 
-  /// Quita un polígono.
+  /// Removes a polygon.
   Future<void> removePolygon(PolygonId polygonId) async {
     _checkAlive();
     if (_polygons.remove(polygonId) != null) _scheduleSync();
   }
 
-  /// Deja exactamente el conjunto de polígonos indicado.
+  /// Leaves exactly the given set of polygons.
   Future<void> setPolygons(Iterable<Polygon> polygons) async {
     _checkAlive();
     _polygons
@@ -330,7 +334,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita todos los polígonos.
+  /// Removes every polygon.
   Future<void> clearPolygons() async {
     _checkAlive();
     if (_polygons.isEmpty) return;
@@ -338,23 +342,23 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Los círculos que hay ahora mismo.
+  /// The circles on the map right now.
   List<Circle> get circles => List<Circle>.unmodifiable(_circles.values);
 
-  /// Añade o reemplaza un círculo.
+  /// Adds or replaces a circle.
   Future<void> addCircle(Circle circle) async {
     _checkAlive();
     _circles[circle.circleId] = circle;
     _scheduleSync();
   }
 
-  /// Quita un círculo.
+  /// Removes a circle.
   Future<void> removeCircle(CircleId circleId) async {
     _checkAlive();
     if (_circles.remove(circleId) != null) _scheduleSync();
   }
 
-  /// Deja exactamente el conjunto de círculos indicado.
+  /// Leaves exactly the given set of circles.
   Future<void> setCircles(Iterable<Circle> circles) async {
     _checkAlive();
     _circles
@@ -363,7 +367,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita todos los círculos.
+  /// Removes every circle.
   Future<void> clearCircles() async {
     _checkAlive();
     if (_circles.isEmpty) return;
@@ -372,17 +376,17 @@ class NativMapController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Mapas de calor — lo que en Google es un tipo cerrado
+  //  Heatmaps — what in Google is a closed type
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Los mapas de calor que hay ahora mismo.
+  /// The heatmaps on the map right now.
   List<Heatmap> get heatmaps => List<Heatmap>.unmodifiable(_heatmaps.values);
 
-  /// Añade o reemplaza un mapa de calor.
+  /// Adds or replaces a heatmap.
   ///
-  /// Cada uno vive en su propia capa nativa: la rampa de color, el radio y la
-  /// intensidad son suyos y no se comparten. En `google_maps_flutter` esto es
-  /// un tipo cerrado con muy pocos mandos.
+  /// Each one lives in its own native layer: the color ramp, the radius and the
+  /// intensity are its own and aren't shared. In `google_maps_flutter` this is
+  /// a closed type with very few knobs.
   Future<void> addHeatmap(Heatmap heatmap) async {
     _checkAlive();
     await _ensureStyleReady();
@@ -391,7 +395,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita un mapa de calor.
+  /// Removes a heatmap.
   Future<void> removeHeatmap(HeatmapId heatmapId) async {
     _checkAlive();
     if (_heatmaps.remove(heatmapId) == null) return;
@@ -399,16 +403,16 @@ class NativMapController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Agrupado — nativo, no calculado en Dart
+  //  Clustering — native, not computed in Dart
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Registra un agrupador de marcadores.
+  /// Registers a marker cluster manager.
   ///
-  /// Los marcadores cuyo `clusterManagerId` coincida se agrupan **en el
-  /// motor**, no en Dart. La diferencia se nota a partir de unos pocos miles:
-  /// el desplazamiento del mapa deja de tirones.
+  /// Markers whose `clusterManagerId` matches are clustered **in the engine**,
+  /// not in Dart. The difference shows from a few thousand on: panning the map
+  /// stops stuttering.
   ///
-  /// Hay que registrarlo **antes** de añadir los marcadores que lo usan.
+  /// It has to be registered **before** adding the markers that use it.
   Future<void> addClusterManager(ClusterManager manager) async {
     _checkAlive();
     await _ensureStyleReady();
@@ -417,7 +421,7 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// Quita un agrupador y sus capas.
+  /// Removes a cluster manager and its layers.
   Future<void> removeClusterManager(ClusterManagerId id) async {
     _checkAlive();
     if (_clusterManagers.remove(id) == null) return;
@@ -425,11 +429,11 @@ class NativMapController {
     _scheduleSync();
   }
 
-  /// A qué zoom se separa el grupo indicado.
+  /// The zoom at which the given cluster splits apart.
   ///
-  /// Es lo que permite que tocar un grupo lo abra en vez de no hacer nada.
-  /// `google_maps_flutter` no puede dar este dato porque agrupa fuera del
-  /// motor.
+  /// It's what lets a tap on a cluster open it instead of doing nothing.
+  /// `google_maps_flutter` can't provide this because it clusters outside the
+  /// engine.
   Future<double> getClusterExpansionZoom(Cluster cluster) async {
     _checkAlive();
     if (cluster.clusterId == null) return 0;
@@ -441,29 +445,110 @@ class NativMapController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Estilo
+  //  Ground and tile overlays
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Cambia el estilo del mapa.
+  /// The ground overlays on the map right now.
+  List<GroundOverlay> get groundOverlays =>
+      List<GroundOverlay>.unmodifiable(_groundOverlays.values);
+
+  /// Adds or replaces an image pinned to a rectangle of the map.
   ///
-  /// Se le pasa la URL de `MapsClient.styleDescriptorUrl`. Cambiar el estilo
-  /// **borra todas las capas y fuentes**, así que este método las reinstala y
-  /// vuelve a empujar las superposiciones. Sin eso, cambiar a modo oscuro
-  /// haría desaparecer todos los marcadores.
+  /// It's drawn under the package's polygons, lines and markers, and over the
+  /// base map: a building plan or a scanned map is background, and what's
+  /// drawn on it has to stay readable.
+  Future<void> addGroundOverlay(GroundOverlay overlay) async {
+    _checkAlive();
+    _groundOverlays[overlay.groundOverlayId] = overlay;
+    await _installRasters();
+  }
+
+  /// Removes a ground overlay.
+  Future<void> removeGroundOverlay(GroundOverlayId id) async {
+    _checkAlive();
+    if (_groundOverlays.remove(id) == null) return;
+    await _installRasters();
+  }
+
+  /// Leaves exactly [overlays] as the ground overlays.
+  Future<void> setGroundOverlays(Iterable<GroundOverlay> overlays) async {
+    _checkAlive();
+    _groundOverlays
+      ..clear()
+      ..addEntries(overlays.map((o) => MapEntry(o.groundOverlayId, o)));
+    await _installRasters();
+  }
+
+  /// Removes every ground overlay.
+  Future<void> clearGroundOverlays() => setGroundOverlays(const []);
+
+  /// The tile overlays on the map right now.
+  List<TileOverlay> get tileOverlays =>
+      List<TileOverlay>.unmodifiable(_tileOverlays.values);
+
+  /// Adds or replaces a layer of your own tiles over the base map.
+  ///
+  /// For data that's already served as tiles: land registry, network coverage,
+  /// weather. It goes, like ground overlays, under the package's polygons,
+  /// lines and markers.
+  Future<void> addTileOverlay(TileOverlay overlay) async {
+    _checkAlive();
+    _tileOverlays[overlay.tileOverlayId] = overlay;
+    await _installRasters();
+  }
+
+  /// Removes a tile overlay.
+  Future<void> removeTileOverlay(TileOverlayId id) async {
+    _checkAlive();
+    if (_tileOverlays.remove(id) == null) return;
+    await _installRasters();
+  }
+
+  /// Leaves exactly [overlays] as the tile overlays.
+  Future<void> setTileOverlays(Iterable<TileOverlay> overlays) async {
+    _checkAlive();
+    _tileOverlays
+      ..clear()
+      ..addEntries(overlays.map((o) => MapEntry(o.tileOverlayId, o)));
+    await _installRasters();
+  }
+
+  /// Removes every tile overlay.
+  Future<void> clearTileOverlays() => setTileOverlays(const []);
+
+  Future<void> _installRasters() async {
+    await _ensureStyleReady();
+    if (_disposed) return;
+    await _installer.installRasterOverlays(
+      _groundOverlays.values,
+      _tileOverlays.values,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Style
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Changes the map style.
+  ///
+  /// Pass it the URL from `MapsClient.styleDescriptorUrl`. Changing the style
+  /// **deletes every layer and source**, so this method reinstalls them and
+  /// pushes the overlays again. Without that, switching to dark mode would make
+  /// every marker disappear.
   Future<void> setMapStyle(String styleUrl) async {
     _checkAlive();
     await _native.setStyle(styleUrl);
-    // El resto lo hace el widget al recibir el evento de estilo cargado.
+    // The widget does the rest when it gets the style-loaded event.
   }
 
-  /// Cabeceras HTTP propias para las peticiones del mapa.
+  /// Custom HTTP headers for the map's requests.
   ///
-  /// Es la pieza que hace posible el camino de SigV4 y el de proxy **también
-  /// para las teselas**: sin esto, el estilo y las teselas solo se podrían
-  /// autenticar con la clave en la URL.
+  /// It's the piece that makes the SigV4 and proxy paths possible **for the
+  /// tiles too**: without this, the style and the tiles could only be
+  /// authenticated with the key in the URL.
   ///
-  /// [urlFilter] limita a qué URLs se añaden; conviene acotarlo al host de
-  /// Amazon Location para no mandar tus cabeceras a terceros.
+  /// [urlFilter] limits which URLs they're added to; keep it narrowed to the
+  /// Amazon Location host so you don't send your headers to third parties.
   Future<void> setCustomHeaders(
     Map<String, String> headers, {
     List<String> urlFilter = const <String>['amazonaws.com'],
@@ -472,55 +557,55 @@ class NativMapController {
     await _native.setCustomHeaders(headers, urlFilter);
   }
 
-  /// Una captura del mapa tal como se ve ahora.
+  /// A snapshot of the map as it looks right now.
   ///
-  /// Exige que el mapa esté montado y visible. Para una miniatura sin mapa en
-  /// pantalla —una notificación, un PDF— está `MapsClient.staticMap`, que la
-  /// pinta el servidor.
+  /// It requires the map to be mounted and visible. For a thumbnail without a
+  /// map on screen —a notification, a PDF— there's `MapsClient.staticMap`,
+  /// which the server renders.
   Future<Uint8List> takeSnapshot({int? width, int? height}) {
     _checkAlive();
     return _native.takeSnapshot(width: width, height: height);
   }
 
-  /// Vacía la caché de teselas del entorno.
+  /// Empties the ambient tile cache.
   Future<void> clearTileCache() async {
     _checkAlive();
     await _native.clearAmbientCache();
   }
 
-  /// Fuerza a pedir las teselas por red aunque haya copia local.
+  /// Forces tiles to be fetched over the network even if there's a local copy.
   Future<void> forceOnlineMode() async {
     _checkAlive();
     await _native.forceOnlineMode();
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Sin conexión — lo que google_maps_flutter no puede dar
+  //  Offline — what google_maps_flutter can't give you
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Descargar regiones, gestionar la caché y borrar lo guardado.
+  /// Download regions, manage the cache and delete what's stored.
   ///
-  /// **`google_maps_flutter` no tiene modo sin conexión**, y no por una
-  /// limitación técnica: las condiciones de Google prohíben cachear teselas.
-  /// Por eso ningún envoltorio de Google lo ofrece.
+  /// **`google_maps_flutter` has no offline mode**, and not because of a
+  /// technical limitation: Google's terms forbid caching tiles. That's why no
+  /// Google wrapper offers it.
   ///
-  /// Devuelve `null` si el widget se creó sin `offlineEnabled: true`.
+  /// Returns `null` if the widget was created without `offlineEnabled: true`.
   ///
-  /// ⚠️ Antes de usarlo en producción, leer la advertencia de
-  /// [NativOfflineManager]: que MapLibre **pueda** guardar teselas no
-  /// significa que las condiciones de Amazon **permitan** guardar las suyas.
+  /// ⚠️ Before using it in production, read the warning on
+  /// [NativOfflineManager]: the fact that MapLibre **can** store tiles doesn't
+  /// mean Amazon's terms **allow** storing theirs.
   NativOfflineManager? get offline => _offline;
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Interrogar el mapa
+  //  Querying the map
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// El marcador que hay bajo [screenPoint], o `null`.
+  /// The marker under [screenPoint], or `null`.
   ///
-  /// Usa el hit-test **nativo** del motor (`queryRenderedFeatures`), que
-  /// acierta con la forma real del icono dibujado. Un hit-test hecho en Dart
-  /// —recorrer los marcadores y quedarse con el más cercano en píxeles— falla
-  /// con iconos grandes, con iconos girados y cuando dos se solapan.
+  /// It uses the engine's **native** hit-test (`queryRenderedFeatures`), which
+  /// gets the actual shape of the drawn icon right. A hit-test done in Dart
+  /// —going through the markers and keeping the closest one in pixels— fails
+  /// with large icons, with rotated icons and when two overlap.
   @internal
   Future<Marker?> markerAt(Offset screenPoint) async {
     if (_disposed || _markers.isEmpty) return null;
@@ -544,14 +629,14 @@ class NativMapController {
         if (marker != null) return marker;
       }
     } on Object {
-      // Un hit-test que falla no debe tumbar el gesto: el mapa puede estar a
-      // medio cargar, y el usuario simplemente ve que no pasa nada.
+      // A failing hit-test must not bring down the gesture: the map may be
+      // half-loaded, and the user simply sees that nothing happens.
       return null;
     }
     return null;
   }
 
-  /// El grupo que hay bajo [screenPoint], o `null`.
+  /// The cluster under [screenPoint], or `null`.
   @internal
   Future<Cluster?> clusterAt(Offset screenPoint) async {
     if (_disposed || _clusterManagers.isEmpty) return null;
@@ -584,14 +669,33 @@ class NativMapController {
     return null;
   }
 
-  /// La polilínea que hay bajo [screenPoint], o `null`.
+  /// The polyline under [screenPoint], or `null`.
   @internal
   Future<Polyline?> polylineAt(Offset screenPoint) async {
     if (_disposed || _polylines.isEmpty) return null;
+    // A line is a few pixels wide and a fingertip isn't: looking only at the
+    // exact pixel missed most real taps. 12 dp around it, like the margin
+    // MapLibre gives its own interactive layers.
+    final tolerance = 12 * nativePixelRatio;
+    // Each dash pattern lives in a layer of its own; the base id alone never
+    // matched a dashed line.
+    final dashPatterns = <String>{
+      for (final line in _polylines.values)
+        if (line.isDashed)
+          GeoJson.dashArray(line.patterns, line.width).join(','),
+    };
     try {
-      final features = await _native.queryRenderedFeatures(
-        Point<double>(screenPoint.dx, screenPoint.dy),
-        <String>[LayerInstaller.lineLayerId, LayerInstaller.dashedLineLayerId],
+      final features = await _native.queryRenderedFeaturesInRect(
+        Rect.fromCenter(
+          center: screenPoint,
+          width: tolerance * 2,
+          height: tolerance * 2,
+        ),
+        <String>[
+          LayerInstaller.lineLayerId,
+          for (final pattern in dashPatterns)
+            '${LayerInstaller.dashedLineLayerId}-$pattern',
+        ],
         null,
       );
       for (final feature in features) {
@@ -608,10 +712,60 @@ class NativMapController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  //  Internos
+  //  Internals
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Vuelve a instalar capas y a empujar los datos tras un cambio de estilo.
+  /// The marker with [id], as the controller has it now.
+  @internal
+  Marker? markerById(MarkerId id) => _markers[id];
+
+  /// Moves a marker that's being dragged, and tells its callbacks.
+  ///
+  /// [featureId] is the native feature id the drag event carries — a number,
+  /// sometimes as a string — and [phase] is the native `start`, `drag` or
+  /// `end`. Only that marker's feature is pushed: sending the whole collection
+  /// on every frame would stutter with a few hundred markers.
+  @internal
+  Future<void> handleMarkerDrag(
+    Object featureId,
+    LatLng position,
+    ml.DragEventType phase,
+  ) async {
+    if (_disposed) return;
+    final id = int.tryParse(featureId.toString());
+    Marker? marker;
+    for (final m in _markers.values) {
+      if (GeoJson.featureId(m.markerId) == id) {
+        marker = m;
+        break;
+      }
+    }
+    if (marker == null || !marker.draggable) return;
+
+    final moved = marker.copyWith(position: position);
+    _markers[marker.markerId] = moved;
+    switch (phase) {
+      case ml.DragEventType.start:
+        marker.onDragStart?.call(position);
+      case ml.DragEventType.drag:
+        marker.onDrag?.call(position);
+      case ml.DragEventType.end:
+        marker.onDragEnd?.call(position);
+    }
+
+    final clusterId = moved.clusterManagerId;
+    if (clusterId != null && _clusterManagers.containsKey(clusterId)) {
+      // A clustered source regroups on every change: it gets the whole set.
+      _scheduleSync();
+    } else {
+      await _installer.pushFeature(
+        LayerInstaller.markerSourceId,
+        GeoJson.marker(moved),
+      );
+    }
+  }
+
+  /// Reinstalls the layers and pushes the data again after a style change.
   @internal
   Future<void> reinstallAfterStyleChange() async {
     if (_disposed) return;
@@ -622,6 +776,10 @@ class NativMapController {
     for (final heatmap in _heatmaps.values) {
       await _installer.installHeatmap(heatmap);
     }
+    await _installer.installRasterOverlays(
+      _groundOverlays.values,
+      _tileOverlays.values,
+    );
     _uploadedImages.clear();
     for (final marker in _markers.values) {
       await _uploadIconIfNeeded(marker.icon);
@@ -629,7 +787,8 @@ class NativMapController {
     await syncNow();
   }
 
-  /// Empuja el estado actual al mapa sin esperar al siguiente microtask.
+  /// Pushes the current state to the map without waiting for the next
+  /// microtask.
   @internal
   Future<void> syncNow() async {
     if (_disposed) return;
@@ -680,11 +839,11 @@ class NativMapController {
     _onOverlaysChanged();
   }
 
-  /// Agrupa las sincronizaciones en un solo empujón por microtask.
+  /// Batches the syncs into a single push per microtask.
   ///
-  /// Sin esto, añadir doscientos marcadores en un bucle serían doscientos
-  /// cruces del canal de plataforma con la colección entera cada vez —trabajo
-  /// cuadrático—. Con esto, es uno.
+  /// Without this, adding two hundred markers in a loop would be two hundred
+  /// trips across the platform channel with the whole collection each time
+  /// —quadratic work—. With this, it's one.
   void _scheduleSync() {
     if (_syncScheduled || _disposed) return;
     _syncScheduled = true;
@@ -764,7 +923,7 @@ class NativMapController {
     }
   }
 
-  /// Uso interno: lo llama el widget al desmontarse.
+  /// Internal use: the widget calls it when it unmounts.
   @internal
   void dispose() {
     _disposed = true;
@@ -774,6 +933,8 @@ class NativMapController {
     _circles.clear();
     _heatmaps.clear();
     _clusterManagers.clear();
+    _groundOverlays.clear();
+    _tileOverlays.clear();
     _uploadedImages.clear();
   }
 }

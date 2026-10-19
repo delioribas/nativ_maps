@@ -1,18 +1,18 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// Cómo se acota una búsqueda: por rectángulo, por círculo, por país o por
-/// varias cosas a la vez.
+/// How a search is narrowed down: by rectangle, by circle, by country, or by
+/// several of them at once.
 ///
-/// El filtro es distinto del **sesgo**. El sesgo (`biasPosition`) dice «los
-/// resultados de por aquí, primero»; el filtro dice «los de fuera, ni
-/// enseñarlos». Confundirlos hace que una búsqueda de una dirección de Quito
-/// devuelva la de Bogotá porque nadie descartó Colombia.
+/// A filter is not the same as a **bias**. The bias (`biasPosition`) says
+/// "results from around here, first"; the filter says "the ones outside,
+/// don't even show them". Mixing them up makes a search for a Quito address
+/// return the Bogotá one because nobody ruled out Colombia.
 @immutable
 class SearchFilter {
-  /// Crea el filtro.
+  /// Creates the filter.
   const SearchFilter({
     this.boundingBox,
     this.circle,
@@ -25,37 +25,37 @@ class SearchFilter {
     this.includePlaceTypes = const <String>[],
   });
 
-  /// Solo lo que caiga dentro de este rectángulo.
+  /// Only what falls inside this rectangle.
   final LatLngBounds? boundingBox;
 
-  /// Solo lo que caiga dentro de este círculo.
+  /// Only what falls inside this circle.
   final ({LatLng center, double radiusMeters})? circle;
 
-  /// Códigos de país en **ISO 3166 alfa-3**, p. ej. `['ECU']`.
+  /// Country codes in **ISO 3166 alpha-3**, e.g. `['ECU']`.
   ///
-  /// El alfa-2 (`EC`) no da error: devuelve cero resultados, que es más difícil
-  /// de diagnosticar que un fallo.
+  /// The alpha-2 (`EC`) doesn't raise an error: it returns zero results,
+  /// which is harder to diagnose than a failure.
   final List<String> includeCountries;
 
-  /// Identificadores de categoría a incluir.
+  /// Category identifiers to include.
   final List<String> includeCategories;
 
-  /// Identificadores de categoría a excluir.
+  /// Category identifiers to exclude.
   final List<String> excludeCategories;
 
-  /// Cadenas comerciales a incluir.
+  /// Business chains to include.
   final List<String> includeBusinessChains;
 
-  /// Cadenas comerciales a excluir.
+  /// Business chains to exclude.
   final List<String> excludeBusinessChains;
 
-  /// Tipos de comida a incluir.
+  /// Food types to include.
   final List<String> includeFoodTypes;
 
-  /// Tipos de lugar a incluir, con los nombres de `PlaceType`.
+  /// Place types to include, using the `PlaceType` names.
   final List<String> includePlaceTypes;
 
-  /// ¿Está todo vacío? Un filtro vacío no se envía.
+  /// Is everything empty? An empty filter is not sent.
   bool get isEmpty =>
       boundingBox == null &&
       circle == null &&
@@ -67,7 +67,7 @@ class SearchFilter {
       includeFoodTypes.isEmpty &&
       includePlaceTypes.isEmpty;
 
-  /// El filtro en la forma que espera el servicio.
+  /// The filter in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (boundingBox != null) 'BoundingBox': boundingBox!.toBbox(),
     if (circle != null)
@@ -87,62 +87,79 @@ class SearchFilter {
   };
 }
 
-/// Datos extra que se pueden pedir en una operación de Places.
+/// Extra data that can be requested in a Places operation.
 ///
-/// **Cada uno cuesta.** No en unidades facturables aparte, pero sí en tamaño
-/// de respuesta y en tiempo. Pedirlos todos «por si acaso» en un
-/// autocompletado que se dispara con cada tecla es una decisión que se nota.
+/// **Each one has a cost.** Not in separate billing units, but in response
+/// size and in time. Requesting all of them "just in case" in an autocomplete
+/// that fires on every keystroke is a decision you will notice.
+///
+/// ## Each operation accepts a different subset
+///
+/// Measured against the service on 2026-10-19. Anything outside its row is a
+/// **400**: `contact` in `autocomplete`, for example, or `core` in
+/// `searchText`.
+///
+/// | Operation | Accepts |
+/// |---|---|
+/// | `autocomplete` | `core` |
+/// | `suggest` | `core`, `timeZone`, `access`, `phonemes` |
+/// | `searchText` | `contact`, `timeZone`, `access`, `phonemes` |
+/// | `searchNearby` | `contact`, `timeZone`, `access`, `phonemes` |
+/// | `getPlace` | all but `core` and `intersections` |
+/// | `geocode` | `timeZone`, `access`, `secondaryAddresses`, `intersections` |
+/// | `reverseGeocode` | `timeZone`, `access`, `intersections` |
 enum PlaceFeature {
-  /// Los campos base del lugar. En `suggest` hay que pedirlo explícitamente
-  /// para que la respuesta traiga posición y dirección.
+  /// The place's base fields. In `suggest` you have to request it explicitly
+  /// for the response to include position and address.
   core('Core'),
 
-  /// Teléfonos, webs y correos.
+  /// Phone numbers, websites and emails.
   contact('Contact'),
 
-  /// La zona horaria del sitio.
+  /// The place's time zone.
   timeZone('TimeZone'),
 
-  /// Los puntos de entrada.
+  /// The access points.
   access('Access'),
 
-  /// Cómo se pronuncia el nombre. Para lectura por voz en navegación.
+  /// How the name is pronounced. For voice readout in navigation.
   phonemes('Phonemes'),
 
-  /// El desglose del código postal.
+  /// The secondary addresses inside the place: units, flats or suites of the
+  /// same building.
   secondaryAddresses('SecondaryAddresses'),
 
-  /// Direcciones alternativas del mismo sitio.
+  /// The intersections near the place: the cross streets of an address.
   intersections('Intersections');
 
   const PlaceFeature(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Cómo se tratan los códigos postales en un autocompletado.
+/// How postal codes are handled in an autocomplete.
 enum PostalCodeMode {
-  /// Cada código postal aparece una vez, aunque cubra varias localidades.
+  /// Each postal code appears once, even if it covers several localities.
   mergeAllSpannedLocalities('MergeAllSpannedLocalities'),
 
-  /// Un resultado por localidad. Es el valor por defecto del servicio.
+  /// One result per locality. It is the service's default value.
   enumerateSpannedLocalities('EnumerateSpannedLocalities');
 
   const PostalCodeMode(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Los componentes de una dirección, para geocodificar campo a campo.
+/// The components of an address, for geocoding field by field.
 ///
-/// Es la alternativa a mandar la dirección como texto libre, y da mejores
-/// resultados cuando la dirección ya viene troceada de un formulario: el
-/// servicio no tiene que adivinar dónde acaba la calle y empieza la ciudad.
+/// It's the alternative to sending the address as free text, and it gives
+/// better results when the address already comes split up from a form: the
+/// service doesn't have to guess where the street ends and the city begins.
 @immutable
 class AddressComponents {
-  /// Crea los componentes.
+  /// Creates the components.
   const AddressComponents({
     this.country,
     this.region,
@@ -154,31 +171,31 @@ class AddressComponents {
     this.postalCode,
   });
 
-  /// País, en ISO alfa-2 o alfa-3.
+  /// Country, in ISO alpha-2 or alpha-3.
   final String? country;
 
-  /// Provincia o estado.
+  /// Province or state.
   final String? region;
 
-  /// Cantón o condado.
+  /// Canton or county.
   final String? subRegion;
 
-  /// Ciudad.
+  /// City.
   final String? locality;
 
-  /// Barrio.
+  /// Neighborhood.
   final String? district;
 
-  /// Calle.
+  /// Street.
   final String? street;
 
-  /// Número.
+  /// Number.
   final String? addressNumber;
 
-  /// Código postal.
+  /// Postal code.
   final String? postalCode;
 
-  /// ¿No se rellenó ninguno?
+  /// Was none of them filled in?
   bool get isEmpty =>
       country == null &&
       region == null &&
@@ -189,7 +206,7 @@ class AddressComponents {
       addressNumber == null &&
       postalCode == null;
 
-  /// Los componentes en la forma que espera el servicio.
+  /// The components in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (country != null) 'Country': country,
     if (region != null) 'Region': region,

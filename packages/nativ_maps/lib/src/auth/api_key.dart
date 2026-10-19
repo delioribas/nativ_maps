@@ -1,39 +1,40 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/auth/credentials.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 
-/// Autenticación con una clave de API de Amazon Location.
+/// Authentication with an Amazon Location API key.
 ///
-/// Es el camino de cero infraestructura: la clave viaja como `?key=` en la
-/// cadena de consulta y no hace falta ni backend ni pool de identidades.
+/// It is the zero-infrastructure path: the key travels as `?key=` in the
+/// query string and you need neither a backend nor an identity pool.
 ///
-/// ## ⚠️ Lo que hay que saber antes de usarla en producción
+/// ## ⚠️ What you need to know before using it in production
 ///
-/// **Una clave compilada dentro del APK se extrae en dos minutos.** No es una
-/// hipótesis ni una cuestión de ofuscación: el binario contiene la cadena, y
-/// hay herramientas de una línea para sacarla. Quien la saque puede gastar
-/// contra tu cuenta hasta que la revoques.
+/// **A key compiled into the APK gets extracted in two minutes.** It is not a
+/// hypothesis or a matter of obfuscation: the binary contains the string, and
+/// there are one-line tools to pull it out. Whoever pulls it out can spend
+/// against your account until you revoke it.
 ///
-/// Lo que la hace aceptable, cuando lo es:
+/// What makes it acceptable, when it is:
 ///
-/// - **Restringir la clave en la consola de AWS.** Se le pueden fijar las
-///   operaciones permitidas, la lista de referentes y una fecha de caducidad.
-///   Una clave que solo sirve para `GetStyleDescriptor` y caduca en 90 días es
-///   un riesgo muy distinto de una sin restricciones.
-/// - **Ponerle un tope de gasto de verdad**, en AWS Budgets. El `Budget` de
-///   este paquete protege de tus propios bucles, no de un tercero con tu clave.
+/// - **Restricting the key in the AWS console.** You can set the allowed
+///   operations, the list of referrers and an expiry date. A key that only
+///   works for `GetStyleDescriptor` and expires in 90 days is a very
+///   different risk from one with no restrictions.
+/// - **Giving it a real spending cap**, in AWS Budgets. This package's
+///   `Budget` protects you from your own loops, not from a third party with
+///   your key.
 ///
-/// Para todo lo demás está [ProxyCredentials] o el paquete
-/// `nativ_maps_sigv4`.
+/// For everything else there is [ProxyCredentials] or the
+/// `nativ_maps_sigv4` package.
 @immutable
 final class ApiKeyCredentials extends DirectCredentials {
-  /// Crea las credenciales a partir de la clave.
+  /// Creates the credentials from the key.
   const ApiKeyCredentials(this.apiKey);
 
-  /// La clave de API de Amazon Location.
+  /// The Amazon Location API key.
   final String apiKey;
 
   @override
@@ -48,9 +49,9 @@ final class ApiKeyCredentials extends DirectCredentials {
     AlsService service,
     String region,
   ) async {
-    // La clave se añade a la consulta conservando lo que ya hubiera: varias
-    // operaciones de Maps llevan sus propios parámetros ahí, y reemplazar el
-    // mapa entero los borraría.
+    // The key is added to the query, keeping whatever was already there:
+    // several Maps operations carry their own parameters there, and replacing
+    // the whole map would wipe them out.
     final uri = request.url.replace(
       queryParameters: <String, dynamic>{
         ...request.url.queryParametersAll,
@@ -65,45 +66,46 @@ final class ApiKeyCredentials extends DirectCredentials {
       'ApiKeyCredentials(clave de ${apiKey.length} caracteres)';
 }
 
-/// Autenticación delegada en un backend propio que firma con SigV4.
+/// Authentication delegated to your own backend, which signs with SigV4.
 ///
-/// El móvil llama a tu servidor, tu servidor firma y reenvía a AWS. **La clave
-/// nunca sale del servidor**, que es la única forma de que no se pueda extraer
-/// del APK.
+/// The phone calls your server, your server signs and forwards to AWS. **The
+/// key never leaves the server**, which is the only way to make sure it cannot
+/// be extracted from the APK.
 ///
-/// El backend tiene que reproducir la ruta tal cual: si la app pide
-/// `POST /v2/search-text`, el proxy debe firmar y reenviar exactamente eso al
-/// host `places.geo.{región}.amazonaws.com`. Este paquete no impone ningún
-/// formato propio precisamente para que el proxy pueda ser un reenviador
-/// transparente de veinte líneas.
+/// The backend has to reproduce the path as is: if the app requests
+/// `POST /v2/search-text`, the proxy must sign and forward exactly that to the
+/// host `places.geo.{region}.amazonaws.com`. This package imposes no format
+/// of its own precisely so that the proxy can be a transparent twenty-line
+/// forwarder.
 ///
-/// [headers] permite añadir la autenticación de **tu** backend —el token de
-/// sesión del usuario, normalmente—, que es una cosa distinta de la de AWS.
+/// [headers] lets you add **your** backend's authentication —usually the
+/// user's session token—, which is a different thing from AWS's.
 @immutable
 final class ProxyCredentials implements Credentials {
-  /// Crea las credenciales apuntando al backend.
+  /// Creates the credentials pointing at the backend.
   const ProxyCredentials({required this.baseUrl, this.headers = const {}});
 
-  /// La base del proxy, p. ej. `https://api.miempresa.com/geo`.
+  /// The proxy base, e.g. `https://api.mycompany.com/geo`.
   ///
-  /// La ruta de la operación se añade detrás, así que una base con ruta
-  /// (`/geo`) produce `/geo/v2/search-text`.
+  /// The operation path is appended after it, so a base with a path (`/geo`)
+  /// produces `/geo/v2/search-text`.
   final Uri baseUrl;
 
-  /// Cabeceras que se añaden a cada petición: normalmente el `Authorization`
-  /// de tu propio backend.
+  /// Headers added to every request: usually your own backend's
+  /// `Authorization`.
   final Map<String, String> headers;
 
   @override
   bool get isConfigured => baseUrl.host.isNotEmpty;
 
-  /// `null`: el proxy autentica con cabeceras, no con la clave en la URL.
+  /// `null`: the proxy authenticates with headers, not with the key in the
+  /// URL.
   @override
   String? get apiKeyForUrl => null;
 
-  /// El proxy es un solo destino para los tres servicios. Se le indica cuál
-  /// era con la cabecera `X-Nativ-Service`, para que pueda firmar con el
-  /// nombre correcto sin tener que deducirlo de la ruta.
+  /// The proxy is a single destination for the three services. It is told
+  /// which one it was with the `X-Nativ-Service` header, so it can sign with
+  /// the right name without having to infer it from the path.
   @override
   Uri baseUri(AlsService service, String region) => baseUrl;
 
@@ -126,14 +128,15 @@ final class ProxyCredentials implements Credentials {
   String toString() => 'ProxyCredentials($baseUrl)';
 }
 
-/// Autenticación con cabeceras que produce una función tuya.
+/// Authentication with headers produced by a function of yours.
 ///
-/// Es el escape para lo que no encaja en los otros tres: un token que se
-/// renueva solo, una firma calculada en código nativo, una cabecera que exige
-/// una pasarela corporativa. La función se llama **en cada petición**, así que
-/// puede devolver un valor distinto cada vez; si es cara, cachéala dentro.
+/// It is the escape hatch for whatever does not fit the other three: a token
+/// that renews itself, a signature computed in native code, a header that a
+/// corporate gateway demands. The function is called **on every request**, so
+/// it can return a different value each time; if it is expensive, cache
+/// inside it.
 final class HeaderCredentials implements Credentials {
-  /// Crea las credenciales a partir de la función que produce las cabeceras.
+  /// Creates the credentials from the function that produces the headers.
   const HeaderCredentials(this._headerBuilder, {Uri? baseUrl})
     : _baseUrl = baseUrl;
 
@@ -144,7 +147,7 @@ final class HeaderCredentials implements Credentials {
   @override
   bool get isConfigured => true;
 
-  /// `null`: este camino autentica con cabeceras.
+  /// `null`: this path authenticates with headers.
   @override
   String? get apiKeyForUrl => null;
 
@@ -166,12 +169,11 @@ final class HeaderCredentials implements Credentials {
   void close() {}
 }
 
-/// Copia una petición cambiándole la URL.
+/// Copies a request, changing its URL.
 ///
-/// [http.BaseRequest.url] es de solo lectura, así que no hay forma de
-/// redirigir una petición sin reconstruirla. Se conservan el cuerpo, las
-/// cabeceras y los ajustes; solo se contemplan los dos tipos que este paquete
-/// produce.
+/// [http.BaseRequest.url] is read-only, so there is no way to redirect a
+/// request without rebuilding it. The body, the headers and the settings are
+/// kept; only the two types this package produces are handled.
 http.BaseRequest _copyWithUrl(http.BaseRequest original, Uri url) {
   final copy = switch (original) {
     final http.Request r =>

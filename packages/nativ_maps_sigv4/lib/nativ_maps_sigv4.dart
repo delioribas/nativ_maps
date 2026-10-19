@@ -1,35 +1,35 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
-/// Firma AWS Signature Version 4 para `nativ_maps`.
+/// AWS Signature Version 4 signing for `nativ_maps`.
 ///
-/// Es el camino C del diseño: firmar **en el propio dispositivo**, sin backend
-/// y sin una clave permanente dentro del APK.
+/// It is path C of the design: signing **on the device itself**, with no
+/// backend and no permanent key inside the APK.
 ///
 /// ```dart
 /// final maps = NativMaps(
 ///   region: 'us-east-1',
 ///   credentials: SigV4Credentials(
-///     provider: () => miPoolDeCognito.obtenerCredenciales(),
+///     provider: () => myCognitoPool.fetchCredentials(),
 ///   ),
 /// );
 /// ```
 ///
-/// ## Por qué vive en su propio paquete
+/// ## Why it lives in its own package
 ///
-/// Va aparte **a propósito**. El paquete oficial `aws_signature_v4` arrastra
-/// dieciséis dependencias transitivas, y quien solo usa una clave de API no
-/// tiene por qué pagarlas.
+/// It is separate **on purpose**. The official `aws_signature_v4` package
+/// drags in sixteen transitive dependencies, and someone who only uses an API
+/// key has no reason to pay for them.
 ///
-/// Esta implementación depende de `crypto` y nada más, y está verificada
-/// contra los vectores oficiales de la suite de pruebas de SigV4 de AWS. Esa
-/// verificación no es un lujo: un fallo de firma no produce un error legible,
-/// produce un `403` idéntico al de una clave inválida.
+/// This implementation depends on `crypto` and nothing else, and it is
+/// verified against the official vectors of AWS's SigV4 test suite. That
+/// verification is not a luxury: a signing bug doesn't produce a readable
+/// error, it produces a `403` identical to that of an invalid key.
 ///
-/// ## Los tres nombres de firma
+/// ## The three signing names
 ///
-/// `geo-places`, `geo-routes` y `geo-maps`. No es `geo`, ni el nombre del
-/// host. Aquí no se puede equivocar porque el nombre lo pone el enum
-/// `AlsService`, no quien llama.
+/// `geo-places`, `geo-routes` and `geo-maps`. Not `geo`, nor the host name.
+/// You can't get it wrong here because the name is set by the `AlsService`
+/// enum, not by the caller.
 library;
 
 export 'src/signer.dart' show AwsCredentials, SigV4Signer;

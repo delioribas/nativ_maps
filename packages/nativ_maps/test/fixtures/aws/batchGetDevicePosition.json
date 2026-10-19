@@ -1,0 +1,29 @@
+{
+  "Errors": [],
+  "DevicePositions": [
+    {
+      "DeviceId": "taxi-1",
+      "SampleTime": "2026-10-19T06:47:40.837Z",
+      "ReceivedTime": "2026-10-19T06:49:41.297Z",
+      "Position": [
+        -78.4844,
+        -0.176
+      ],
+      "Accuracy": {
+        "Horizontal": 5
+      }
+    },
+    {
+      "DeviceId": "taxi-2",
+      "SampleTime": "2026-10-19T06:48:40.837Z",
+      "ReceivedTime": "2026-10-19T06:49:41.297Z",
+      "Position": [
+        -78.5123,
+        -0.2201
+      ],
+      "Accuracy": {
+        "Horizontal": 8
+      }
+    }
+  ]
+}

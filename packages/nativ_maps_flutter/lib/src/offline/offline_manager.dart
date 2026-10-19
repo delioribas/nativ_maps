@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:async';
 
@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
 import 'package:nativ_maps/nativ_maps.dart';
 
-/// Cómo va la descarga de una región.
+/// How a region's download is going.
 @immutable
 class DownloadProgress {
-  /// Crea el progreso.
+  /// Creates the progress.
   const DownloadProgress({
     required this.completedResources,
     required this.requiredResources,
@@ -18,30 +18,30 @@ class DownloadProgress {
     this.regionId,
   });
 
-  /// Cuántos recursos —teselas, glifos, sprites— se llevan bajados.
+  /// How many resources —tiles, glyphs, sprites— have been downloaded.
   final int completedResources;
 
-  /// Cuántos hacen falta en total.
+  /// How many are needed in total.
   ///
-  /// El motor lo va afinando mientras descarga, así que al principio crece.
-  /// Una barra de progreso que no lo tenga en cuenta parece ir hacia atrás.
+  /// The engine refines it while downloading, so at first it grows. A progress
+  /// bar that doesn't account for this seems to go backwards.
   final int requiredResources;
 
-  /// Cuántos bytes se llevan.
+  /// How many bytes so far.
   final int completedBytes;
 
-  /// ¿Ha terminado?
+  /// Whether it has finished.
   final bool isComplete;
 
-  /// El identificador de la región, cuando ya se conoce.
+  /// The region's identifier, once it's known.
   final int? regionId;
 
-  /// La fracción completada, de 0 a 1.
+  /// The completed fraction, from 0 to 1.
   double get fraction => requiredResources <= 0
       ? 0
       : (completedResources / requiredResources).clamp(0.0, 1.0);
 
-  /// Los megabytes bajados, para enseñarlos.
+  /// The megabytes downloaded, for display.
   double get completedMegabytes => completedBytes / (1024 * 1024);
 
   @override
@@ -50,10 +50,10 @@ class DownloadProgress {
       '${completedMegabytes.toStringAsFixed(1)} MB)';
 }
 
-/// Una región de mapa guardada en el dispositivo.
+/// A map region stored on the device.
 @immutable
 class OfflineRegion {
-  /// Crea la región.
+  /// Creates the region.
   const OfflineRegion({
     required this.id,
     required this.bounds,
@@ -63,41 +63,41 @@ class OfflineRegion {
     this.metadata = const <String, dynamic>{},
   });
 
-  /// El identificador que asignó el motor.
+  /// The identifier the engine assigned.
   final int id;
 
-  /// El rectángulo que cubre.
+  /// The rectangle it covers.
   final LatLngBounds bounds;
 
-  /// El zoom mínimo que se guardó.
+  /// The minimum zoom that was stored.
   final double minZoom;
 
-  /// El zoom máximo que se guardó.
+  /// The maximum zoom that was stored.
   final double maxZoom;
 
-  /// El estilo con el que se descargó.
+  /// The style it was downloaded with.
   final String styleUrl;
 
-  /// Lo que se guardó junto a la región: un nombre, una fecha, un cliente.
+  /// What was stored alongside the region: a name, a date, a customer.
   ///
-  /// Es donde hay que guardar **la fecha de descarga**: las condiciones del
-  /// proveedor casi seguro imponen un plazo máximo de conservación, y sin la
-  /// fecha no hay forma de caducarla.
+  /// It's where **the download date** has to be stored: the provider's terms
+  /// almost certainly impose a maximum retention period, and without the date
+  /// there's no way to expire it.
   final Map<String, dynamic> metadata;
 
-  /// El nombre que se le dio, si se guardó uno.
+  /// The name it was given, if one was stored.
   String? get name => metadata['name'] as String?;
 
-  /// Cuándo se descargó, si se guardó la fecha.
+  /// When it was downloaded, if the date was stored.
   DateTime? get downloadedAt {
     final raw = metadata['downloadedAt'];
     return raw is String ? DateTime.tryParse(raw) : null;
   }
 
-  /// ¿Lleva guardada más de [maxAge]?
+  /// Whether it has been stored for longer than [maxAge].
   ///
-  /// Ver la advertencia de [NativOfflineManager] sobre por qué esto importa
-  /// legalmente y no solo técnicamente.
+  /// See the warning on [NativOfflineManager] about why this matters legally
+  /// and not just technically.
   bool isStale(Duration maxAge) {
     final downloaded = downloadedAt;
     if (downloaded == null) return false;
@@ -110,48 +110,50 @@ class OfflineRegion {
       'z$minZoom-$maxZoom)';
 }
 
-/// Descarga y gestiona mapas para usarlos sin conexión.
+/// Downloads and manages maps for offline use.
 ///
-/// ## Lo que `google_maps_flutter` no puede dar
+/// ## What `google_maps_flutter` can't give you
 ///
-/// | Capacidad | Google | Aquí |
+/// | Capability | Google | Here |
 /// |---|---|---|
-/// | Descargar una región por adelantado | no existe | [downloadRegion] |
-/// | Progreso observable | — | flujo de eventos |
-/// | Caché con tope de bytes | — | [setMaxCacheSizeBytes] |
-/// | Listar y borrar lo guardado | — | [listRegions] · [deleteRegion] |
-/// | Compactar la base local | — | [packDatabase] |
-/// | Precargar en el instalador | — | [mergeDatabase] |
+/// | Download a region in advance | doesn't exist | [downloadRegion] |
+/// | Observable progress | — | event stream |
+/// | Cache with a byte cap | — | [setMaxCacheSizeBytes] |
+/// | List and delete what's stored | — | [listRegions] · [deleteRegion] |
+/// | Compact the local database | — | [packDatabase] |
+/// | Preload in the installer | — | [mergeDatabase] |
 ///
-/// **No es una limitación técnica de Google**: sus condiciones prohíben
-/// cachear teselas. Por eso ningún envoltorio de Google lo ofrece, por bien
-/// escrito que esté.
+/// **It isn't a technical limitation on Google's side**: its terms forbid
+/// caching tiles. That's why no Google wrapper offers it, however well written
+/// it is.
 ///
-/// Por qué importa: un vehículo robado saliendo hacia zona sin cobertura, un
-/// muestreo de campo, una instalación en un sótano. Los tres son sitios sin
-/// red, y los tres son donde la app tiene que funcionar.
+/// Why it matters: a stolen vehicle heading into an area with no coverage, a
+/// field sampling, an installation in a basement. All three are places with no
+/// network, and all three are where the app has to work.
 ///
-/// ## ⚠️ Resolver antes de usarlo en producción
+/// ## ⚠️ Settle this before using it in production
 ///
-/// Que MapLibre **pueda** guardar teselas no significa que Amazon **permita**
-/// guardar las suyas. Las condiciones remiten a la **Sección 82 de los AWS
-/// Service Terms**, que AWS no publica de forma consultable.
+/// The fact that MapLibre **can** store tiles doesn't mean Amazon **allows**
+/// storing theirs. The terms refer to **Section 82 of the AWS Service Terms**,
+/// which AWS doesn't publish in a searchable form.
 ///
-/// Antes de enviar una app que use esto:
+/// Before shipping an app that uses this:
 ///
-/// 1. **Leer la Sección 82 completa**, en `aws.amazon.com/service-terms`.
-///    Gobierna qué se puede guardar y cuánto tiempo.
-/// 2. **Comprobar qué proveedor sirve tu región.** Si el mapa base abierto
-///    (OpenStreetMap Daylight) sirve, el problema legal se simplifica mucho.
-/// 3. **Declarar la atribución**, obligatoria y visible. En un mapa guardado
-///    también — y ahí es justo donde se olvida.
-/// 4. **Fijar una caducidad.** Aunque se permita, casi seguro hay plazo
-///    máximo. Para eso están [OfflineRegion.isStale] y [deleteStaleRegions].
+/// 1. **Read Section 82 in full**, at `aws.amazon.com/service-terms`. It
+///    governs what can be stored and for how long.
+/// 2. **Check which provider serves your region.** If the open base map
+///    (OpenStreetMap Daylight) works for you, the legal problem gets much
+///    simpler.
+/// 3. **Declare the attribution**, mandatory and visible. On a stored map too
+///    — and that's exactly where it gets forgotten.
+/// 4. **Set an expiry.** Even if it's allowed, there's almost certainly a
+///    maximum period. That's what [OfflineRegion.isStale] and
+///    [deleteStaleRegions] are for.
 ///
-/// Este paquete da la herramienta y el recordatorio; la decisión legal es de
-/// quien publica la app.
+/// This package provides the tool and the reminder; the legal decision belongs
+/// to whoever publishes the app.
 class NativOfflineManager {
-  /// Uso interno: lo construye el widget cuando `offlineEnabled` es `true`.
+  /// Internal use: the widget builds it when `offlineEnabled` is `true`.
   NativOfflineManager({
     required String styleUrl,
     ml.MapLibreMapController? controller,
@@ -161,26 +163,26 @@ class NativOfflineManager {
   final String _styleUrl;
   final ml.MapLibreMapController? _controller;
 
-  /// El estilo con el que se descargan las regiones por defecto.
+  /// The style regions are downloaded with by default.
   String get styleUrl => _styleUrl;
 
-  /// Descarga una región para usarla sin red.
+  /// Downloads a region to use it without a network.
   ///
-  /// El flujo emite el progreso y termina cuando acaba. Cancelar la
-  /// suscripción **no** detiene la descarga en el motor; para eso hay que
-  /// borrar la región después con [deleteRegion].
+  /// The stream emits the progress and closes when it finishes. Cancelling the
+  /// subscription does **not** stop the download in the engine; for that you
+  /// have to delete the region afterwards with [deleteRegion].
   ///
-  /// ## Elegir el rango de zoom es la decisión importante
+  /// ## Choosing the zoom range is the important decision
   ///
-  /// El número de teselas crece **por cuatro con cada nivel**. Una ciudad de
-  /// z10 a z14 son unos pocos megabytes; la misma ciudad de z10 a z18 son
-  /// cientos, y puede tardar media hora con datos móviles.
+  /// The number of tiles grows **fourfold with each level**. A city from z10
+  /// to z14 is a few megabytes; the same city from z10 to z18 is hundreds, and
+  /// can take half an hour on mobile data.
   ///
-  /// Para rastreo de vehículos, de z10 a z15 basta: se ven las calles con
-  /// nombre y no se descarga cada portal.
+  /// For vehicle tracking, z10 to z15 is enough: the streets show up with
+  /// their names and not every doorway gets downloaded.
   ///
-  /// [metadata] se guarda con la región. **Conviene meter siempre la fecha**,
-  /// que es lo que permite caducarla luego.
+  /// [metadata] is stored with the region. **Always put the date in it**,
+  /// which is what lets you expire it later.
   Stream<DownloadProgress> downloadRegion({
     required LatLngBounds bounds,
     double minZoom = 10,
@@ -219,8 +221,8 @@ class NativOfflineManager {
             definition,
             metadata: <String, dynamic>{
               'name': ?name,
-              // Sin esto no hay forma de caducar la región, que es lo que casi
-              // seguro exigen las condiciones del proveedor.
+              // Without this there's no way to expire the region, which is
+              // almost certainly what the provider's terms require.
               'downloadedAt': DateTime.now().toIso8601String(),
               ...metadata,
             },
@@ -265,7 +267,7 @@ class NativOfflineManager {
     return controller.stream;
   }
 
-  /// Todas las regiones guardadas.
+  /// Every stored region.
   Future<List<OfflineRegion>> listRegions() async {
     final native = await ml.getListOfRegions();
     return <OfflineRegion>[
@@ -290,17 +292,17 @@ class NativOfflineManager {
     ];
   }
 
-  /// Borra una región guardada.
+  /// Deletes a stored region.
   Future<void> deleteRegion(int regionId) => ml.deleteOfflineRegion(regionId);
 
-  /// Borra todas las regiones guardadas hace más de [maxAge].
+  /// Deletes every region stored more than [maxAge] ago.
   ///
-  /// Devuelve cuántas se borraron.
+  /// Returns how many were deleted.
   ///
-  /// **Es la que hace falta para cumplir el plazo del proveedor.** Llamarla al
-  /// arrancar la app es lo más sencillo: unas pocas comprobaciones locales, y
-  /// la app deja de conservar mapas más tiempo del permitido sin que nadie
-  /// tenga que acordarse.
+  /// **It's the one you need to meet the provider's time limit.** Calling it
+  /// when the app starts is the simplest option: a few local checks, and the
+  /// app stops keeping maps longer than allowed without anyone having to
+  /// remember.
   Future<int> deleteStaleRegions(Duration maxAge) async {
     final regions = await listRegions();
     var deleted = 0;
@@ -313,11 +315,11 @@ class NativOfflineManager {
     return deleted;
   }
 
-  /// El tope de la caché de teselas del entorno, en bytes.
+  /// The cap of the ambient tile cache, in bytes.
   ///
-  /// Es distinta de las regiones descargadas: la caché guarda lo que se ha
-  /// visto navegando, y se descarta sola al llegar al tope. Las regiones son
-  /// explícitas y no se descartan.
+  /// It's separate from the downloaded regions: the cache keeps what has been
+  /// seen while browsing, and is evicted on its own when it reaches the cap.
+  /// Regions are explicit and aren't evicted.
   Future<void> setMaxCacheSizeBytes(int bytes) async {
     if (bytes < 0) {
       throw ArgumentError.value(bytes, 'bytes', 'no puede ser negativo');
@@ -325,29 +327,29 @@ class NativOfflineManager {
     await ml.setOfflineTileCountLimit(bytes ~/ 50000);
   }
 
-  /// Vacía la caché de teselas del entorno, sin tocar las regiones.
+  /// Empties the ambient tile cache, without touching the regions.
   Future<void> clearAmbientCache() async {
     await _controller?.clearAmbientCache();
   }
 
-  /// Compacta la base de datos local para recuperar espacio.
+  /// Compacts the local database to reclaim space.
   ///
-  /// Solo hace algo en Android; en iOS el motor lo hace solo.
+  /// It only does something on Android; on iOS the engine does it by itself.
   Future<void> packDatabase() async {
-    // La API global de maplibre_gl no expone el empaquetado; se hace
-    // invalidando la caché, que es lo que provoca la recuperación de espacio.
+    // The maplibre_gl global API doesn't expose packing; it's done by
+    // invalidating the cache, which is what triggers reclaiming the space.
     await _controller?.invalidateAmbientCache();
   }
 
-  /// Fusiona una base de datos preparada con la del dispositivo.
+  /// Merges a prepared database into the device's.
   ///
-  /// Es lo que permite **enviar el mapa dentro del instalador de la app**: se
-  /// genera la base en el escritorio, se empaqueta como recurso y aquí se
-  /// fusiona. El usuario tiene el mapa antes de abrir la app por primera vez,
-  /// sin esperar una descarga.
+  /// It's what lets you **ship the map inside the app installer**: the database
+  /// is generated on the desktop, bundled as an asset and merged here. The user
+  /// has the map before opening the app for the first time, without waiting
+  /// for a download.
   ///
-  /// [path] es una ruta del sistema de archivos, no un recurso: hay que
-  /// copiarlo primero a un directorio escribible.
+  /// [path] is a file system path, not an asset: you have to copy it to a
+  /// writable directory first.
   Future<List<OfflineRegion>> mergeDatabase(String path) async {
     await ml.mergeOfflineRegions(path);
     return listRegions();

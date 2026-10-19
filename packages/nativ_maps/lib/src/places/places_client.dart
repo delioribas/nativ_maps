@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/client/cache.dart';
@@ -9,33 +9,33 @@ import 'package:nativ_maps/src/places/options.dart';
 import 'package:nativ_maps/src/places/place.dart';
 import 'package:nativ_maps/src/places/results.dart';
 
-/// Las **siete** operaciones de Amazon Location Places v2.
+/// The **seven** Amazon Location Places v2 operations.
 ///
-/// | Método | Endpoint | Para qué |
+/// | Method | Endpoint | What for |
 /// |---|---|---|
-/// | [autocomplete] | `POST /v2/autocomplete` | escribir una dirección |
-/// | [searchText] | `POST /v2/search-text` | buscar un lugar por nombre |
-/// | [reverseGeocode] | `POST /v2/reverse-geocode` | de coordenada a dirección |
-/// | [getPlace] | `GET /v2/place/{id}` | la ficha completa |
-/// | [geocode] | `POST /v2/geocode` | de dirección a coordenada, con precisión |
-/// | [searchNearby] | `POST /v2/search-nearby` | qué hay cerca de un punto |
-/// | [suggest] | `POST /v2/suggest` | sugerencia más barata que autocomplete |
+/// | [autocomplete] | `POST /v2/autocomplete` | typing an address |
+/// | [searchText] | `POST /v2/search-text` | finding a place by name |
+/// | [reverseGeocode] | `POST /v2/reverse-geocode` | coordinate to address |
+/// | [getPlace] | `GET /v2/place/{id}` | the full details |
+/// | [geocode] | `POST /v2/geocode` | address to coordinate, with precision |
+/// | [searchNearby] | `POST /v2/search-nearby` | what's near a point |
+/// | [suggest] | `POST /v2/suggest` | suggestions cheaper than autocomplete |
 ///
-/// No se instancia a mano: se obtiene de `NativMaps.places`.
+/// It isn't instantiated by hand: you get it from `NativMaps.places`.
 ///
-/// ## Todas cuestan dinero
+/// ## They all cost money
 ///
-/// Cada llamada es una petición facturada. Las que se disparan al teclear
-/// —[autocomplete] y [suggest]— son las que más se descontrolan, y por eso
-/// llevan caché con caducidad: borrar una letra y volver a escribirla no paga
-/// dos veces.
+/// Every call is a billed request. The ones that fire as you type
+/// —[autocomplete] and [suggest]— are the ones that get out of hand the most,
+/// which is why they have a cache with expiry: deleting a letter and typing
+/// it again doesn't pay twice.
 ///
-/// El antirrebote, en cambio, **no** está aquí: depende del ritmo de escritura
-/// y del hilo de la interfaz, y meterlo en el cliente obligaría a que el
-/// núcleo supiera de temporizadores de interfaz. Va en el widget de búsqueda
-/// de `nativ_maps_flutter`.
+/// Debouncing, on the other hand, is **not** here: it depends on the typing
+/// rhythm and on the UI thread, and putting it in the client would force the
+/// core to know about UI timers. It lives in the search widget of
+/// `nativ_maps_flutter`.
 class PlacesClient {
-  /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
+  /// Builds the client. Internal use: it comes already set up in `NativMaps`.
   @internal
   PlacesClient({
     required AlsTransport transport,
@@ -46,13 +46,13 @@ class PlacesClient {
 
   final AlsTransport _transport;
 
-  /// Si los resultados se van a guardar. Ver [IntendedUse].
+  /// Whether the results are going to be stored. See [IntendedUse].
   final IntendedUse intendedUse;
 
-  /// Idioma de los resultados, en BCP 47. Para Ecuador, `es`.
+  /// Language of the results, in BCP 47. For Ecuador, `es`.
   final String? language;
 
-  /// Punto de vista político para las fronteras en disputa, en ISO 3166.
+  /// Political view for disputed borders, in ISO 3166.
   final String? politicalView;
 
   static const AlsService _service = AlsService.places;
@@ -74,32 +74,33 @@ class PlacesClient {
 
   // ─── 1 · Autocomplete ─────────────────────────────────────────────────
 
-  /// Sugerencias mientras se escribe. `POST /v2/autocomplete`.
+  /// Suggestions while typing. `POST /v2/autocomplete`.
   ///
-  /// Es la operación más barata de las que producen sugerencias, y a cambio
-  /// **no devuelve coordenadas**: para tenerlas hay que llamar a [getPlace]
-  /// con el `placeId` de la que el usuario elija. Ese es el diseño correcto de
-  /// una barra de búsqueda — escribir es barato, elegir cuesta una vez.
+  /// It's the cheapest of the operations that produce suggestions, and in
+  /// exchange it **returns no coordinates**: to get them you have to call
+  /// [getPlace] with the `placeId` of the one the user picks. That's the right
+  /// design for a search bar — typing is cheap, picking costs once.
   ///
   /// ```dart
-  /// final sugerencias = await places.autocomplete(
-  ///   query: texto,
-  ///   biasPosition: posicionActual,
+  /// final suggestions = await places.autocomplete(
+  ///   query: text,
+  ///   biasPosition: currentPosition,
   ///   filter: const SearchFilter(includeCountries: ['ECU']),
   /// );
-  /// // y solo cuando el usuario toca una:
-  /// final lugar = await places.getPlace(sugerencias[i].placeId!);
+  /// // and only when the user taps one:
+  /// final place = await places.getPlace(suggestions[i].placeId!);
   /// ```
   ///
-  /// [biasPosition] y [filter] **no** son excluyentes: el sesgo ordena, el
-  /// filtro descarta. Lo que sí es excluyente es rellenar a la vez
-  /// `boundingBox` y `circle` dentro de [filter]; se comprueba antes de enviar.
+  /// [biasPosition] and [filter] are **not** mutually exclusive: the bias
+  /// ranks, the filter discards. What is mutually exclusive is filling in
+  /// both `boundingBox` and `circle` inside [filter]; that is checked before
+  /// sending.
   ///
-  /// [maxResults] admite de 1 a 20.
+  /// [maxResults] accepts 1 to 20.
   ///
-  /// El uso previsto de esta operación es siempre [IntendedUse.singleUse], y
-  /// no es una decisión de este paquete: la API rechaza `Storage` aquí. Una
-  /// sugerencia a medio escribir no se puede guardar.
+  /// The intended use of this operation is always [IntendedUse.singleUse], and
+  /// it isn't this package's decision: the API rejects `Storage` here. A
+  /// half-typed suggestion can't be stored.
   Future<List<AutocompleteSuggestion>> autocomplete({
     required String query,
     LatLng? biasPosition,
@@ -143,7 +144,7 @@ class PlacesClient {
               .map((f) => f.wireName)
               .toList(),
         ..._localeFields(language),
-        // Fijo a propósito: la API rechaza `Storage` en esta operación.
+        // Fixed on purpose: the API rejects `Storage` in this operation.
         'IntendedUse': IntendedUse.singleUse.wireName,
       },
     );
@@ -157,19 +158,19 @@ class PlacesClient {
 
   // ─── 2 · SearchText ───────────────────────────────────────────────────
 
-  /// Búsqueda por texto libre. `POST /v2/search-text`.
+  /// Free-text search. `POST /v2/search-text`.
   ///
-  /// Es la que responde a «gasolinera», «Hospital Metropolitano» o a una
-  /// dirección escrita entera. Devuelve lugares con coordenada, a diferencia
-  /// de [autocomplete].
+  /// It's the one that answers "gas station", "Hospital Metropolitano" or a
+  /// fully typed address. It returns places with a coordinate, unlike
+  /// [autocomplete].
   ///
-  /// [queryId] viene de un [SuggestResult] de tipo consulta: ejecuta esa
-  /// búsqueda refinada sin volver a mandar el texto. Es excluyente con
+  /// [queryId] comes from a query-type [SuggestResult]: it runs that refined
+  /// search without sending the text again. It's mutually exclusive with
   /// [queryText].
   ///
-  /// [maxResults] admite de 1 a 100. Para pasar de la primera página se
-  /// reenvía [nextToken] con **los mismos** parámetros; cambiarlos entre
-  /// páginas da resultados incoherentes.
+  /// [maxResults] accepts 1 to 100. To go past the first page, send
+  /// [nextToken] back with **the same** parameters; changing them between
+  /// pages gives inconsistent results.
   Future<PlaceSearchResponse> searchText({
     String? queryText,
     String? queryId,
@@ -241,20 +242,21 @@ class PlacesClient {
 
   // ─── 3 · ReverseGeocode ───────────────────────────────────────────────
 
-  /// De coordenada a dirección. `POST /v2/reverse-geocode`.
+  /// From coordinate to address. `POST /v2/reverse-geocode`.
   ///
-  /// Es la que convierte `-0.1807, -78.4678` en «Av. Amazonas y Naciones
-  /// Unidas» — lo que hay que enseñar cuando salta una alarma, porque nadie
-  /// despacha una unidad a un par de decimales.
+  /// It's the one that turns `-0.1807, -78.4678` into «Av. Amazonas y Naciones
+  /// Unidas» — what you need to show when an alarm goes off, because nobody
+  /// dispatches a unit to a pair of decimals.
   ///
-  /// [radiusMeters] limita cuánto puede alejarse el resultado del punto. Sin
-  /// límite, una posición en una zona sin direcciones devuelve la localidad
-  /// más próxima **aunque esté a kilómetros**, y eso se enseña igual que una
-  /// dirección exacta. Comprobar [Place.placeType] con [PlaceType.isPrecise]
-  /// distingue los dos casos.
+  /// [radiusMeters] limits how far the result can stray from the point.
+  /// Without a limit, a position in an area with no addresses returns the
+  /// nearest locality **even if it's kilometers away**, and it's shown just
+  /// like an exact address. Checking [Place.placeType] with
+  /// [PlaceType.isPrecise] tells the two cases apart.
   ///
-  /// Devuelve la lista entera y no solo el primero: en una esquina, el segundo
-  /// resultado suele ser la otra calle, y con los dos se dicta la intersección.
+  /// It returns the whole list and not just the first one: on a corner, the
+  /// second result is usually the other street, and with both you can read
+  /// out the intersection.
   Future<List<Place>> reverseGeocode(
     LatLng position, {
     double? radiusMeters,
@@ -288,16 +290,16 @@ class PlacesClient {
 
   // ─── 4 · GetPlace ─────────────────────────────────────────────────────
 
-  /// La ficha completa de un lugar. `GET /v2/place/{PlaceId}`.
+  /// The full details of a place. `GET /v2/place/{PlaceId}`.
   ///
-  /// A diferencia de las demás, la respuesta **no** viene envuelta en
-  /// `ResultItems`: el objeto está en la raíz.
+  /// Unlike the others, the response does **not** come wrapped in
+  /// `ResultItems`: the object is at the root.
   ///
-  /// El resultado se cachea seis horas: un `placeId` señala siempre al mismo
-  /// sitio, y lo único que cambia en ese plazo es el horario de apertura.
+  /// The result is cached for six hours: a `placeId` always points to the same
+  /// place, and the only thing that changes in that time is the opening hours.
   ///
-  /// [additionalFeatures] es donde esta operación se gana su precio: es la
-  /// única que devuelve contactos, horarios y puntos de acceso.
+  /// [additionalFeatures] is where this operation earns its price: it's the
+  /// only one that returns contacts, opening hours and access points.
   Future<Place> getPlace(
     String placeId, {
     List<PlaceFeature> additionalFeatures = const <PlaceFeature>[],
@@ -308,8 +310,8 @@ class PlacesClient {
     if (placeId.isEmpty) {
       throw ArgumentError.value(placeId, 'placeId', 'no puede estar vacío');
     }
-    // `core` va siempre incluido y las intersecciones son de otras
-    // operaciones: GetPlace responde 400 a cualquiera de las dos.
+    // `core` is always included and intersections belong to other
+    // operations: GetPlace responds 400 to either of them.
     final unsupported = additionalFeatures.where(
       (f) => f == PlaceFeature.core || f == PlaceFeature.intersections,
     );
@@ -338,8 +340,8 @@ class PlacesClient {
       operation: 'GetPlace',
       service: _service,
       path: '/v2/place/${Uri.encodeComponent(placeId)}',
-      // Uno por característica: con `Contact,TimeZone` el servicio responde
-      // 400 diciendo que `Contact,TimeZone` no es un valor válido.
+      // One per feature: with `Contact,TimeZone` the service responds 400
+      // saying that `Contact,TimeZone` is not a valid value.
       repeatedParameters: <MapEntry<String, String>>[
         for (final feature in additionalFeatures)
           MapEntry<String, String>('additional-features', feature.wireName),
@@ -359,21 +361,21 @@ class PlacesClient {
 
   // ─── 5 · Geocode ──────────────────────────────────────────────────────
 
-  /// De dirección a coordenada, con puntuación de coincidencia.
+  /// From address to coordinate, with a match score.
   /// `POST /v2/geocode`.
   ///
-  /// Se diferencia de [searchText] en que está pensada para direcciones y no
-  /// para nombres, y en que devuelve [Place.matchScore]: lo bien que encaja el
-  /// resultado con lo que se pidió, entre 0 y 1.
+  /// It differs from [searchText] in that it's designed for addresses rather
+  /// than names, and in that it returns [Place.matchScore]: how well the
+  /// result matches what was requested, between 0 and 1.
   ///
-  /// Esa puntuación es la que permite automatizar. Con un `matchScore` por
-  /// encima de 0,9 y un [PlaceType.pointAddress] se puede aceptar la dirección
-  /// sola; por debajo hay que enseñársela al usuario. Sin ella, la única
-  /// opción honesta es preguntar siempre.
+  /// That score is what makes automation possible. With a `matchScore` above
+  /// 0.9 and a [PlaceType.pointAddress] you can accept the address on its own;
+  /// below that you have to show it to the user. Without it, the only honest
+  /// option is to always ask.
   ///
-  /// [queryComponents] geocodifica campo a campo en vez de con texto libre, y
-  /// da mejores resultados cuando la dirección viene de un formulario. Es
-  /// excluyente con [queryText].
+  /// [queryComponents] geocodes field by field instead of with free text, and
+  /// gives better results when the address comes from a form. It's mutually
+  /// exclusive with [queryText].
   Future<List<Place>> geocode({
     String? queryText,
     AddressComponents? queryComponents,
@@ -421,19 +423,19 @@ class PlacesClient {
 
   // ─── 6 · SearchNearby ─────────────────────────────────────────────────
 
-  /// Qué hay cerca de un punto. `POST /v2/search-nearby`.
+  /// What's near a point. `POST /v2/search-nearby`.
   ///
-  /// Es la que responde «la gasolinera más cercana» sin que el usuario escriba
-  /// nada. Ordena por distancia en línea recta, no por carretera: para lo
-  /// segundo hay que pasar los candidatos por
-  /// `RoutesClient.calculateRouteMatrix`, que cuesta un cálculo por par.
+  /// It's the one that answers "the nearest gas station" without the user
+  /// typing anything. It sorts by straight-line distance, not by road: for the
+  /// latter you have to run the candidates through
+  /// `RoutesClient.calculateRouteMatrix`, which costs one calculation per pair.
   ///
-  /// La combinación de las dos es el patrón barato: pedir diez por cercanía
-  /// aquí (una unidad) y calcular la matriz solo de los tres primeros (tres
-  /// unidades) en vez de una matriz de diez (diez unidades).
+  /// Combining the two is the cheap pattern: ask for ten by proximity here
+  /// (one unit) and compute the matrix only for the first three (three units)
+  /// instead of a matrix of ten (ten units).
   ///
-  /// [radiusMeters] es obligatorio en la práctica: sin él, el servicio elige
-  /// un radio que casi nunca es el que se quería.
+  /// [radiusMeters] is mandatory in practice: without it, the service picks
+  /// a radius that is almost never the one you wanted.
   Future<PlaceSearchResponse> searchNearby({
     required LatLng position,
     double? radiusMeters,
@@ -470,18 +472,18 @@ class PlacesClient {
 
   // ─── 7 · Suggest ──────────────────────────────────────────────────────
 
-  /// Sugerencias mezcladas de sitios y de consultas. `POST /v2/suggest`.
+  /// Mixed suggestions of places and queries. `POST /v2/suggest`.
   ///
-  /// Es más barata que [autocomplete] y devuelve dos cosas distintas en la
-  /// misma lista: sitios concretos y **consultas para refinar**. Al escribir
-  /// «restau» no hay un sitio que se llame así, hay una búsqueda que hacer, y
-  /// esta operación lo dice explícitamente con [SuggestResultType.query].
+  /// It's cheaper than [autocomplete] and returns two different things in the
+  /// same list: specific places and **queries to refine**. When you type
+  /// «restau» there's no place called that, there's a search to run, and this
+  /// operation says so explicitly with [SuggestResultType.query].
   ///
-  /// Para que las sugerencias de sitio traigan posición y dirección hay que
-  /// pedir [PlaceFeature.core] en [additionalFeatures]. Sin él llega solo el
-  /// título, que es lo que la hace barata.
+  /// For place suggestions to include position and address you have to
+  /// request [PlaceFeature.core] in [additionalFeatures]. Without it only the
+  /// title comes back, which is what makes it cheap.
   ///
-  /// [maxQueryRefinements] limita cuántas propuestas de reescritura vuelven.
+  /// [maxQueryRefinements] limits how many rewrite proposals come back.
   Future<SuggestResponse> suggest({
     required String query,
     LatLng? biasPosition,
@@ -516,13 +518,13 @@ class PlacesClient {
     return SuggestResponse.fromJson(json);
   }
 
-  // ─── Auxiliares ───────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────
 
-  /// Vacía las cachés de este cliente.
+  /// Empties this client's caches.
   ///
-  /// Hay que llamarlo al cambiar de idioma o de sesión: lo guardado está en el
-  /// idioma anterior, y seguir sirviéndolo produce una lista mitad en español
-  /// y mitad en inglés sin ninguna explicación visible.
+  /// Call it when switching language or session: what's stored is in the
+  /// previous language, and continuing to serve it produces a list half in
+  /// Spanish and half in English with no visible explanation.
   void clearCache() {
     _autocompleteCache.clear();
     _searchCache.clear();
@@ -540,12 +542,12 @@ class PlacesClient {
     return items.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
-  /// Comprueba que el filtro no lleve dos formas excluyentes.
+  /// Checks that the filter doesn't carry two mutually exclusive shapes.
   ///
-  /// La API responde `400` si llegan `BoundingBox` y `Circle` a la vez. Se
-  /// comprueba aquí para que el error salga con el nombre del parámetro y en
-  /// el sitio donde se puede corregir, en vez de como un `400` opaco después
-  /// de haber pagado el viaje de ida.
+  /// The API responds `400` if `BoundingBox` and `Circle` arrive together.
+  /// It's checked here so the error comes out with the parameter's name and
+  /// at the spot where it can be fixed, instead of as an opaque `400` after
+  /// having paid for the outbound trip.
   static void _checkFilter(SearchFilter? filter, String operation) {
     if (filter == null) return;
     if (filter.boundingBox != null && filter.circle != null) {
@@ -556,11 +558,11 @@ class PlacesClient {
     }
   }
 
-  /// Comprueba el rango de `maxResults` en vez de recortarlo en silencio.
+  /// Checks the range of `maxResults` instead of clamping it silently.
   ///
-  /// Recortar oculta el error: quien pidió 200 resultados sigue creyendo que
-  /// los tiene todos, y su paginación nunca avanza porque cree que ya está
-  /// todo en la primera página.
+  /// Clamping hides the error: whoever asked for 200 results keeps believing
+  /// they have them all, and their pagination never advances because they
+  /// think everything is already on the first page.
   static int _checkResults(int value, int min, int max, String operation) {
     if (value < min || value > max) {
       throw ArgumentError.value(

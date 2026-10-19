@@ -1,26 +1,26 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-// `meta` explícito por `@internal`, aunque el linter de Flutter 3.44+ lo dé
-// por redundante: `flutter/foundation.dart` no lo reexporta hasta versiones
-// recientes y el suelo declarado es Flutter 3.32. La 0.5.1 lo quitó y no
-// compilaba en 3.32.
+// `meta` is explicit because of `@internal`, even though the Flutter 3.44+
+// linter flags it as redundant: `flutter/foundation.dart` doesn't re-export it
+// until recent versions and the declared floor is Flutter 3.32. Version 0.5.1
+// removed it and didn't compile on 3.32.
 // ignore: unnecessary_import
 import 'package:meta/meta.dart' show internal;
 import 'package:nativ_maps/nativ_maps.dart';
 
-/// Identificador de un marcador. Mismo nombre que en `google_maps_flutter`.
+/// A marker's identifier. Same name as in `google_maps_flutter`.
 ///
-/// Es un tipo y no un `String` a propósito: impide pasar el identificador de
-/// una polilínea donde va el de un marcador, que compila sin problema si los
-/// dos son cadenas.
+/// It's a type and not a `String` on purpose: it prevents passing a polyline's
+/// identifier where a marker's goes, which compiles without complaint if both
+/// are strings.
 @immutable
 class MarkerId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const MarkerId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -34,13 +34,13 @@ class MarkerId {
   String toString() => 'MarkerId($value)';
 }
 
-/// Identificador de una polilínea.
+/// A polyline's identifier.
 @immutable
 class PolylineId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const PolylineId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -54,13 +54,13 @@ class PolylineId {
   String toString() => 'PolylineId($value)';
 }
 
-/// Identificador de un polígono.
+/// A polygon's identifier.
 @immutable
 class PolygonId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const PolygonId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -74,13 +74,13 @@ class PolygonId {
   String toString() => 'PolygonId($value)';
 }
 
-/// Identificador de un círculo.
+/// A circle's identifier.
 @immutable
 class CircleId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const CircleId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -94,13 +94,13 @@ class CircleId {
   String toString() => 'CircleId($value)';
 }
 
-/// Identificador de un mapa de calor.
+/// A heatmap's identifier.
 @immutable
 class HeatmapId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const HeatmapId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -114,105 +114,104 @@ class HeatmapId {
   String toString() => 'HeatmapId($value)';
 }
 
-/// El icono de un marcador.
+/// A marker's icon.
 ///
-/// En `google_maps_flutter` esto es `BitmapDescriptor`. Aquí el nombre es el
-/// mismo para que el código migrado compile, pero la implementación es
-/// distinta: MapLibre trabaja con imágenes registradas en el estilo por
-/// nombre, así que un icono es una imagen que se registra una vez y se
-/// referencia muchas.
+/// In `google_maps_flutter` this is `BitmapDescriptor`. Here the name is the
+/// same so migrated code compiles, but the implementation is different:
+/// MapLibre works with images registered in the style by name, so an icon is
+/// an image that's registered once and referenced many times.
 ///
-/// Esa diferencia es una ventaja: cien marcadores con el mismo icono suben la
-/// imagen **una** vez.
+/// That difference is an advantage: a hundred markers with the same icon
+/// upload the image **once**.
 @immutable
 class BitmapDescriptor {
   const BitmapDescriptor._({required this.name, this.bytes, this.hue});
 
   static const String _defaultPinPrefix = 'nativ-default-marker-';
 
-  /// El alfiler rojo por defecto, como el de Google.
+  /// The default red pin, like Google's.
   ///
-  /// Lo dibuja el propio paquete: el estilo no trae ningún icono de marcador.
+  /// The package draws it itself: the style doesn't come with any marker icon.
   static const BitmapDescriptor defaultMarker = BitmapDescriptor._(
     name: '${_defaultPinPrefix}0',
     hue: hueRed,
   );
 
-  /// El alfiler por defecto teñido de un color.
+  /// The default pin tinted with a color.
   ///
-  /// [hue] va de 0 a 360, como en `google_maps_flutter`, y las mismas
-  /// constantes valen: [hueAzure], [hueGreen]… (también en [MarkerHue]).
+  /// [hue] goes from 0 to 360, as in `google_maps_flutter`, and the same
+  /// constants work: [hueAzure], [hueGreen]… (also in [MarkerHue]).
   static BitmapDescriptor defaultMarkerWithHue(double hue) =>
       BitmapDescriptor._(
         name: '$_defaultPinPrefix${hue.round() % 360}',
         hue: hue,
       );
 
-  /// Un icono a partir de los bytes de una imagen PNG.
+  /// An icon from the bytes of a PNG image.
   ///
-  /// [name] tiene que ser único por imagen: es la clave con la que se registra
-  /// en el estilo. Dos iconos distintos con el mismo nombre se pisan.
+  /// [name] has to be unique per image: it's the key it's registered under in
+  /// the style. Two different icons with the same name overwrite each other.
   factory BitmapDescriptor.fromBytes(String name, Uint8List bytes) =>
       BitmapDescriptor._(name: name, bytes: bytes);
 
-  /// Un icono ya registrado en el estilo, por su nombre.
+  /// An icon already registered in the style, by its name.
   ///
-  /// Sirve para usar los iconos que el propio estilo de Amazon Location trae
-  /// dentro, sin subir nada.
+  /// It lets you use the icons the Amazon Location style itself ships with,
+  /// without uploading anything.
   factory BitmapDescriptor.fromStyleImage(String name) =>
       BitmapDescriptor._(name: name);
 
-  /// La clave con la que la imagen vive en el estilo.
+  /// The key the image lives under in the style.
   final String name;
 
-  /// Los bytes, si hay que registrarla.
+  /// The bytes, if it has to be registered.
   final Uint8List? bytes;
 
-  /// El tinte, de 0 a 360.
+  /// The hue, from 0 to 360.
   final double? hue;
 
-  /// ¿Es uno de los alfileres por defecto, que dibuja el paquete?
+  /// Whether it's one of the default pins, which the package draws.
   @internal
   bool get isDefaultPin => bytes == null && name.startsWith(_defaultPinPrefix);
 
-  /// ¿Hay que subir esta imagen al estilo?
+  /// Whether this image has to be uploaded to the style.
   ///
-  /// Los alfileres por defecto también: si no se registran, la capa pide una
-  /// imagen que no existe y el marcador no se dibuja.
+  /// The default pins too: if they aren't registered, the layer asks for an
+  /// image that doesn't exist and the marker isn't drawn.
   bool get needsUpload => bytes != null || isDefaultPin;
 
-  // Los tintes de `google_maps_flutter`, en el mismo sitio que allí:
+  // The `google_maps_flutter` hues, in the same place as there:
   // `BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure)`
-  // compila sin cambiar nada.
+  // compiles without changing anything.
 
-  /// Rojo, el color por defecto.
+  /// Red, the default color.
   static const double hueRed = MarkerHue.hueRed;
 
-  /// Naranja.
+  /// Orange.
   static const double hueOrange = MarkerHue.hueOrange;
 
-  /// Amarillo.
+  /// Yellow.
   static const double hueYellow = MarkerHue.hueYellow;
 
-  /// Verde.
+  /// Green.
   static const double hueGreen = MarkerHue.hueGreen;
 
-  /// Cian.
+  /// Cyan.
   static const double hueCyan = MarkerHue.hueCyan;
 
-  /// Azul.
+  /// Azure blue.
   static const double hueAzure = MarkerHue.hueAzure;
 
-  /// Azul oscuro.
+  /// Dark blue.
   static const double hueBlue = MarkerHue.hueBlue;
 
-  /// Violeta.
+  /// Violet.
   static const double hueViolet = MarkerHue.hueViolet;
 
   /// Magenta.
   static const double hueMagenta = MarkerHue.hueMagenta;
 
-  /// Rosa.
+  /// Rose.
   static const double hueRose = MarkerHue.hueRose;
 
   @override
@@ -224,49 +223,49 @@ class BitmapDescriptor {
   int get hashCode => Object.hash(name, hue);
 }
 
-/// Los tintes con nombre de `google_maps_flutter`, para que el código migrado
-/// compile sin buscar los números.
+/// The named hues of `google_maps_flutter`, so migrated code compiles without
+/// looking up the numbers.
 abstract final class MarkerHue {
-  /// Rojo, el color por defecto de Google.
+  /// Red, Google's default color.
   static const double hueRed = 0.0;
 
-  /// Naranja.
+  /// Orange.
   static const double hueOrange = 30.0;
 
-  /// Amarillo.
+  /// Yellow.
   static const double hueYellow = 60.0;
 
-  /// Verde.
+  /// Green.
   static const double hueGreen = 120.0;
 
-  /// Cian.
+  /// Cyan.
   static const double hueCyan = 180.0;
 
-  /// Azul.
+  /// Azure blue.
   static const double hueAzure = 210.0;
 
-  /// Azul oscuro.
+  /// Dark blue.
   static const double hueBlue = 240.0;
 
-  /// Violeta.
+  /// Violet.
   static const double hueViolet = 270.0;
 
   /// Magenta.
   static const double hueMagenta = 300.0;
 
-  /// Rosa.
+  /// Rose.
   static const double hueRose = 330.0;
 }
 
-/// El globo que sale al tocar un marcador.
+/// The info window that pops up when a marker is tapped.
 ///
-/// **Está reimplementado como widget de Flutter**, no como una vista nativa.
-/// Se pierde el aspecto exacto del de Google y se gana poder poner **lo que
-/// sea** dentro: una foto, un botón, una lista. Es el cambio del §4 que la
-/// tabla marca como «reimplementado».
+/// **It's reimplemented as a Flutter widget**, not as a native view. You lose
+/// the exact look of Google's and gain the ability to put **anything** inside:
+/// a photo, a button, a list. It's the §4 change the table marks as
+/// "reimplemented".
 @immutable
 class InfoWindow {
-  /// Crea la ventana.
+  /// Creates the window.
   const InfoWindow({
     this.title,
     this.snippet,
@@ -275,27 +274,27 @@ class InfoWindow {
     this.builder,
   });
 
-  /// Una ventana vacía: el marcador no muestra nada al tocarlo.
+  /// An empty window: the marker shows nothing when tapped.
   static const InfoWindow noText = InfoWindow();
 
-  /// El título en negrita.
+  /// The title, in bold.
   final String? title;
 
-  /// La línea secundaria.
+  /// The secondary line.
   final String? snippet;
 
-  /// Dónde se ancla respecto al icono. `(0.5, 0)` es arriba y centrado.
+  /// Where it anchors relative to the icon. `(0.5, 0)` is top center.
   final Offset anchor;
 
-  /// Qué hacer al tocar la ventana.
+  /// What to do when the window is tapped.
   final VoidCallback? onTap;
 
-  /// Contenido a medida. Si se pasa, [title] y [snippet] se ignoran.
+  /// Custom content. If passed, [title] and [snippet] are ignored.
   ///
-  /// Aquí es donde se aprovecha la reimplementación: cualquier widget vale.
+  /// This is where the reimplementation pays off: any widget will do.
   final Widget Function(BuildContext context)? builder;
 
-  /// ¿Hay algo que mostrar?
+  /// Whether there's anything to show.
   bool get isEmpty => title == null && snippet == null && builder == null;
 
   @override
@@ -310,13 +309,13 @@ class InfoWindow {
   int get hashCode => Object.hash(title, snippet, anchor);
 }
 
-/// Un marcador en el mapa.
+/// A marker on the map.
 ///
-/// Mismos nombres de campo que en `google_maps_flutter`, para que el código
-/// migrado compile sin tocarlo.
+/// Same field names as in `google_maps_flutter`, so migrated code compiles
+/// without touching it.
 @immutable
 class Marker {
-  /// Crea el marcador.
+  /// Creates the marker.
   const Marker({
     required this.markerId,
     required this.position,
@@ -332,72 +331,88 @@ class Marker {
     this.iconScale = 1.0,
     this.label,
     this.onTap,
+    this.onDragStart,
+    this.onDrag,
     this.onDragEnd,
     this.clusterManagerId,
   });
 
-  /// El identificador. Dos marcadores con el mismo se pisan.
+  /// The identifier. Two markers with the same one overwrite each other.
   final MarkerId markerId;
 
-  /// Dónde está.
+  /// Where it is.
   final LatLng position;
 
-  /// El icono.
+  /// The icon.
   final BitmapDescriptor icon;
 
-  /// El globo que sale al tocarlo.
+  /// The info window that pops up when it's tapped.
   final InfoWindow infoWindow;
 
-  /// La opacidad, de 0 a 1.
+  /// The opacity, from 0 to 1.
   final double alpha;
 
-  /// Qué punto del icono se apoya en la coordenada. `(0.5, 1)` es la punta de
-  /// abajo, que es lo que quiere un alfiler.
+  /// Which point of the icon rests on the coordinate. `(0.5, 1)` is the bottom
+  /// tip, which is what a pin wants.
   final Offset anchor;
 
-  /// ¿Se puede arrastrar?
+  /// Whether it can be dragged.
+  ///
+  /// Pressing on it and moving the finger drags the marker instead of the map,
+  /// and [onDragStart], [onDrag] and [onDragEnd] report where it goes. The
+  /// controller keeps the new position: `NativMapController.markers` returns
+  /// it and the next `addMarker` with the same id starts from it.
   final bool draggable;
 
-  /// ¿Queda pegado al mapa al girar e inclinar?
+  /// Whether it stays flat on the map when it's rotated and tilted.
   ///
-  /// `true` es lo que se quiere para el icono de un vehículo, que tiene que
-  /// girar con la calle. `false` lo mantiene siempre de frente, como un
-  /// alfiler.
+  /// `true` is what you want for a vehicle's icon, which has to turn with the
+  /// street. `false` keeps it always facing the viewer, like a pin.
   final bool flat;
 
-  /// La rotación en grados. Para un vehículo, el rumbo del GPS.
+  /// The rotation in degrees. For a vehicle, the GPS heading.
   final double rotation;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado: mayor queda encima.
+  /// The stacking order: higher goes on top.
   final double zIndex;
 
-  /// El tamaño del icono, 1 es el original.
+  /// The icon's size; 1 is the original.
   final double iconScale;
 
-  /// Un texto debajo del icono. La matrícula, por ejemplo.
+  /// A text under the icon. The license plate, for example.
   ///
-  /// Si choca con otro marcador o con otro texto, **se oculta** hasta que se
-  /// acerca el zoom y deja de chocar; el icono se sigue viendo. Es lo que
-  /// evita que cien matrículas juntas sean una mancha ilegible, pero
-  /// significa que un texto no se garantiza a cualquier zoom.
+  /// If it collides with another marker or another text, **it's hidden** until
+  /// you zoom in and it stops colliding; the icon stays visible. It's what
+  /// keeps a hundred license plates together from becoming an unreadable
+  /// smudge, but it means a text isn't guaranteed at every zoom.
   final String? label;
 
-  /// Qué hacer al tocarlo.
+  /// What to do when it's tapped.
   final VoidCallback? onTap;
 
-  /// Qué hacer al soltarlo tras arrastrarlo.
+  /// Called when a drag ends, with the position where it was dropped.
   final void Function(LatLng position)? onDragEnd;
 
-  /// A qué agrupador pertenece, si está agrupado.
+  /// Called when a drag starts, with the marker's position at that moment.
+  ///
+  /// Only for markers with [draggable] set.
+  final void Function(LatLng position)? onDragStart;
+
+  /// Called on every step of a drag, with the position under the finger.
+  ///
+  /// It fires once per frame: anything expensive belongs in [onDragEnd].
+  final void Function(LatLng position)? onDrag;
+
+  /// Which cluster manager it belongs to, if it's clustered.
   final ClusterManagerId? clusterManagerId;
 
-  /// Copia con algún campo cambiado.
+  /// A copy with some fields changed.
   ///
-  /// Es lo que se usa para mover un vehículo: `copyWith(position:, rotation:)`
-  /// en cada posición nueva.
+  /// It's what you use to move a vehicle: `copyWith(position:, rotation:)` on
+  /// every new position.
   Marker copyWith({
     LatLng? position,
     BitmapDescriptor? icon,
@@ -412,6 +427,8 @@ class Marker {
     double? iconScale,
     String? label,
     VoidCallback? onTap,
+    void Function(LatLng position)? onDragStart,
+    void Function(LatLng position)? onDrag,
     void Function(LatLng position)? onDragEnd,
     ClusterManagerId? clusterManagerId,
   }) => Marker(
@@ -429,6 +446,8 @@ class Marker {
     iconScale: iconScale ?? this.iconScale,
     label: label ?? this.label,
     onTap: onTap ?? this.onTap,
+    onDragStart: onDragStart ?? this.onDragStart,
+    onDrag: onDrag ?? this.onDrag,
     onDragEnd: onDragEnd ?? this.onDragEnd,
     clusterManagerId: clusterManagerId ?? this.clusterManagerId,
   );
@@ -442,6 +461,7 @@ class Marker {
           icon == other.icon &&
           alpha == other.alpha &&
           anchor == other.anchor &&
+          draggable == other.draggable &&
           flat == other.flat &&
           rotation == other.rotation &&
           visible == other.visible &&
@@ -458,6 +478,7 @@ class Marker {
     icon,
     alpha,
     anchor,
+    draggable,
     flat,
     rotation,
     visible,
@@ -472,59 +493,59 @@ class Marker {
   String toString() => 'Marker(${markerId.value} @ $position)';
 }
 
-/// Cómo termina una polilínea.
+/// How a polyline ends.
 enum Cap {
-  /// Corte recto justo en el último punto.
+  /// A straight cut right at the last point.
   buttCap('butt'),
 
-  /// Semicírculo que sobresale.
+  /// A semicircle that sticks out.
   roundCap('round'),
 
-  /// Cuadrado que sobresale.
+  /// A square that sticks out.
   squareCap('square');
 
   const Cap(this.wireName);
 
-  /// El valor de `line-cap` en el estilo de MapLibre.
+  /// The value of `line-cap` in the MapLibre style.
   final String wireName;
 }
 
-/// Cómo se unen dos segmentos de una polilínea.
+/// How two segments of a polyline are joined.
 enum JointType {
-  /// Esquina en pico.
+  /// A pointed corner.
   mitered('miter'),
 
-  /// Esquina redondeada. Es lo que hay que usar en una ruta larga: en pico,
-  /// un giro cerrado dibuja una púa que sobresale varios píxeles.
+  /// A rounded corner. It's what to use on a long route: pointed, a sharp
+  /// turn draws a spike that sticks out several pixels.
   round('round'),
 
-  /// Esquina cortada.
+  /// A cut-off corner.
   bevel('bevel');
 
   const JointType(this.wireName);
 
-  /// El valor de `line-join` en el estilo de MapLibre.
+  /// The value of `line-join` in the MapLibre style.
   final String wireName;
 }
 
-/// Un trozo del patrón de una línea discontinua.
+/// A piece of a dashed line's pattern.
 @immutable
 class PatternItem {
   const PatternItem._(this.type, this.length);
 
-  /// Un trazo de [length] píxeles.
+  /// A dash of [length] pixels.
   factory PatternItem.dash(double length) => PatternItem._('dash', length);
 
-  /// Un hueco de [length] píxeles.
+  /// A gap of [length] pixels.
   factory PatternItem.gap(double length) => PatternItem._('gap', length);
 
-  /// Un punto.
+  /// A dot.
   static const PatternItem dot = PatternItem._('dot', 1);
 
-  /// `dash`, `gap` o `dot`.
+  /// `dash`, `gap` or `dot`.
   final String type;
 
-  /// La longitud en píxeles.
+  /// The length in pixels.
   final double length;
 
   @override
@@ -536,10 +557,10 @@ class PatternItem {
   int get hashCode => Object.hash(type, length);
 }
 
-/// Una línea sobre el mapa.
+/// A line on the map.
 @immutable
 class Polyline {
-  /// Crea la polilínea.
+  /// Creates the polyline.
   const Polyline({
     required this.polylineId,
     this.points = const <LatLng>[],
@@ -556,52 +577,52 @@ class Polyline {
     this.onTap,
   });
 
-  /// El identificador.
+  /// The identifier.
   final PolylineId polylineId;
 
-  /// Los puntos, en orden.
+  /// The points, in order.
   ///
-  /// Aquí es donde se ve la tesis del paquete: `ruta.points` de un
-  /// `RouteResponse` entra directamente, sin convertir nada.
+  /// This is where the package's thesis shows: `route.points` from a
+  /// `RouteResponse` goes straight in, without converting anything.
   final List<LatLng> points;
 
-  /// El color.
+  /// The color.
   final Color color;
 
-  /// El grosor en píxeles.
+  /// The width in pixels.
   final double width;
 
-  /// Cómo empieza.
+  /// How it starts.
   final Cap startCap;
 
-  /// Cómo termina.
+  /// How it ends.
   final Cap endCap;
 
-  /// Cómo se unen los segmentos.
+  /// How the segments are joined.
   final JointType jointType;
 
-  /// El patrón de discontinuidad. Vacío es línea continua.
+  /// The dash pattern. Empty means a solid line.
   final List<PatternItem> patterns;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado.
+  /// The stacking order.
   final double zIndex;
 
-  /// Difuminado del borde en píxeles. Sirve para el halo de una ruta.
+  /// Edge blur in pixels. Useful for a route's halo.
   final double blur;
 
-  /// La opacidad, de 0 a 1.
+  /// The opacity, from 0 to 1.
   final double opacity;
 
-  /// Qué hacer al tocarla.
+  /// What to do when it's tapped.
   final VoidCallback? onTap;
 
-  /// ¿Es discontinua?
+  /// Whether it's dashed.
   bool get isDashed => patterns.isNotEmpty;
 
-  /// Copia con algún campo cambiado.
+  /// A copy with some fields changed.
   Polyline copyWith({
     List<LatLng>? points,
     Color? color,
@@ -667,10 +688,10 @@ class Polyline {
   String toString() => 'Polyline(${polylineId.value}, ${points.length} puntos)';
 }
 
-/// Un área cerrada sobre el mapa.
+/// A closed area on the map.
 @immutable
 class Polygon {
-  /// Crea el polígono.
+  /// Creates the polygon.
   const Polygon({
     required this.polygonId,
     this.points = const <LatLng>[],
@@ -683,15 +704,15 @@ class Polygon {
     this.onTap,
   });
 
-  /// El polígono de una isócrona, ya listo para pintar.
+  /// The polygon of an isoline, ready to paint.
   ///
-  /// Toma el contorno y los agujeros del primer polígono de la isócrona. Es el
-  /// atajo que convierte «hasta dónde llegó en ocho minutos» en una mancha en
-  /// el mapa en una línea de código.
+  /// It takes the outline and the holes of the isoline's first polygon. It's
+  /// the shortcut that turns "how far it got in eight minutes" into a patch on
+  /// the map in one line of code.
   ///
-  /// Una isócrona puede traer **varios polígonos** —con un río sin puentes
-  /// cerca, lo alcanzable son dos manchas separadas—; para pintarlos todos hay
-  /// que recorrer `isoline.polygons` y crear uno por cada uno.
+  /// An isoline can bring **several polygons** —with a river and no bridges
+  /// nearby, what's reachable is two separate patches—; to paint them all you
+  /// have to iterate `isoline.polygons` and create one for each.
   factory Polygon.fromIsoline(
     Isoline isoline, {
     required PolygonId polygonId,
@@ -712,34 +733,34 @@ class Polygon {
     );
   }
 
-  /// El identificador.
+  /// The identifier.
   final PolygonId polygonId;
 
-  /// El contorno.
+  /// The outline.
   final List<LatLng> points;
 
-  /// Los huecos interiores.
+  /// The interior holes.
   final List<List<LatLng>> holes;
 
-  /// El color de relleno, normalmente con transparencia.
+  /// The fill color, usually with transparency.
   final Color fillColor;
 
-  /// El color del borde.
+  /// The stroke color.
   final Color strokeColor;
 
-  /// El grosor del borde en píxeles.
+  /// The stroke width in pixels.
   final double strokeWidth;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado.
+  /// The stacking order.
   final double zIndex;
 
-  /// Qué hacer al tocarlo.
+  /// What to do when it's tapped.
   final VoidCallback? onTap;
 
-  /// Copia con algún campo cambiado.
+  /// A copy with some fields changed.
   Polygon copyWith({
     List<LatLng>? points,
     List<List<LatLng>>? holes,
@@ -788,14 +809,14 @@ class Polygon {
   String toString() => 'Polygon(${polygonId.value})';
 }
 
-/// Un círculo de radio en metros.
+/// A circle with a radius in meters.
 ///
-/// **Es geodésico**, como el de Google: el radio son metros sobre el terreno,
-/// no píxeles. Por eso se dibuja convirtiéndolo en un polígono de muchos
-/// lados; un círculo de píxeles cambiaría de tamaño real al alejar el mapa.
+/// **It's geodesic**, like Google's: the radius is meters on the ground, not
+/// pixels. That's why it's drawn by turning it into a many-sided polygon; a
+/// pixel circle would change its real size when you zoom the map out.
 @immutable
 class Circle {
-  /// Crea el círculo.
+  /// Creates the circle.
   const Circle({
     required this.circleId,
     required this.center,
@@ -809,40 +830,40 @@ class Circle {
     this.onTap,
   });
 
-  /// El identificador.
+  /// The identifier.
   final CircleId circleId;
 
-  /// El centro.
+  /// The center.
   final LatLng center;
 
-  /// El radio **en metros**.
+  /// The radius **in meters**.
   final double radius;
 
-  /// El color de relleno.
+  /// The fill color.
   final Color fillColor;
 
-  /// El color del borde.
+  /// The stroke color.
   final Color strokeColor;
 
-  /// El grosor del borde.
+  /// The stroke width.
   final double strokeWidth;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado.
+  /// The stacking order.
   final double zIndex;
 
-  /// En cuántos lados se descompone.
+  /// How many sides it's broken into.
   ///
-  /// Setenta y dos se ve redondo a cualquier zoom razonable. Subirlo mucho con
-  /// cien círculos en pantalla sí se nota.
+  /// Seventy-two looks round at any reasonable zoom. Raising it a lot with a
+  /// hundred circles on screen does show.
   final int segments;
 
-  /// Qué hacer al tocarlo.
+  /// What to do when it's tapped.
   final VoidCallback? onTap;
 
-  /// Copia con algún campo cambiado.
+  /// A copy with some fields changed.
   Circle copyWith({
     LatLng? center,
     double? radius,
@@ -897,13 +918,13 @@ class Circle {
   String toString() => 'Circle(${circleId.value}, ${radius}m)';
 }
 
-/// Identificador de un agrupador de marcadores.
+/// A marker cluster manager's identifier.
 @immutable
 class ClusterManagerId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const ClusterManagerId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -918,20 +939,20 @@ class ClusterManagerId {
   String toString() => 'ClusterManagerId($value)';
 }
 
-/// Agrupa marcadores cercanos en un solo símbolo con el recuento.
+/// Groups nearby markers into a single symbol with the count.
 ///
-/// ## Por qué esto es mejor que en Google
+/// ## Why this is better than in Google
 ///
-/// **MapLibre agrupa de forma nativa**: la fuente de datos lleva `cluster:
-/// true` y el motor hace el trabajo en C++, por tesela y en el hilo de
-/// renderizado. En `google_maps_flutter` hay que usar una clase gestora que
-/// recalcula en Dart en cada movimiento de cámara, y con unos cuantos miles de
-/// marcadores eso se nota en el desplazamiento.
+/// **MapLibre clusters natively**: the data source carries `cluster: true` and
+/// the engine does the work in C++, per tile and on the render thread. In
+/// `google_maps_flutter` you have to use a manager class that recomputes in
+/// Dart on every camera move, and with a few thousand markers that shows when
+/// panning.
 ///
-/// Lo que aquí es un parámetro, allí es una biblioteca aparte.
+/// What here is a parameter, there is a separate library.
 @immutable
 class ClusterManager {
-  /// Crea el agrupador.
+  /// Creates the cluster manager.
   const ClusterManager({
     required this.clusterManagerId,
     this.maxZoom = 14,
@@ -946,31 +967,31 @@ class ClusterManager {
     this.radiusSteps = const <(int, double)>[(0, 18), (10, 22), (50, 28)],
   });
 
-  /// El identificador.
+  /// The identifier.
   final ClusterManagerId clusterManagerId;
 
-  /// A partir de este zoom los marcadores dejan de agruparse.
+  /// From this zoom on, markers stop being clustered.
   final int maxZoom;
 
-  /// El radio de agrupación en píxeles.
+  /// The clustering radius in pixels.
   final double radius;
 
-  /// Qué hacer al tocar un grupo.
+  /// What to do when a cluster is tapped.
   ///
-  /// Si no se pasa, el mapa acerca automáticamente hasta el zoom en el que ese
-  /// grupo se separa, que es lo que casi siempre se quiere.
+  /// If it isn't passed, the map automatically zooms in to the level at which
+  /// that cluster splits apart, which is what you almost always want.
   final void Function(Cluster cluster)? onClusterTap;
 
-  /// El color del número.
+  /// The color of the number.
   final Color textColor;
 
-  /// El color del círculo según cuántos marcadores agrupe.
+  /// The circle's color depending on how many markers it groups.
   ///
-  /// Cada par es «a partir de N marcadores, este color». El primero tiene que
-  /// empezar en 0.
+  /// Each pair is "from N markers on, this color". The first one has to start
+  /// at 0.
   final List<(int, Color)> colorSteps;
 
-  /// El tamaño del círculo según cuántos agrupe.
+  /// The circle's size depending on how many it groups.
   final List<(int, double)> radiusSteps;
 
   @override
@@ -985,10 +1006,10 @@ class ClusterManager {
   int get hashCode => Object.hash(clusterManagerId, maxZoom, radius);
 }
 
-/// Un grupo de marcadores, tal como se toca en el mapa.
+/// A cluster of markers, as it's tapped on the map.
 @immutable
 class Cluster {
-  /// Crea el grupo.
+  /// Creates the cluster.
   const Cluster({
     required this.clusterManagerId,
     required this.position,
@@ -996,35 +1017,35 @@ class Cluster {
     this.clusterId,
   });
 
-  /// A qué agrupador pertenece.
+  /// Which cluster manager it belongs to.
   final ClusterManagerId clusterManagerId;
 
-  /// Dónde está el símbolo del grupo.
+  /// Where the cluster's symbol is.
   final LatLng position;
 
-  /// Cuántos marcadores agrupa.
+  /// How many markers it groups.
   final int pointCount;
 
-  /// El identificador interno del grupo en MapLibre.
+  /// The cluster's internal identifier in MapLibre.
   ///
-  /// Es lo que hace falta para preguntarle al motor a qué zoom se separa este
-  /// grupo concreto, que es lo que `google_maps_flutter` no puede dar.
+  /// It's what you need to ask the engine at which zoom this particular cluster
+  /// splits apart, which is what `google_maps_flutter` can't give you.
   final int? clusterId;
 
   @override
   String toString() => 'Cluster($pointCount marcadores @ $position)';
 }
 
-/// Un mapa de calor.
+/// A heatmap.
 ///
-/// ## Por qué esto también es mejor que en Google
+/// ## Why this is also better than in Google
 ///
-/// En `google_maps_flutter` el mapa de calor es un tipo cerrado con muy pocos
-/// mandos. Aquí es una **capa `heatmap` nativa de MapLibre**, y la rampa de
-/// color, el radio y la intensidad se pueden hacer depender del zoom.
+/// In `google_maps_flutter` the heatmap is a closed type with very few knobs.
+/// Here it's a **native MapLibre `heatmap` layer**, and the color ramp, the
+/// radius and the intensity can be made to depend on the zoom.
 @immutable
 class Heatmap {
-  /// Crea el mapa de calor.
+  /// Creates the heatmap.
   const Heatmap({
     required this.heatmapId,
     required this.data,
@@ -1044,34 +1065,34 @@ class Heatmap {
     this.visible = true,
   });
 
-  /// El identificador.
+  /// The identifier.
   final HeatmapId heatmapId;
 
-  /// Los puntos y su peso. El peso `null` cuenta como 1.
+  /// The points and their weight. A `null` weight counts as 1.
   final List<({LatLng point, double? weight})> data;
 
-  /// El radio de influencia de cada punto, en píxeles.
+  /// Each point's radius of influence, in pixels.
   final double radius;
 
-  /// La opacidad de toda la capa.
+  /// The opacity of the whole layer.
   final double opacity;
 
-  /// El multiplicador de intensidad.
+  /// The intensity multiplier.
   final double intensity;
 
-  /// A partir de qué zoom se ve.
+  /// The zoom from which it's visible.
   final double minZoom;
 
-  /// Hasta qué zoom se ve.
+  /// The zoom up to which it's visible.
   final double maxZoom;
 
-  /// La rampa de color: pares de (densidad de 0 a 1, color).
+  /// The color ramp: pairs of (density from 0 to 1, color).
   ///
-  /// El primer color suele ser transparente para que las zonas sin datos no se
-  /// tiñan.
+  /// The first color is usually transparent so that areas without data don't
+  /// get tinted.
   final List<(double, Color)> gradient;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
   @override
@@ -1093,13 +1114,13 @@ class Heatmap {
   String toString() => 'Heatmap(${heatmapId.value}, ${data.length} puntos)';
 }
 
-/// Identificador de una imagen superpuesta.
+/// A ground overlay's identifier.
 @immutable
 class GroundOverlayId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const GroundOverlayId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -1114,12 +1135,12 @@ class GroundOverlayId {
   String toString() => 'GroundOverlayId($value)';
 }
 
-/// Una imagen anclada a un rectángulo del mapa.
+/// An image pinned to a rectangle of the map.
 ///
-/// Un plano de obra, un mapa escaneado, una zona de cobertura.
+/// A building plan, a scanned map, a coverage area.
 @immutable
 class GroundOverlay {
-  /// Crea la superposición.
+  /// Creates the overlay.
   const GroundOverlay({
     required this.groundOverlayId,
     required this.bounds,
@@ -1129,22 +1150,22 @@ class GroundOverlay {
     this.zIndex = 0,
   });
 
-  /// El identificador.
+  /// The identifier.
   final GroundOverlayId groundOverlayId;
 
-  /// El rectángulo que ocupa.
+  /// The rectangle it covers.
   final LatLngBounds bounds;
 
-  /// La URL de la imagen. Vale un `data:` en base64.
+  /// The image URL. A base64 `data:` URL works too.
   final String imageUrl;
 
-  /// La opacidad.
+  /// The opacity.
   final double opacity;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado.
+  /// The stacking order.
   final double zIndex;
 
   @override
@@ -1162,13 +1183,13 @@ class GroundOverlay {
       Object.hash(groundOverlayId, bounds, imageUrl, opacity, visible);
 }
 
-/// Identificador de una capa de teselas.
+/// A tile layer's identifier.
 @immutable
 class TileOverlayId {
-  /// Crea el identificador.
+  /// Creates the identifier.
   const TileOverlayId(this.value);
 
-  /// El valor.
+  /// The value.
   final String value;
 
   @override
@@ -1182,13 +1203,13 @@ class TileOverlayId {
   String toString() => 'TileOverlayId($value)';
 }
 
-/// Una capa de teselas propia encima del mapa.
+/// A layer of your own tiles on top of the map.
 ///
-/// Para pintar datos que se sirven ya en teselas: catastro, cobertura de red,
-/// meteorología.
+/// For painting data that's already served as tiles: land registry, network
+/// coverage, weather.
 @immutable
 class TileOverlay {
-  /// Crea la capa.
+  /// Creates the layer.
   const TileOverlay({
     required this.tileOverlayId,
     required this.urlTemplate,
@@ -1201,34 +1222,34 @@ class TileOverlay {
     this.attribution,
   });
 
-  /// El identificador.
+  /// The identifier.
   final TileOverlayId tileOverlayId;
 
-  /// La plantilla de URL, con `{z}`, `{x}` e `{y}`.
+  /// The URL template, with `{z}`, `{x}` and `{y}`.
   final String urlTemplate;
 
-  /// El tamaño de la tesela en píxeles.
+  /// The tile size in pixels.
   final int tileSize;
 
-  /// La opacidad.
+  /// The opacity.
   final double opacity;
 
-  /// A partir de qué zoom se pide.
+  /// The zoom from which it's requested.
   final double minZoom;
 
-  /// Hasta qué zoom se pide.
+  /// The zoom up to which it's requested.
   final double maxZoom;
 
-  /// ¿Se dibuja?
+  /// Whether it's drawn.
   final bool visible;
 
-  /// El orden de apilado.
+  /// The stacking order.
   final double zIndex;
 
-  /// La atribución que hay que enseñar.
+  /// The attribution that has to be shown.
   ///
-  /// Casi todos los proveedores de teselas la exigen en sus condiciones, y es
-  /// lo primero que se olvida.
+  /// Almost every tile provider requires it in their terms, and it's the first
+  /// thing that gets forgotten.
   final String? attribution;
 
   @override

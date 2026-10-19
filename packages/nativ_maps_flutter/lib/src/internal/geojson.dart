@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -7,73 +7,88 @@ import 'package:meta/meta.dart';
 import 'package:nativ_maps/nativ_maps.dart';
 import 'package:nativ_maps_flutter/src/types/overlays.dart';
 
-/// Convierte las superposiciones a GeoJSON y a expresiones de estilo.
+/// Converts the overlays to GeoJSON and to style expressions.
 ///
-/// ## Por qué GeoJSON y no anotaciones
+/// ## Why GeoJSON and not annotations
 ///
-/// `maplibre_gl` ofrece dos caminos: gestores de anotaciones (`addSymbol`,
-/// `addLine`…) o fuentes GeoJSON con capas propias. Este paquete usa el
-/// segundo, y la diferencia se nota con volumen:
+/// `maplibre_gl` offers two paths: annotation managers (`addSymbol`,
+/// `addLine`…) or GeoJSON sources with their own layers. This package uses the
+/// second, and the difference shows at volume:
 ///
-/// - Las anotaciones cruzan el canal de plataforma **una por objeto**. Mover
-///   200 vehículos son 200 llamadas por actualización.
-/// - Una fuente GeoJSON se empuja **entera de una vez**: una sola llamada con
-///   los 200 dentro. Y es el único camino que permite agrupar de forma nativa
-///   (`cluster: true`) y usar la capa de mapa de calor.
+/// - Annotations cross the platform channel **one per object**. Moving 200
+///   vehicles means 200 calls per update.
+/// - A GeoJSON source is pushed **whole, in one go**: a single call with all
+///   200 inside. And it's the only path that allows native clustering
+///   (`cluster: true`) and the heatmap layer.
 ///
-/// El coste es que el estilo hay que escribirlo a mano, que es lo que hace
-/// este archivo.
+/// The cost is that the style has to be written by hand, which is what this
+/// file does.
 @internal
 abstract final class GeoJson {
-  /// Una colección vacía, para inicializar las fuentes.
+  /// An empty collection, for initializing the sources.
   static Map<String, dynamic> get empty => <String, dynamic>{
     'type': 'FeatureCollection',
     'features': <dynamic>[],
   };
 
-  /// Los marcadores visibles como colección de puntos.
+  /// The visible markers as a collection of points.
   ///
-  /// El identificador va **también** en `id` además de en las propiedades:
-  /// `queryRenderedFeatures` devuelve el `id` de la entidad, y sin él habría
-  /// que buscar el marcador comparando coordenadas en coma flotante.
+  /// The identifier goes in `id` **as well as** in the properties:
+  /// `queryRenderedFeatures` returns the feature's `id`, and without it you'd
+  /// have to find the marker by comparing floating-point coordinates.
   static Map<String, dynamic> markers(Iterable<Marker> markers) =>
       <String, dynamic>{
         'type': 'FeatureCollection',
         'features': <dynamic>[
           for (final m in markers)
-            if (m.visible)
-              <String, dynamic>{
-                'type': 'Feature',
-                'id': m.markerId.value.hashCode & 0x7FFFFFFF,
-                'geometry': <String, dynamic>{
-                  'type': 'Point',
-                  'coordinates': m.position.toLonLat(),
-                },
-                'properties': <String, dynamic>{
-                  'id': m.markerId.value,
-                  'icon': m.icon.name,
-                  'iconScale': m.iconScale,
-                  'rotation': m.rotation,
-                  'alpha': m.alpha,
-                  'zIndex': m.zIndex,
-                  'label': m.label ?? '',
-                  'anchorX': m.anchor.dx,
-                  'anchorY': m.anchor.dy,
-                  'anchor': iconAnchor(m.anchor),
-                  'labelOffset': labelOffset(m.anchor),
-                  'flat': m.flat,
-                  if (m.icon.hue != null) 'hue': m.icon.hue,
-                },
-              },
+            if (m.visible) marker(m),
         ],
       };
 
-  /// El `icon-anchor` de MapLibre más cercano a [anchor].
+  /// The feature of a single marker.
   ///
-  /// Google ancla con un `Offset` libre; MapLibre, con nueve posiciones con
-  /// nombre. Se redondea a la más cercana: `(0.5, 1)` es `bottom` —la punta
-  /// de un alfiler— y `(0.5, 0.5)` es `center` —un vehículo visto desde
-  /// arriba—, que son los dos que se usan de verdad.
+  /// It's what [markers] puts in the collection, and what a drag pushes on
+  /// its own with `setGeoJsonFeature` so that moving one marker doesn't send
+  /// all of them.
+  static Map<String, dynamic> marker(Marker m) => <String, dynamic>{
+    'type': 'Feature',
+    'id': featureId(m.markerId),
+    'geometry': <String, dynamic>{
+      'type': 'Point',
+      'coordinates': m.position.toLonLat(),
+    },
+    'properties': <String, dynamic>{
+      'id': m.markerId.value,
+      'icon': m.icon.name,
+      'iconScale': m.iconScale,
+      'rotation': m.rotation,
+      'alpha': m.alpha,
+      'zIndex': m.zIndex,
+      'label': m.label ?? '',
+      'anchorX': m.anchor.dx,
+      'anchorY': m.anchor.dy,
+      'anchor': iconAnchor(m.anchor),
+      'labelOffset': labelOffset(m.anchor),
+      'flat': m.flat,
+      // The native side reads exactly this property, with this name, to
+      // decide whether a press starts a drag or pans the map.
+      'draggable': m.draggable,
+      if (m.icon.hue != null) 'hue': m.icon.hue,
+    },
+  };
+
+  /// The numeric feature id of a marker.
+  ///
+  /// MapLibre wants a number; a drag event gives it back, sometimes as a
+  /// string, and this is how it's matched to the marker again.
+  static int featureId(MarkerId id) => id.value.hashCode & 0x7FFFFFFF;
+
+  /// The MapLibre `icon-anchor` closest to [anchor].
+  ///
+  /// Google anchors with a free `Offset`; MapLibre, with nine named positions.
+  /// It's rounded to the closest one: `(0.5, 1)` is `bottom` —the tip of a
+  /// pin— and `(0.5, 0.5)` is `center` —a vehicle seen from above—, which are
+  /// the two actually used.
   static String iconAnchor(Offset anchor) {
     String pick(double v, String low, String high) =>
         v < 0.25 ? low : (v > 0.75 ? high : '');
@@ -85,23 +100,23 @@ abstract final class GeoJson {
     return '$y-$x';
   }
 
-  /// Cuánto baja el texto, en `em`, para quedar debajo del icono.
+  /// How far down the text goes, in `em`, to sit under the icon.
   ///
-  /// El texto se coloca respecto al punto, no al icono: con el icono anclado
-  /// por el centro, el desplazamiento de un alfiler lo dejaría encima de la
-  /// mitad de abajo. Se calcula para un icono de unos 40 puntos de alto, que
-  /// es el del alfiler por defecto.
+  /// The text is placed relative to the point, not the icon: with the icon
+  /// anchored at its center, a pin's offset would leave it on top of the
+  /// bottom half. It's computed for an icon about 40 points tall, which is the
+  /// default pin's height.
   static List<double> labelOffset(Offset anchor) => <double>[
     0,
     (1 - anchor.dy.clamp(0.0, 1.0)) * 3.4 + 0.8,
   ];
 
-  /// Las polilíneas como colección de líneas.
+  /// The polylines as a collection of lines.
   ///
-  /// Se separan las continuas de las discontinuas porque `line-dasharray`
-  /// **no admite expresiones basadas en datos** en la especificación de
-  /// MapLibre: el patrón es literal por capa. Meter las dos clases en la misma
-  /// capa haría que todas salieran discontinuas o ninguna.
+  /// Solid ones are kept apart from dashed ones because `line-dasharray`
+  /// **does not accept data-driven expressions** in the MapLibre
+  /// specification: the pattern is a literal per layer. Putting both kinds in
+  /// the same layer would make all of them come out dashed, or none.
   static Map<String, dynamic> polylines(Iterable<Polyline> lines) =>
       <String, dynamic>{
         'type': 'FeatureCollection',
@@ -129,13 +144,13 @@ abstract final class GeoJson {
         ],
       };
 
-  /// Polígonos y círculos en una sola colección.
+  /// Polygons and circles in a single collection.
   ///
-  /// Los círculos se convierten aquí en polígonos de muchos lados: el radio de
-  /// un [Circle] son **metros sobre el terreno**, y la capa `circle` de
-  /// MapLibre dibuja radios en píxeles. Un círculo de píxeles cambiaría de
-  /// tamaño real al alejar el mapa, que es justo lo contrario de lo que
-  /// significa «300 metros a la redonda».
+  /// Circles are turned into many-sided polygons here: the radius of a
+  /// [Circle] is **meters on the ground**, and MapLibre's `circle` layer draws
+  /// radii in pixels. A pixel circle would change its real size when you zoom
+  /// the map out, which is exactly the opposite of what "within 300 meters"
+  /// means.
   static Map<String, dynamic> areas(
     Iterable<Polygon> polygons,
     Iterable<Circle> circles,
@@ -184,7 +199,7 @@ abstract final class GeoJson {
     ],
   };
 
-  /// Los puntos de un mapa de calor, con su peso.
+  /// The points of a heatmap, with their weight.
   static Map<String, dynamic> heatmap(Heatmap heatmap) => <String, dynamic>{
     'type': 'FeatureCollection',
     'features': <dynamic>[
@@ -200,10 +215,10 @@ abstract final class GeoJson {
     ],
   };
 
-  /// Un anillo cerrado: GeoJSON exige que el último punto repita al primero.
+  /// A closed ring: GeoJSON requires the last point to repeat the first.
   ///
-  /// Sin cerrarlo, MapLibre dibuja el polígono igual pero el borde se queda
-  /// abierto por un lado — un fallo que solo se ve mirando de cerca.
+  /// Without closing it, MapLibre draws the polygon anyway but the outline is
+  /// left open on one side — a bug you only see by looking closely.
   static List<dynamic> _ring(List<LatLng> points) {
     final ring = <dynamic>[for (final p in points) p.toLonLat()];
     if (ring.length >= 2 && ring.first.toString() != ring.last.toString()) {
@@ -212,12 +227,12 @@ abstract final class GeoJson {
     return ring;
   }
 
-  /// Un color como `rgba()`, que es lo que entiende el estilo de MapLibre.
+  /// A color as `rgba()`, which is what the MapLibre style understands.
   ///
-  /// Se escribe a mano en vez de con `toARGB32()` porque hace falta el canal
-  /// alfa **separado**: un color hexadecimal de ocho dígitos no lo interpretan
-  /// igual todas las propiedades de estilo, y la transparencia de un relleno
-  /// es justo lo que más se usa aquí.
+  /// It's written by hand instead of with `toARGB32()` because the alpha
+  /// channel is needed **separately**: not every style property interprets an
+  /// eight-digit hex color the same way, and a fill's transparency is exactly
+  /// what's used most here.
   static String rgba(Color color) {
     final r = (color.r * 255).round().clamp(0, 255);
     final g = (color.g * 255).round().clamp(0, 255);
@@ -225,11 +240,10 @@ abstract final class GeoJson {
     return 'rgba($r,$g,$b,${color.a.toStringAsFixed(3)})';
   }
 
-  /// Los puntos de un círculo geodésico de [radiusMeters] alrededor de
-  /// [center].
+  /// The points of a geodesic circle of [radiusMeters] around [center].
   ///
-  /// Recorre el arco sobre la esfera, no sobre la proyección: cerca del polo,
-  /// un círculo dibujado como una elipse en píxeles se ve mal y mide mal.
+  /// It walks the arc on the sphere, not on the projection: near the pole, a
+  /// circle drawn as an ellipse in pixels looks wrong and measures wrong.
   static List<LatLng> geodesicCircle(
     LatLng center,
     double radiusMeters, {
@@ -259,7 +273,7 @@ abstract final class GeoJson {
     return points;
   }
 
-  /// La expresión de interpolación de color de un mapa de calor.
+  /// The color interpolation expression of a heatmap.
   static List<Object> heatmapColorExpression(List<(double, Color)> gradient) =>
       <Object>[
         'interpolate',
@@ -268,10 +282,10 @@ abstract final class GeoJson {
         for (final (stop, color) in gradient) ...<Object>[stop, rgba(color)],
       ];
 
-  /// La expresión de color de un grupo según cuántos marcadores agrupe.
+  /// A cluster's color expression, depending on how many markers it groups.
   ///
-  /// `step` y no `interpolate`: los saltos de color de un grupo tienen que ser
-  /// discretos para que se distingan de un vistazo.
+  /// `step` and not `interpolate`: a cluster's color jumps have to be discrete
+  /// so they can be told apart at a glance.
   static List<Object> clusterColorExpression(List<(int, Color)> steps) {
     if (steps.isEmpty) {
       return <Object>['literal', rgba(const Color(0xFF51BBD6))];
@@ -287,7 +301,7 @@ abstract final class GeoJson {
     ];
   }
 
-  /// La expresión de radio de un grupo según cuántos agrupe.
+  /// A cluster's radius expression, depending on how many it groups.
   static List<Object> clusterRadiusExpression(List<(int, double)> steps) {
     if (steps.isEmpty) return <Object>['literal', 18.0];
     return <Object>[
@@ -298,11 +312,11 @@ abstract final class GeoJson {
     ];
   }
 
-  /// El patrón de discontinuidad como `line-dasharray`.
+  /// The dash pattern as `line-dasharray`.
   ///
-  /// MapLibre lo mide en **múltiplos del grosor de la línea**, no en píxeles,
-  /// así que hay que dividir. Pasarlo en píxeles da un patrón cuyo tamaño
-  /// depende del grosor sin que se entienda por qué.
+  /// MapLibre measures it in **multiples of the line width**, not in pixels,
+  /// so you have to divide. Passing it in pixels gives a pattern whose size
+  /// depends on the width for no apparent reason.
   static List<double> dashArray(List<PatternItem> patterns, double width) {
     if (patterns.isEmpty) return const <double>[];
     final w = width <= 0 ? 1.0 : width;

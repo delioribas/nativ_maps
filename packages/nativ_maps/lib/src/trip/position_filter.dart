@@ -1,18 +1,19 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// Una lectura cruda del GPS, tal y como la entrega el dispositivo.
+/// A raw GPS fix, exactly as the device delivers it.
 ///
-/// Es el tipo de entrada de toda esta capa. Se construye desde lo que dé el
-/// sistema —`Geolocator` en Flutter, una trama de un GT06, una fila de una
-/// base de datos— y desde ahí ya no hace falta convertir nada más.
+/// It is the input type for this whole layer. Build it from whatever the
+/// system gives you —`Geolocator` in Flutter, a GT06 frame, a database row—
+/// and from there on nothing else needs converting.
 @immutable
+@experimental
 class PositionFix {
-  /// Crea una lectura.
+  /// Creates a fix.
   const PositionFix({
     required this.position,
     required this.timestamp,
@@ -22,37 +23,37 @@ class PositionFix {
     this.altitudeMeters,
   });
 
-  /// Dónde dice el receptor que está.
+  /// Where the receiver says it is.
   final LatLng position;
 
-  /// Cuándo se tomó la muestra.
+  /// When the sample was taken.
   ///
-  /// **La hora del receptor, no la de recepción.** En un rastreador que manda
-  /// por GPRS las dos se separan minutos cuando hay cobertura mala, y usar la
-  /// de recepción convierte un atasco en un teletransporte.
+  /// **The receiver's time, not the time it was received.** On a tracker that
+  /// sends over GPRS the two drift minutes apart when coverage is bad, and
+  /// using the reception time turns a traffic jam into a teleport.
   final DateTime timestamp;
 
-  /// El radio de incertidumbre declarado, en metros.
+  /// The declared uncertainty radius, in meters.
   ///
-  /// Es el dato más valioso de toda la lectura y el que casi nadie usa. Sin
-  /// él no hay forma de distinguir un coche que avanza despacio de un coche
-  /// parado cuyo GPS está rebotando entre edificios.
+  /// It is the most valuable piece of the whole fix and the one almost nobody
+  /// uses. Without it there is no way to tell a car moving slowly from a
+  /// parked car whose GPS is bouncing between buildings.
   final double? accuracyMeters;
 
-  /// La velocidad medida por el receptor, en km/h.
+  /// The speed measured by the receiver, in km/h.
   ///
-  /// Viene del desplazamiento Doppler de la portadora, no de dividir espacio
-  /// entre tiempo, así que es **más fiable que la velocidad calculada** entre
-  /// dos posiciones consecutivas. Cuando está, se prefiere.
+  /// It comes from the Doppler shift of the carrier, not from dividing
+  /// distance by time, so it is **more reliable than the speed computed**
+  /// between two consecutive positions. When present, it is preferred.
   final double? speedKmh;
 
-  /// El rumbo en grados desde el norte, entre 0 y 360.
+  /// The heading in degrees from north, between 0 and 360.
   final double? headingDegrees;
 
-  /// La altitud sobre el elipsoide, en metros.
+  /// The altitude above the ellipsoid, in meters.
   final double? altitudeMeters;
 
-  /// Una copia con algunos campos cambiados.
+  /// A copy with some fields changed.
   PositionFix copyWith({
     LatLng? position,
     DateTime? timestamp,
@@ -75,38 +76,40 @@ class PositionFix {
       '±${accuracyMeters?.round()} m)';
 }
 
-/// Por qué se descartó una lectura.
+/// Why a fix was discarded.
 ///
-/// Se expone entera a propósito: quien cobra por kilómetro tiene que poder
-/// justificar **por qué** una posición no contó, y un contador de descartes
-/// por motivo es la mejor señal de que un rastreador va mal.
+/// It is exposed in full on purpose: whoever charges per kilometer has to be
+/// able to justify **why** a position did not count, and a counter of
+/// discards by reason is the best sign that a tracker is misbehaving.
+@experimental
 enum FixRejection {
-  /// La incertidumbre declarada supera el máximo aceptado.
+  /// The declared uncertainty exceeds the maximum accepted.
   poorAccuracy,
 
-  /// La marca de tiempo es anterior o igual a la de la última aceptada.
+  /// The timestamp is earlier than or equal to that of the last accepted fix.
   ///
-  /// Pasa constantemente con lotes reenviados tras una pérdida de cobertura.
+  /// It happens all the time with batches resent after losing coverage.
   outOfOrder,
 
-  /// El desplazamiento no supera el ruido del propio receptor.
+  /// The displacement does not exceed the receiver's own noise.
   ///
-  /// **Este es el que evita cobrar de más.** Un móvil parado en una calle
-  /// estrecha declara ±30 m y salta 20 m cada segundo. Sumar esos saltos son
-  /// 72 km/h de vehículo aparcado.
+  /// **This is the one that prevents overcharging.** A parked phone on a
+  /// narrow street declares ±30 m and jumps 20 m every second. Adding up those
+  /// jumps means 72 km/h for a parked vehicle.
   withinNoise,
 
-  /// La velocidad implícita entre las dos lecturas es imposible.
+  /// The implied speed between the two fixes is impossible.
   ///
-  /// Un solo satélite reflejado en una fachada coloca la posición a un
-  /// kilómetro durante una muestra.
+  /// A single satellite reflected off a building facade puts the position a
+  /// kilometer away for one sample.
   impossibleSpeed,
 }
 
-/// El resultado de pasar una lectura por el filtro.
+/// The result of passing a fix through the filter.
 @immutable
+@experimental
 class FilterResult {
-  /// Crea un resultado aceptado.
+  /// Creates an accepted result.
   const FilterResult.accepted({
     required PositionFix fix,
     required this.distanceMeters,
@@ -114,7 +117,7 @@ class FilterResult {
   }) : _fix = fix,
        rejection = null;
 
-  /// Crea un resultado descartado.
+  /// Creates a rejected result.
   const FilterResult.rejected(FixRejection this.rejection)
     : _fix = null,
       distanceMeters = 0,
@@ -122,22 +125,22 @@ class FilterResult {
 
   final PositionFix? _fix;
 
-  /// El motivo del descarte, o `null` si se aceptó.
+  /// The reason for the discard, or `null` if it was accepted.
   final FixRejection? rejection;
 
-  /// Lo que avanzó respecto a la última lectura aceptada, en metros.
+  /// How far it advanced from the last accepted fix, in meters.
   final double distanceMeters;
 
-  /// El tiempo transcurrido desde la última lectura aceptada.
+  /// The time elapsed since the last accepted fix.
   final Duration elapsed;
 
-  /// ¿Se aceptó?
+  /// Was it accepted?
   bool get accepted => _fix != null;
 
-  /// La lectura aceptada, ya suavizada si el filtro lo tenía activado.
+  /// The accepted fix, already smoothed if the filter had smoothing on.
   ///
-  /// Lanza [StateError] si se consulta en un resultado descartado; comprueba
-  /// antes con [accepted].
+  /// Throws [StateError] if read on a rejected result; check [accepted]
+  /// first.
   PositionFix get fix {
     final value = _fix;
     if (value == null) {
@@ -148,9 +151,9 @@ class FilterResult {
     return value;
   }
 
-  /// La velocidad implícita entre las dos lecturas, en km/h.
+  /// The implied speed between the two fixes, in km/h.
   ///
-  /// Devuelve `null` si no hay tiempo transcurrido con el que dividir.
+  /// Returns `null` if there is no elapsed time to divide by.
   double? get impliedSpeedKmh {
     final seconds = elapsed.inMicroseconds / 1e6;
     if (seconds <= 0) return null;
@@ -163,49 +166,50 @@ class FilterResult {
       : 'FilterResult(descartada: ${rejection!.name})';
 }
 
-/// Descarta las lecturas de GPS que no representan movimiento real.
+/// Discards GPS fixes that do not represent real movement.
 ///
-/// ## El problema que resuelve
+/// ## The problem it solves
 ///
-/// Sumar la distancia entre posiciones consecutivas es la forma obvia de medir
-/// un viaje, y está mal. Un receptor parado no repite la misma coordenada:
-/// rebota dentro de su círculo de incertidumbre. En un cañón urbano ese
-/// círculo son 30 m y el rebote ocurre cada segundo.
+/// Adding up the distance between consecutive positions is the obvious way to
+/// measure a trip, and it is wrong. A stationary receiver does not repeat the
+/// same coordinate: it bounces around inside its uncertainty circle. In an
+/// urban canyon that circle is 30 m and the bounce happens every second.
 ///
-/// Un taxi esperando veinte minutos frente a un hotel acumula así varios
-/// kilómetros que nadie recorrió, y el pasajero los paga.
+/// A taxi waiting twenty minutes outside a hotel racks up several kilometers
+/// that way that nobody traveled, and the passenger pays for them.
 ///
-/// ## Las cuatro comprobaciones, en orden
+/// ## The four checks, in order
 ///
-/// | Comprobación | Descarta | Ajuste |
+/// | Check | Discards | Setting |
 /// |---|---|---|
-/// | Incertidumbre declarada | lecturas de mala calidad | [maxAccuracyMeters] |
-/// | Orden temporal | lotes reenviados y duplicados | — |
-/// | Umbral de ruido | el rebote del receptor parado | [noiseFactor] |
-/// | Velocidad implícita | los saltos por señal reflejada | [maxSpeedKmh] |
+/// | Declared uncertainty | poor-quality fixes | [maxAccuracyMeters] |
+/// | Time order | resent batches and duplicates | — |
+/// | Noise threshold | the bounce of a stationary receiver | [noiseFactor] |
+/// | Implied speed | jumps from reflected signals | [maxSpeedKmh] |
 ///
-/// ## Suavizado
+/// ## Smoothing
 ///
-/// Con [smooth] activado se aplica además un filtro de Kalman de **velocidad
-/// constante**: el estado no es solo la posición, también la velocidad en
-/// cada eje.
+/// With [smooth] on, a **constant-velocity** Kalman filter is applied as
+/// well: the state is not just the position, but also the velocity on each
+/// axis.
 ///
-/// Esa distinción no es un detalle académico. Un Kalman que solo estima
-/// posición no tiene forma de saber que el vehículo se mueve, así que cada
-/// predicción supone que sigue donde estaba y la corrección solo avanza una
-/// fracción de lo medido. El resultado va **sistemáticamente por detrás**: a
-/// 54 km/h el retraso pasa de los noventa metros, y el punto azul se arrastra
-/// una manzana entera por detrás del coche. Con el estado de velocidad, la
-/// predicción ya incorpora el avance y el filtro alisa sin retrasar.
+/// That distinction is not an academic detail. A Kalman filter that only
+/// estimates position has no way of knowing the vehicle is moving, so every
+/// prediction assumes it is still where it was and the correction only moves
+/// a fraction of what was measured. The result lags **systematically
+/// behind**: at 54 km/h the lag exceeds ninety meters, and the blue dot drags
+/// a whole block behind the car. With the velocity state, the prediction
+/// already includes the advance and the filter smooths without lagging.
 ///
-/// **El suavizado no sustituye al descarte.** Un Kalman alimentado con rebote
-/// devuelve un rebote más suave, y la suma sigue inflada.
+/// **Smoothing does not replace discarding.** A Kalman filter fed with bounce
+/// returns a smoother bounce, and the sum is still inflated.
+@experimental
 class PositionFilter {
-  /// Crea un filtro.
+  /// Creates a filter.
   ///
-  /// Los valores por defecto están pensados para un móvil en ciudad. Para un
-  /// rastreador dedicado con antena externa se puede bajar
-  /// [maxAccuracyMeters] a 20 y [noiseFactor] a 1.
+  /// The defaults are meant for a phone in a city. For a dedicated tracker
+  /// with an external antenna you can lower [maxAccuracyMeters] to 20 and
+  /// [noiseFactor] to 1.
   PositionFilter({
     this.maxAccuracyMeters = 50,
     this.noiseFactor = 2.0,
@@ -223,36 +227,37 @@ class PositionFilter {
     }
   }
 
-  /// Incertidumbre máxima aceptada, en metros.
+  /// Maximum accepted uncertainty, in meters.
   ///
-  /// Una lectura que declara ±120 m no sirve ni para cobrar ni para pintar.
+  /// A fix that declares ±120 m is good neither for charging nor for drawing.
   final double maxAccuracyMeters;
 
-  /// Cuántas veces la incertidumbre tiene que superar el desplazamiento.
+  /// How many times the uncertainty the displacement has to exceed.
   ///
-  /// Con `2.0` y una lectura de ±10 m hace falta avanzar más de 20 m para que
-  /// cuente. Subirlo descarta movimiento lento real —un taxi en un atasco—;
-  /// bajarlo deja pasar rebote. `2.0` es el equilibrio habitual.
+  /// With `2.0` and a ±10 m fix, it has to move more than 20 m to count.
+  /// Raising it discards real slow movement —a taxi in a traffic jam—;
+  /// lowering it lets bounce through. `2.0` is the usual balance.
   final double noiseFactor;
 
-  /// Suelo absoluto de desplazamiento, en metros.
+  /// Absolute displacement floor, in meters.
   ///
-  /// Se aplica cuando la lectura **no declara** incertidumbre, que es el caso
-  /// de muchos rastreadores baratos: sin ese dato, [noiseFactor] no tiene
-  /// sobre qué operar y este es el único freno que queda.
+  /// It applies when the fix **does not declare** an uncertainty, which is
+  /// the case for many cheap trackers: without that figure, [noiseFactor] has
+  /// nothing to work on and this is the only brake left.
   final double minDisplacementMeters;
 
-  /// Velocidad implícita máxima, en km/h.
+  /// Maximum implied speed, in km/h.
   final double maxSpeedKmh;
 
-  /// ¿Se suaviza la posición con un filtro de Kalman?
+  /// Is the position smoothed with a Kalman filter?
   final bool smooth;
 
-  /// Ruido de proceso del Kalman, en metros por segundo al cuadrado.
+  /// Kalman process noise, in meters per second squared.
   ///
-  /// Es cuánta aceleración se considera plausible entre dos medidas. Más alto
-  /// sigue mejor los arranques y frenazos y suaviza menos; más bajo alisa más
-  /// y tarda más en reaccionar. Para tráfico urbano, entre 1 y 3.
+  /// It is how much acceleration is considered plausible between two
+  /// measurements. Higher follows starts and braking better and smooths less;
+  /// lower smooths more and takes longer to react. For urban traffic, between
+  /// 1 and 3.
   final double processNoiseMps2;
 
   PositionFix? _last;
@@ -263,14 +268,14 @@ class PositionFilter {
   _Axis? _east;
   _Axis? _north;
 
-  /// La última lectura aceptada, o `null` si todavía no hubo ninguna.
+  /// The last accepted fix, or `null` if there has not been one yet.
   PositionFix? get last => _last;
 
-  /// Vuelve al estado inicial.
+  /// Returns to the initial state.
   ///
-  /// Hay que llamarlo entre viajes: si no, el primer punto de la carrera nueva
-  /// se compara con el último de la anterior y la distancia entre las dos se
-  /// cuela como si fuera recorrido.
+  /// Call it between trips: otherwise the first point of the new ride is
+  /// compared with the last one of the previous ride and the distance between
+  /// the two sneaks in as if it had been traveled.
   void reset() {
     _last = null;
     _lastSmoothedAt = null;
@@ -278,7 +283,7 @@ class PositionFilter {
     _north = null;
   }
 
-  /// Pasa una lectura por el filtro.
+  /// Passes a fix through the filter.
   FilterResult add(PositionFix fix) {
     final accuracy = fix.accuracyMeters;
     if (accuracy != null && accuracy > maxAccuracyMeters) {
@@ -302,8 +307,8 @@ class PositionFilter {
     final elapsed = fix.timestamp.difference(previous.timestamp);
     final advance = previous.position.distanceTo(fix.position);
 
-    // El umbral de ruido: el mayor entre el suelo absoluto y lo que dicta la
-    // incertidumbre declarada de las dos lecturas.
+    // The noise threshold: the larger of the absolute floor and what the
+    // declared uncertainty of the two fixes dictates.
     final uncertainty = math.max(accuracy ?? 0, previous.accuracyMeters ?? 0);
     final threshold = math.max(
       minDisplacementMeters,
@@ -319,8 +324,8 @@ class PositionFilter {
     }
 
     final accepted = smooth ? _applySmoothing(fix) : fix;
-    // La distancia se mide sobre la posición que se guarda, no sobre la cruda:
-    // si no, la suma de avances y el camino dibujado dejan de coincidir.
+    // The distance is measured on the position that is stored, not on the raw
+    // one: otherwise the sum of advances and the drawn path stop matching.
     final actualAdvance = previous.position.distanceTo(accepted.position);
     _last = accepted;
     return FilterResult.accepted(
@@ -330,17 +335,17 @@ class PositionFilter {
     );
   }
 
-  /// Filtro de Kalman de velocidad constante, un eje por coordenada.
+  /// Constant-velocity Kalman filter, one axis per coordinate.
   ///
-  /// Se trabaja en **metros sobre un plano local**, no en grados: un grado de
-  /// longitud mide 111 km en el ecuador y 55 en Madrid, así que un filtro que
-  /// opera sobre grados aplica sin querer un suavizado distinto en cada eje y
-  /// distinto en cada latitud.
+  /// It works in **meters on a local plane**, not in degrees: a degree of
+  /// longitude measures 111 km at the equator and 55 in Madrid, so a filter
+  /// that operates on degrees unintentionally applies different smoothing on
+  /// each axis and at each latitude.
   ///
-  /// Los dos ejes se filtran por separado. Es la aproximación estándar en
-  /// seguimiento de vehículos: el acoplamiento real entre ellos es pequeño y
-  /// un filtro de cuatro estados acoplado no mejora lo suficiente como para
-  /// justificar la inversión de una matriz en cada lectura.
+  /// The two axes are filtered separately. It is the standard approximation
+  /// in vehicle tracking: the real coupling between them is small, and a
+  /// coupled four-state filter does not improve enough to justify inverting a
+  /// matrix on every fix.
   PositionFix _applySmoothing(PositionFix fix) {
     final accuracy = fix.accuracyMeters ?? maxAccuracyMeters;
     final measurementVariance = accuracy * accuracy;
@@ -386,33 +391,33 @@ class PositionFilter {
   );
 }
 
-/// Un eje del filtro de Kalman: posición y velocidad.
+/// One axis of the Kalman filter: position and velocity.
 class _Axis {
   _Axis(this.position, double initialVariance)
     : velocity = 0,
       _p00 = initialVariance,
       _p01 = 0,
-      // Sin ninguna medida todavía no se sabe nada de la velocidad. Empezar
-      // con una varianza grande deja que las primeras lecturas la fijen
-      // deprisa, en vez de arrastrar un cero durante medio minuto.
+      // With no measurement yet, nothing is known about the velocity.
+      // Starting with a large variance lets the first fixes pin it down
+      // quickly, instead of dragging a zero along for half a minute.
       _p11 = 1e4;
 
-  /// La posición estimada, en metros desde el origen.
+  /// The estimated position, in meters from the origin.
   double position;
 
-  /// La velocidad estimada, en metros por segundo.
+  /// The estimated velocity, in meters per second.
   double velocity;
 
   double _p00;
   double _p01;
   double _p11;
 
-  /// Avanza el estado [dt] segundos suponiendo velocidad constante.
+  /// Advances the state [dt] seconds assuming constant velocity.
   void predict(double dt, double q) {
     if (dt <= 0) return;
     position += velocity * dt;
 
-    // P = F·P·Fᵀ + Q, con Q el modelo de ruido blanco en la aceleración.
+    // P = F·P·Fᵀ + Q, with Q the white-noise model on the acceleration.
     final dt2 = dt * dt;
     final dt3 = dt2 * dt;
     final dt4 = dt2 * dt2;
@@ -421,7 +426,7 @@ class _Axis {
     _p11 += q * dt2;
   }
 
-  /// Corrige el estado con una medida de posición de varianza [r].
+  /// Corrects the state with a position measurement of variance [r].
   void correct(double measurement, double r) {
     final s = _p00 + r;
     if (s <= 0) return;
@@ -432,7 +437,7 @@ class _Axis {
     position += k0 * innovation;
     velocity += k1 * innovation;
 
-    // El orden importa: `_p11` necesita el `_p01` de antes de actualizarlo.
+    // Order matters: `_p11` needs `_p01` from before it is updated.
     final previousP01 = _p01;
     _p00 -= k0 * _p00;
     _p01 -= k0 * _p01;

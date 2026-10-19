@@ -1,0 +1,13 @@
+tags:
+  # Las pruebas contra Amazon Location de verdad gastan dinero y necesitan
+  # credenciales IAM. `dart test` las salta; se lanzan con `-P live`.
+  live:
+    skip: "Contra AWS real. Se lanzan con: dart test -P live"
+
+presets:
+  live:
+    paths:
+      - test/live
+    tags:
+      live:
+        skip: false

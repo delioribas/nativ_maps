@@ -1,67 +1,67 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:flutter/foundation.dart';
 import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 import 'package:nativ_maps_google/src/google_map_style.dart';
 import 'package:nativ_maps_google/src/style_translator.dart';
 
-/// El controlador con los nombres exactos de `google_maps_flutter`.
+/// The controller with the exact names from `google_maps_flutter`.
 ///
-/// ## El mecanismo: `extension`, nunca clases
+/// ## The mechanism: `extension`, never classes
 ///
-/// Esto no envuelve el controlador ni hereda de él. Es una `extension`, y eso
-/// tiene cuatro consecuencias que ninguna clase envoltorio da:
+/// This neither wraps the controller nor inherits from it. It is an
+/// `extension`, and that has four consequences no wrapper class gives you:
 ///
-/// - **Coste nulo en ejecución.** Un método de extensión se resuelve al
-///   compilar; no se crea ningún objeto.
-/// - **El núcleo queda libre.** No hay una jerarquía que respetar ni un
-///   contrato que mantener hacia abajo.
-/// - **Reversible.** Borrar este paquete no rompe nada debajo: el código que
-///   ya usa los nombres propios sigue igual.
-/// - **Conviven.** `animateCamera()` en una línea y `mostrarVehiculo()` en la
-///   siguiente, sobre el mismo objeto.
+/// - **Zero runtime cost.** An extension method is resolved at compile time;
+///   no object is created.
+/// - **The core stays free.** There is no hierarchy to respect and no contract
+///   to maintain downstream.
+/// - **Reversible.** Deleting this package breaks nothing underneath: code that
+///   already uses the core's own names stays the same.
+/// - **They coexist.** `animateCamera()` on one line and `showVehicle()` on the
+///   next, on the same object.
 ///
-/// ## Lo que se omite, y por qué
+/// ## What is left out, and why
 ///
-/// La Regla 2 del diseño dice: **nada existe aquí que el núcleo no sepa
-/// hacer**. Si `google_maps_flutter` tiene un método sin equivalente real, se
-/// omite y se documenta — nunca un hueco que devuelve `null` en silencio,
-/// porque eso es compatibilidad de mentira y cada hueco acaba siendo un ticket.
+/// Rule 2 of the design says: **nothing exists here that the core can't do**.
+/// If `google_maps_flutter` has a method with no real equivalent, it is left
+/// out and documented — never a stub that silently returns `null`, because
+/// that is fake compatibility and every stub ends up as a ticket.
 ///
-/// Los tres que faltan, con su motivo:
+/// The three that are missing, with their reason:
 ///
-/// | Método de Google | Por qué no está |
+/// | Google method | Why it isn't here |
 /// |---|---|
-/// | `setIndoorEnabled` | Amazon Location no tiene planos de interior |
-/// | `setLiteModeEnabled` | exclusivo de Android + Google |
-/// | `cloudMapId` | estilos alojados en la nube de Google |
+/// | `setIndoorEnabled` | Amazon Location has no indoor floor plans |
+/// | `setLiteModeEnabled` | exclusive to Android + Google |
+/// | `cloudMapId` | styles hosted in Google's cloud |
 ///
-/// `AdvancedMarker` tampoco: es una API propietaria reciente de Google sin
-/// nada equivalente.
+/// Nor is `AdvancedMarker`: it is a recent proprietary Google API with nothing
+/// equivalent.
 extension GoogleMapsCompat on NativMapController {
-  /// El nivel de zoom actual. Alias de `getZoomLevel`.
+  /// The current zoom level. Alias of `getZoomLevel`.
   Future<double> get zoomLevel => getZoomLevel();
 
-  /// Cambia varios marcadores de golpe.
+  /// Changes several markers at once.
   ///
-  /// En `google_maps_flutter` esto recibe un objeto de actualizaciones; aquí
-  /// recibe el conjunto que tiene que quedar, que es lo que hace de verdad.
+  /// In `google_maps_flutter` this takes an updates object; here it takes the
+  /// set that should remain, which is what it really does.
   Future<void> updateMarkers(Set<Marker> markers) => setMarkers(markers);
 
-  /// Cambia varias polilíneas de golpe.
+  /// Changes several polylines at once.
   Future<void> updatePolylines(Set<Polyline> polylines) =>
       setPolylines(polylines);
 
-  /// Cambia varios polígonos de golpe.
+  /// Changes several polygons at once.
   Future<void> updatePolygons(Set<Polygon> polygons) => setPolygons(polygons);
 
-  /// Cambia varios círculos de golpe.
+  /// Changes several circles at once.
   Future<void> updateCircles(Set<Circle> circles) => setCircles(circles);
 
-  /// Mueve la cámara con animación y una configuración.
+  /// Moves the camera with animation and a configuration.
   ///
-  /// Es la versión de `google_maps_flutter` 2.12 con `duration`. Devuelve si
-  /// el movimiento llegó a completarse.
+  /// It is the `google_maps_flutter` 2.12 version with `duration`. Returns
+  /// whether the movement completed.
   Future<bool> animateCameraWithConfiguration(
     CameraUpdate update, {
     Duration? duration,
@@ -70,70 +70,71 @@ extension GoogleMapsCompat on NativMapController {
     return true;
   }
 
-  /// Mueve la cámara sin animación, con configuración.
+  /// Moves the camera without animation, with a configuration.
   Future<bool> moveCameraWithConfiguration(CameraUpdate update) async {
     await moveCamera(update);
     return true;
   }
 
-  /// Aplica un estilo JSON del Styling Wizard de Google.
+  /// Applies a JSON style from Google's Styling Wizard.
   ///
-  /// **Es una traducción, no una equivalencia.** Devuelve un
-  /// [GoogleStyleReport] con qué reglas se aplicaron y cuáles no encontraron
-  /// capa; conviene registrarlo la primera vez que se migra un tema.
+  /// **It is a translation, not an equivalence.** Returns a
+  /// [GoogleStyleReport] with which rules were applied and which found no
+  /// layer; it is worth logging the first time you migrate a theme.
   ///
   /// ```dart
-  /// final informe = await controller.setGoogleMapStyle(temaOscuroJson);
-  /// if (!informe.isComplete) debugPrint('$informe');
+  /// final report = await controller.setGoogleMapStyle(darkThemeJson);
+  /// if (!report.isComplete) debugPrint('$report');
   /// ```
   ///
-  /// En `google_maps_flutter` este método devuelve `void` y el error se
-  /// consulta luego con `getStyleError()`. Aquí el resultado viene de vuelta,
-  /// que es donde sirve.
+  /// In `google_maps_flutter` this method returns `void` and the error is
+  /// queried later with `getStyleError()`. Here the result comes right back,
+  /// which is where it is useful.
   Future<GoogleStyleReport> setGoogleMapStyle(String styleJson) async {
     final style = GoogleMapStyle.parse(styleJson);
     return applyGoogleStyle(style);
   }
 
-  /// El último error de estilo.
+  /// The last style error.
   ///
-  /// Existe por compatibilidad con `getStyleError()` de Google. Devuelve
-  /// siempre `null` porque [setGoogleMapStyle] ya devuelve el resultado
-  /// directamente, que es mejor sitio para mirarlo.
+  /// It exists for compatibility with Google's `getStyleError()`. It always
+  /// returns `null` because [setGoogleMapStyle] already returns the result
+  /// directly, which is a better place to look at it.
   Future<String?> getStyleError() async => null;
 
-  /// Alias de `getVisibleRegion`, ya idéntico.
+  /// Alias of `getVisibleRegion`, already identical.
   Future<LatLngBounds> get visibleRegion => getVisibleRegion();
 }
 
-/// Los tipos de mapa de `google_maps_flutter`, con su equivalente aquí.
+/// The map types from `google_maps_flutter`, with their equivalent here.
 ///
-/// La equivalencia no es exacta y conviene saber en qué:
+/// The equivalence is not exact, and it is worth knowing where:
 ///
-/// | `MapType` de Google | Aquí | Nota |
+/// | Google's `MapType` | Here | Note |
 /// |---|---|---|
-/// | `normal` | [MapStyle.standard] | idéntico |
-/// | `satellite` | [MapStyle.satellite] | idéntico |
-/// | `hybrid` | [MapStyle.hybrid] | idéntico |
-/// | `terrain` | [MapStyle.standard] + relieve | **mejor**: es un parámetro |
-/// | `none` | — | no existe: MapLibre siempre dibuja el fondo del estilo |
+/// | `normal` | [MapStyle.standard] | identical |
+/// | `satellite` | [MapStyle.satellite] | identical |
+/// | `hybrid` | [MapStyle.hybrid] | identical |
+/// | `terrain` | [MapStyle.standard] + relief | **better**: it is a parameter |
+/// | `none` | — | doesn't exist: MapLibre always draws the style's background |
 enum MapType {
-  /// El mapa de calles a color.
+  /// The full-color street map.
   normal,
 
-  /// Solo imagen de satélite.
+  /// Satellite imagery only.
   satellite,
 
-  /// Satélite con etiquetas encima.
+  /// Satellite with labels on top.
   hybrid,
 
-  /// Relieve del terreno.
+  /// Terrain relief.
   ///
-  /// Aquí sale mejor que en Google: [asMapStyle] devuelve el estilo estándar y
-  /// [terrainOption] dice qué relieve pedirle al descriptor.
+  /// It comes out better here than in Google: [asMapStyle] returns the
+  /// standard style and [terrainOption] says which relief to ask the
+  /// descriptor for.
   terrain;
 
-  /// El estilo de Amazon Location que corresponde.
+  /// The matching Amazon Location style.
   MapStyle get asMapStyle => switch (this) {
     MapType.normal => MapStyle.standard,
     MapType.satellite => MapStyle.satellite,
@@ -141,33 +142,33 @@ enum MapType {
     MapType.terrain => MapStyle.standard,
   };
 
-  /// El relieve que hay que pedirle al descriptor, si aplica.
+  /// The relief to ask the descriptor for, if any.
   ///
-  /// Solo [MapType.terrain] devuelve algo. Es la pieza que hace que el modo
-  /// terreno salga mejor que en Google: en vez de un estilo cerrado, es un
-  /// parámetro que se puede subir a [MapTerrain.terrain3d].
+  /// Only [MapType.terrain] returns something. It is the piece that makes
+  /// terrain mode come out better than in Google: instead of a closed style,
+  /// it is a parameter that can be raised to [MapTerrain.terrain3d].
   MapTerrain? get terrainOption =>
       this == MapType.terrain ? MapTerrain.hillshade : null;
 }
 
-/// El esquema de color de `google_maps_flutter` 2.12.
+/// The color scheme from `google_maps_flutter` 2.12.
 ///
-/// El equivalente aquí es **mejor**: [MapColorScheme] lo renderiza el
-/// servidor, así que el modo oscuro no es un filtro sobre teselas claras y las
-/// etiquetas siguen siendo legibles.
+/// The equivalent here is **better**: [MapColorScheme] is rendered by the
+/// server, so dark mode is not a filter over light tiles and the labels stay
+/// readable.
 enum MapColorSchemeCompat {
-  /// Modo claro.
+  /// Light mode.
   light,
 
-  /// Modo oscuro.
+  /// Dark mode.
   dark,
 
-  /// Sigue al tema del sistema.
+  /// Follows the system theme.
   followSystem;
 
-  /// El esquema de Amazon Location.
+  /// The Amazon Location scheme.
   ///
-  /// [platformBrightness] solo se usa con [followSystem]; sale de
+  /// [platformBrightness] is only used with [followSystem]; it comes from
   /// `MediaQuery.platformBrightnessOf(context)`.
   MapColorScheme resolve(Brightness platformBrightness) => switch (this) {
     MapColorSchemeCompat.light => MapColorScheme.light,

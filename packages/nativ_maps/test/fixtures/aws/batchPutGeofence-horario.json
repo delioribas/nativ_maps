@@ -1,0 +1,18 @@
+{
+  "Successes": [
+    {
+      "GeofenceId": "aeropuerto",
+      "CreateTime": "2026-10-19T06:25:41.593Z",
+      "UpdateTime": "2026-10-19T06:25:41.593Z"
+    }
+  ],
+  "Errors": [
+    {
+      "GeofenceId": "centro-historico",
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "'Geometry.Polygon[0]' must be oriented counter-clockwise."
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -7,48 +7,51 @@ import 'package:nativ_maps/src/trip/auction.dart';
 import 'package:nativ_maps/src/trip/dispatch.dart';
 import 'package:nativ_maps/src/trip/fare.dart';
 
-/// Una presión de demanda con nombre, para que el desglose se pueda explicar.
+/// A named demand pressure, so the breakdown can be explained.
 ///
-/// La lluvia, un partido que acaba, el último metro. El motor no las adivina
-/// —no tiene forma— pero sí las multiplica y las deja escritas en el desglose,
-/// que es lo que permite responder a «¿por qué me sugieres 9 y no 6?».
+/// Rain, a match letting out, the last metro. The engine doesn't guess them
+/// —it has no way to— but it does multiply them and write them down in the
+/// breakdown, which is what lets you answer "why are you suggesting 9 and not
+/// 6?".
 @immutable
+@experimental
 class DemandSignal {
-  /// Crea una señal.
+  /// Creates a signal.
   const DemandSignal({required this.name, required this.multiplier});
 
-  /// Lluvia moderada: sube la demanda y baja la oferta a la vez.
+  /// Moderate rain: demand goes up and supply goes down at the same time.
   static const DemandSignal rain = DemandSignal(name: 'Rain', multiplier: 1.15);
 
-  /// Salida de un evento masivo.
+  /// A large event letting out.
   static const DemandSignal event = DemandSignal(
     name: 'Event',
     multiplier: 1.30,
   );
 
-  /// Franja sin transporte público.
+  /// A time band with no public transport.
   static const DemandSignal noTransit = DemandSignal(
     name: 'No public transport',
     multiplier: 1.20,
   );
 
-  /// El nombre que sale en el desglose.
+  /// The name shown in the breakdown.
   final String name;
 
-  /// Por cuánto multiplica.
+  /// What it multiplies by.
   final double multiplier;
 
   @override
   String toString() => 'DemandSignal($name, ×$multiplier)';
 }
 
-/// El estado del mercado en el momento de pedir.
+/// The state of the market at request time.
 ///
-/// Lo que sabe la plataforma y el dispositivo no: cuántos coches hay libres y
-/// cuánta gente está pidiendo a la vez.
+/// What the platform knows and the device doesn't: how many cars are free and
+/// how many people are requesting at the same time.
 @immutable
+@experimental
 class MarketConditions {
-  /// Crea un estado de mercado.
+  /// Creates a market state.
   const MarketConditions({
     this.availableDrivers = 0,
     this.openRequests = 0,
@@ -57,37 +60,38 @@ class MarketConditions {
     this.congestionFactor = 1.0,
   });
 
-  /// Cuántos conductores libres hay en la zona.
+  /// How many free drivers there are in the area.
   final int availableDrivers;
 
-  /// Cuántas peticiones sin asignar hay compitiendo por ellos.
+  /// How many unassigned requests are competing for them.
   final int openRequests;
 
-  /// Presiones de demanda con nombre.
+  /// Named demand pressures.
   final List<DemandSignal> signals;
 
-  /// Probabilidad de que el conductor vuelva de vacío, entre 0 y 1.
+  /// Probability that the driver comes back empty, between 0 and 1.
   ///
-  /// Un trayecto que acaba en un polígono industrial a las once de la noche
-  /// obliga a volver sin pasajero, y ese kilometraje lo paga el conductor. Sin
-  /// una prima que lo cubra, esas carreras no las coge nadie y el pasajero se
-  /// queda esperando sin entender por qué.
+  /// A trip that ends in an industrial park at eleven at night forces the
+  /// driver to come back with no passenger, and the driver pays for that
+  /// mileage. Without a premium that covers it, nobody takes those rides and
+  /// the passenger is left waiting without understanding why.
   final double returnEmptyProbability;
 
-  /// Cuánto más tarda el trayecto que sin tráfico.
+  /// How much longer the trip takes than without traffic.
   ///
-  /// Sale de comparar la duración con `TrafficUsage.useTrafficData` y con
-  /// `TrafficUsage.ignoreTrafficData`. `1.0` es circulación libre; `1.6` es un
-  /// trayecto que tarda un 60 % más por atasco.
+  /// It comes from comparing the duration with `TrafficUsage.useTrafficData`
+  /// and with `TrafficUsage.ignoreTrafficData`. `1.0` is free-flowing traffic;
+  /// `1.6` is a trip that takes 60 % longer because of congestion.
   ///
-  /// Solo se aplica si la tarifa **no** cobra por minuto: cuando lo hace, el
-  /// atasco ya está pagado y volver a sumarlo sería cobrarlo dos veces.
+  /// It only applies if the tariff does **not** charge per minute: when it
+  /// does, the congestion is already paid for and adding it again would charge
+  /// it twice.
   final double congestionFactor;
 
-  /// Cuántas peticiones hay por cada conductor libre.
+  /// How many requests there are per free driver.
   ///
-  /// Es la medida estándar de presión del mercado. Sin conductores devuelve
-  /// infinito, que el motor recorta al techo configurado.
+  /// It is the standard measure of market pressure. With no drivers it returns
+  /// infinity, which the engine clamps to the configured cap.
   double get demandRatio {
     if (availableDrivers <= 0) return double.infinity;
     return openRequests / availableDrivers;
@@ -98,23 +102,24 @@ class MarketConditions {
       'MarketConditions($openRequests peticiones / $availableDrivers libres)';
 }
 
-/// Un factor que movió el precio sugerido, y cuánto.
+/// A factor that moved the suggested price, and by how much.
 @immutable
+@experimental
 class PriceFactor {
-  /// Crea un factor.
+  /// Creates a factor.
   const PriceFactor({
     required this.name,
     required this.multiplier,
     this.detail = '',
   });
 
-  /// Qué es.
+  /// What it is.
   final String name;
 
-  /// Por cuánto multiplicó.
+  /// What it multiplied by.
   final double multiplier;
 
-  /// La explicación corta.
+  /// The short explanation.
   final String detail;
 
   @override
@@ -123,13 +128,14 @@ class PriceFactor {
       '${detail.isEmpty ? '' : ' ($detail)'}';
 }
 
-/// Cuántos conductores aceptarían un importe, y quién llegaría antes.
+/// How many drivers would accept an amount, and who would arrive first.
 ///
-/// Cuando hay datos reales de conductores cercanos esto **no es una
-/// estimación**: es contar cuántos de ellos ganan dinero con ese importe.
+/// When there is real data on nearby drivers this is **not an estimate**: it
+/// is counting how many of them make money at that amount.
 @immutable
+@experimental
 class AcceptanceForecast {
-  /// Crea una previsión.
+  /// Creates a forecast.
   const AcceptanceForecast({
     required this.probability,
     required this.driversLikelyToAccept,
@@ -138,33 +144,33 @@ class AcceptanceForecast {
     required this.estimated,
   });
 
-  /// Probabilidad de que **alguien** acepte, entre 0 y 1.
+  /// Probability that **someone** accepts, between 0 and 1.
   final double probability;
 
-  /// Cuántos de los conductores cercanos ganan dinero con ese importe.
+  /// How many of the nearby drivers make money at that amount.
   final int driversLikelyToAccept;
 
-  /// Sobre cuántos conductores se calculó.
+  /// How many drivers it was calculated over.
   final int driversConsidered;
 
-  /// Cuánto tardaría en llegar el más cercano de los que aceptarían.
+  /// How long the closest of the drivers who would accept would take to
+  /// arrive.
   ///
-  /// Es el tiempo de conducción real que devolvió la matriz de rutas, no una
-  /// suposición. Es `null` si no aceptaría ninguno.
+  /// It is the real driving time returned by the route matrix, not a guess. It
+  /// is `null` if nobody would accept.
   final Duration? expectedPickup;
 
-  /// ¿Hay alguna suposición detrás de este número?
+  /// Is there any assumption behind this number?
   ///
-  /// `false` solo cuando se contaron conductores reales **todos refinados
-  /// por la matriz de rutas**. Es `true` en dos casos:
+  /// `false` only when real drivers were counted, **all of them refined by the
+  /// route matrix**. It is `true` in two cases:
   ///
-  /// - no se pasó ningún conductor, y la probabilidad sale de una curva
-  ///   paramétrica que **hay que calibrar** (ver
-  ///   `PriceAdvisor.fallbackSteepness`);
-  /// - se pasaron conductores pero alguno no pasó por la matriz, así que su
-  ///   tiempo de recogida es una estimación en línea recta.
+  /// - no driver was passed, and the probability comes from a parametric curve
+  ///   that **must be calibrated** (see `PriceAdvisor.fallbackSteepness`);
+  /// - drivers were passed but some of them didn't go through the matrix, so
+  ///   their pickup time is a straight-line estimate.
   ///
-  /// No enseñes un porcentaje con decimales cuando esto es `true`.
+  /// Don't show a percentage with decimals when this is `true`.
   final bool estimated;
 
   @override
@@ -174,12 +180,13 @@ class AcceptanceForecast {
             'arrives in ${expectedPickup?.inMinutes ?? '—'} min)';
 }
 
-/// El precio sugerido para una carrera, con la forma de inDrive.
+/// The suggested price for a ride, shaped the way inDrive does it.
 ///
-/// Tres números y el porqué de cada uno.
+/// Three numbers and the reason behind each one.
 @immutable
+@experimental
 class SuggestedPrice {
-  /// Crea una sugerencia.
+  /// Creates a suggestion.
   const SuggestedPrice({
     required this.currency,
     required this.minorUnitDigits,
@@ -193,49 +200,49 @@ class SuggestedPrice {
     required this.forecast,
   });
 
-  /// El código ISO 4217 de la moneda.
+  /// The ISO 4217 currency code.
   final String currency;
 
-  /// Cuántos decimales tiene la moneda.
+  /// How many decimal places the currency has.
   final int minorUnitDigits;
 
-  /// Lo que costaría con la tarifa de referencia, sin mercado.
+  /// What it would cost with the reference tariff, with no market.
   ///
-  /// Es el ancla honesta: lo que valdría el trayecto un martes tranquilo.
+  /// It is the honest anchor: what the trip would be worth on a quiet Tuesday.
   final int reference;
 
-  /// El **mínimo recomendado de puja**.
+  /// The **recommended minimum bid**.
   ///
-  /// Por debajo de esto ningún conductor cercano gana dinero, así que la
-  /// petición se queda sin respuesta. No es una prohibición: es la frontera a
-  /// partir de la cual el pasajero está pidiendo que alguien trabaje gratis.
+  /// Below this no nearby driver makes money, so the request goes unanswered.
+  /// It is not a prohibition: it is the line past which the passenger is
+  /// asking someone to work for free.
   final int minimum;
 
-  /// El precio que se enseña por defecto.
+  /// The price shown by default.
   final int recommended;
 
-  /// Lo que hay que ofrecer para que acepte el conductor **más cercano**.
+  /// What you have to offer for the **closest** driver to accept.
   ///
-  /// A veces coincide con [recommended]; cuando no, la diferencia es
-  /// exactamente lo que cuesta la prisa.
+  /// Sometimes it matches [recommended]; when it doesn't, the difference is
+  /// exactly what being in a hurry costs.
   final int fast;
 
-  /// Peajes y tasas, que el pasajero paga aparte.
+  /// Tolls and fees, which the passenger pays separately.
   ///
-  /// **No van dentro del precio**, igual que en inDrive: son un importe que no
-  /// se negocia y que no se lleva el conductor.
+  /// **They are not part of the price**, just like in inDrive: they are an
+  /// amount that isn't negotiated and that the driver doesn't keep.
   final int extrasPaidSeparately;
 
-  /// El multiplicador total de mercado que se aplicó.
+  /// The total market multiplier that was applied.
   final double demandMultiplier;
 
-  /// Cada cosa que movió el precio, en orden.
+  /// Everything that moved the price, in order.
   final List<PriceFactor> factors;
 
-  /// Qué pasaría con [recommended].
+  /// What would happen with [recommended].
   final AcceptanceForecast forecast;
 
-  /// Da formato a un importe en unidades menores.
+  /// Formats an amount in minor units.
   String formatAmount(int minorUnits) {
     if (minorUnitDigits == 0) return '$minorUnits';
     final divisor = math.pow(10, minorUnitDigits).toInt();
@@ -244,7 +251,7 @@ class SuggestedPrice {
         '${remainder.toString().padLeft(minorUnitDigits, '0')}';
   }
 
-  /// El desglose en texto, para enseñarlo o registrarlo.
+  /// The breakdown as text, to show it or log it.
   String explain() {
     final buffer = StringBuffer()
       ..writeln('Reference           ${formatAmount(reference)} $currency');
@@ -271,70 +278,71 @@ class SuggestedPrice {
       '${formatAmount(recommended)} $currency)';
 }
 
-/// Calcula el precio sugerido de una carrera en un mercado de pujas.
+/// Calculates the suggested price of a ride in a bidding market.
 ///
 /// ```dart
-/// final asesor = PriceAdvisor(tariff: tarifa, economics: costes);
+/// final advisor = PriceAdvisor(tariff: tariff, economics: costs);
 ///
-/// // 1 · La ruta da distancia, duración con tráfico y peajes.
-/// final ruta = (await maps.routes.calculateRoutes(
-///   origin: recogida, destination: destino,
+/// // 1 · The route gives distance, duration with traffic, and tolls.
+/// final route = (await maps.routes.calculateRoutes(
+///   origin: pickup, destination: destination,
 /// )).best!;
 ///
-/// // 2 · La matriz da el tiempo REAL de recogida de cada conductor.
-/// final cercanos = await planificador.findNearest(conectados, recogida);
+/// // 2 · The matrix gives each driver's REAL pickup time.
+/// final nearby = await planner.findNearest(onlineDrivers, pickup);
 ///
-/// // 3 · Y con eso sale el precio.
-/// final precio = asesor.suggest(
-///   distanceMeters: ruta.distanceMeters,
-///   duration: ruta.duration,
-///   nearbyDrivers: cercanos,
+/// // 3 · And from that comes the price.
+/// final price = advisor.suggest(
+///   distanceMeters: route.distanceMeters,
+///   duration: route.duration,
+///   nearbyDrivers: nearby,
 ///   market: MarketConditions(
-///     availableDrivers: cercanos.length,
-///     openRequests: peticionesSinAsignar,
-///     signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+///     availableDrivers: nearby.length,
+///     openRequests: unassignedRequests,
+///     signals: <DemandSignal>[if (isRaining) DemandSignal.rain],
 ///   ),
-///   tolls: ruta.tollCostInMinorUnits('USD'),
+///   tolls: route.tollCostInMinorUnits('USD'),
 /// );
-/// print(precio.explain());
+/// print(price.explain());
 /// ```
 ///
-/// ## De dónde sale cada número
+/// ## Where each number comes from
 ///
-/// El modelo tiene cuatro capas, y cada una responde a una pregunta distinta:
+/// The model has four layers, and each one answers a different question:
 ///
-/// | Capa | Pregunta | De dónde sale |
+/// | Layer | Question | Where it comes from |
 /// |---|---|---|
-/// | Referencia | ¿cuánto vale este trayecto? | `Tariff` + la ruta |
-/// | Suelo de oferta | ¿qué necesita cobrar un conductor? | matriz de rutas |
-/// | Demanda | ¿con cuánta gente compito? | peticiones ÷ conductores |
-/// | Previsión | ¿cuántos aceptarían? | conteo sobre los reales |
+/// | Reference | what is this trip worth? | `Tariff` + the route |
+/// | Supply floor | what does a driver need to charge? | route matrix |
+/// | Demand | how many people am I competing with? | requests ÷ drivers |
+/// | Forecast | how many would accept? | count over the real ones |
 ///
-/// ## Por qué esto no es una fórmula inventada
+/// ## Why this is not a made-up formula
 ///
-/// La parte difícil de un mercado de pujas es saber **a qué precio contesta
-/// alguien**. Lo habitual es inventar una curva y enseñar un porcentaje con
-/// dos decimales que nadie ha medido.
+/// The hard part of a bidding market is knowing **at what price someone
+/// answers**. The usual approach is to make up a curve and show a percentage
+/// with two decimals that nobody has measured.
 ///
-/// Aquí no hace falta. Con los tiempos de recogida reales que devuelve
-/// `calculateRouteMatrix`, el precio de reserva de cada conductor cercano es
-/// **calculable**: es su [BidAdvisor.breakEvenFare]. Y entonces «cuántos
-/// aceptarían a este precio» deja de ser una estimación y pasa a ser un
-/// conteo.
+/// Here there's no need. With the real pickup times returned by
+/// `calculateRouteMatrix`, each nearby driver's reservation price is
+/// **computable**: it is their [BidAdvisor.breakEvenFare]. And then "how many
+/// would accept at this price" stops being an estimate and becomes a count.
 ///
-/// Solo cuando no se pasan conductores se cae a una curva paramétrica, y el
-/// resultado viene marcado con `estimated: true` para que no se confunda.
+/// Only when no drivers are passed does it fall back to a parametric curve,
+/// and the result comes flagged with `estimated: true` so it isn't mistaken
+/// for a count.
 ///
-/// ## Por qué el tiempo de recogida pesa más
+/// ## Why pickup time weighs more
 ///
-/// Los estudios de aceptación de carreras coinciden en que a los conductores
-/// **el tiempo de ir a recoger les molesta más que el mismo tiempo dentro del
-/// trayecto**: no está pagado, no acerca al destino y compite con la
-/// posibilidad de que salga algo mejor. [pickupAversion] recoge eso
-/// inflando el tiempo muerto al calcular el precio de reserva.
+/// Studies of ride acceptance agree that drivers **mind the time spent getting
+/// to the pickup more than the same time inside the trip**: it isn't paid, it
+/// doesn't bring them closer to the destination and it competes with the
+/// chance that something better comes up. [pickupAversion] captures that by
+/// inflating the deadhead time when calculating the reservation price.
 @immutable
+@experimental
 class PriceAdvisor {
-  /// Crea un asesor de precios.
+  /// Creates a price advisor.
   const PriceAdvisor({
     required this.tariff,
     required this.economics,
@@ -349,79 +357,83 @@ class PriceAdvisor {
     this.urbanSpeedKmh = 24,
   });
 
-  /// La tarifa de referencia: lo que valdría el trayecto sin mercado.
+  /// The reference tariff: what the trip would be worth with no market.
   final Tariff tariff;
 
-  /// Los costes del conductor, para calcular su precio de reserva.
+  /// The driver's costs, to calculate their reservation price.
   final DriverEconomics economics;
 
-  /// Cuánto responde el precio al desequilibrio entre oferta y demanda.
+  /// How strongly the price responds to the imbalance between supply and
+  /// demand.
   ///
-  /// El multiplicador es `ratio ^ surgeExponent`, con el ratio en peticiones
-  /// por conductor libre. Con `0.6`: dos peticiones por coche dan ×1,52; tres,
-  /// ×1,93; cinco, ×2,63 —recortado por [maxSurge]—.
+  /// The multiplier is `ratio ^ surgeExponent`, with the ratio in requests per
+  /// free driver. With `0.6`: two requests per car give ×1.52; three, ×1.93;
+  /// five, ×2.63 —clamped by [maxSurge]—.
   ///
-  /// Un exponente por debajo de 1 hace que el precio suba **menos que
-  /// proporcionalmente** al desequilibrio, que es lo que se quiere: la
-  /// escasez de coches se corrige sola en minutos, y una subida lineal
-  /// sobrerreacciona a picos que se deshacen antes de que nadie los note.
+  /// An exponent below 1 makes the price rise **less than proportionally** to
+  /// the imbalance, which is what you want: a shortage of cars corrects itself
+  /// within minutes, and a linear rise overreacts to spikes that fade before
+  /// anyone notices them.
   final double surgeExponent;
 
-  /// El techo del multiplicador de demanda.
+  /// The cap on the demand multiplier.
   ///
-  /// Existe siempre, y en muchos mercados está además regulado. Sin techo, una
-  /// zona con cero conductores libres dispara el ratio a infinito.
+  /// It always exists, and in many markets it is also regulated. Without a
+  /// cap, an area with zero free drivers sends the ratio to infinity.
   final double maxSurge;
 
-  /// Suelo del mínimo de puja, como fracción de la referencia.
+  /// Floor for the minimum bid, as a fraction of the reference.
   ///
-  /// Solo se usa cuando no hay datos de conductores cercanos: con ellos, el
-  /// mínimo es el precio de reserva del más barato, que es un dato mejor.
+  /// It is only used when there is no data on nearby drivers: with it, the
+  /// minimum is the reservation price of the cheapest one, which is better
+  /// data.
   final double minimumRatio;
 
-  /// Cuánto más pesa un minuto de ir a recoger que un minuto de trayecto.
+  /// How much more a minute spent getting to the pickup weighs than a minute
+  /// of trip.
   ///
-  /// `1.6` significa que doce minutos de recogida se valoran como si fueran
-  /// diecinueve. Está por encima de 1 porque el tiempo muerto no está pagado,
-  /// no acerca al destino y compite con esperar una carrera mejor.
+  /// `1.6` means twelve minutes of pickup are valued as if they were nineteen.
+  /// It is above 1 because deadhead time isn't paid, doesn't bring the driver
+  /// closer to the destination and competes with waiting for a better ride.
   ///
-  /// Es el parámetro que más conviene calibrar con datos propios: cambia
-  /// bastante entre conductores a tiempo completo y a tiempo parcial.
+  /// It is the parameter most worth calibrating with your own data: it varies
+  /// quite a bit between full-time and part-time drivers.
   final double pickupAversion;
 
-  /// Qué fracción de los conductores cercanos debería aceptar el recomendado.
+  /// What fraction of the nearby drivers should accept the recommended price.
   final double targetAcceptance;
 
-  /// Cuánto se pasa del precio de reserva para que acepten de verdad.
+  /// How far above the reservation price to go so that they really accept.
   ///
-  /// Nadie acepta un trabajo que le deja exactamente cero de margen sobre su
-  /// objetivo. Un 8 % por encima convierte «no pierdo» en «me compensa».
+  /// Nobody accepts a job that leaves them exactly zero margin over their
+  /// target. 8 % above turns "I don't lose" into "it's worth it".
   final double fastMargin;
 
-  /// Pendiente de la curva de respaldo, cuando no hay conductores.
+  /// Steepness of the fallback curve, when there are no drivers.
   ///
-  /// **Esto sí es un parámetro inventado**, y por eso el resultado que produce
-  /// viene marcado con `AcceptanceForecast.estimated`. Calíbralo con tu
-  /// historial de ofertas y aceptaciones en cuanto lo tengas.
+  /// **This one is a made-up parameter**, and that's why the result it
+  /// produces comes flagged with `AcceptanceForecast.estimated`. Calibrate it
+  /// with your history of offers and acceptances as soon as you have it.
   final double fallbackSteepness;
 
-  /// Cuánto más largo es el trayecto real que la línea recta.
+  /// How much longer the real trip is than the straight line.
   ///
-  /// Solo se usa con conductores sin refinar por la matriz. `1.4` es lo normal
-  /// en una trama urbana regular.
+  /// It is only used with drivers not refined by the matrix. `1.4` is normal
+  /// in a regular urban grid.
   final double detourFactor;
 
-  /// Velocidad urbana supuesta, para conductores sin refinar.
+  /// Assumed urban speed, for drivers that weren't refined.
   final double urbanSpeedKmh;
 
-  /// Calcula el precio sugerido.
+  /// Calculates the suggested price.
   ///
-  /// [nearbyDrivers] deberían venir de `DispatchPlanner.findNearest`, ya
-  /// refinados con la matriz: sin ese refinado el cálculo funciona, pero se
-  /// apoya en distancias en línea recta y el resultado se marca como estimado.
+  /// [nearbyDrivers] should come from `DispatchPlanner.findNearest`, already
+  /// refined with the matrix: without that refinement the calculation works,
+  /// but it relies on straight-line distances and the result is flagged as
+  /// estimated.
   ///
-  /// [tolls] **no entra en el precio**: se informa aparte en
-  /// [SuggestedPrice.extrasPaidSeparately], igual que hace inDrive.
+  /// [tolls] **is not part of the price**: it is reported separately in
+  /// [SuggestedPrice.extrasPaidSeparately], just as inDrive does.
   SuggestedPrice suggest({
     required double distanceMeters,
     required Duration duration,
@@ -433,7 +445,7 @@ class PriceAdvisor {
   }) {
     final factors = <PriceFactor>[];
 
-    // ── 1 · Referencia: lo que vale el trayecto un martes tranquilo
+    // ── 1 · Reference: what the trip is worth on a quiet Tuesday
     final reference = tariff
         .estimate(
           distanceMeters: distanceMeters,
@@ -442,7 +454,7 @@ class PriceAdvisor {
         )
         .total;
 
-    // ── 2 · Multiplicador de mercado
+    // ── 2 · Market multiplier
     var multiplier = 1.0;
 
     final ratio = market.demandRatio;
@@ -479,9 +491,9 @@ class PriceAdvisor {
       );
     }
 
-    // El atasco solo se cobra aparte si la tarifa NO cobra por minuto: cuando
-    // lo hace, ya está dentro de la referencia y sumarlo sería cobrarlo dos
-    // veces.
+    // Congestion is only charged separately if the tariff does NOT charge per
+    // minute: when it does, it is already inside the reference and adding it
+    // would charge it twice.
     if (tariff.perMinute == 0 && market.congestionFactor > 1.0) {
       final congestion = market.congestionFactor.clamp(1.0, 2.0);
       multiplier *= congestion;
@@ -495,9 +507,8 @@ class PriceAdvisor {
     }
 
     if (market.returnEmptyProbability > 0) {
-      // Cubrir la vuelta de vacío: el kilometraje de regreso, ponderado por la
-      // probabilidad de tener que hacerlo, expresado como recargo sobre la
-      // referencia.
+      // Cover the empty return: the mileage back, weighted by the probability
+      // of having to make it, expressed as a surcharge on the reference.
       final returnCost =
           distanceMeters /
           1000 *
@@ -516,7 +527,7 @@ class PriceAdvisor {
       }
     }
 
-    // ── 3 · Suelo de oferta: qué necesita cobrar cada conductor cercano
+    // ── 3 · Supply floor: what each nearby driver needs to charge
     final reservations = _reservationPrices(
       nearbyDrivers,
       distanceMeters,
@@ -547,7 +558,7 @@ class PriceAdvisor {
     final base = math.max(reference, supplyFloor);
     final recommendedPrice = (base * multiplier).round();
 
-    // ── 4 · Lo que cuesta que venga el más cercano
+    // ── 4 · What it costs to get the closest one to come
     final int fastPrice;
     if (nearbyDrivers.isEmpty) {
       fastPrice = recommendedPrice;
@@ -564,10 +575,10 @@ class PriceAdvisor {
       );
     }
 
-    // Las tres cifras se enseñan juntas: con la regla de redondeo de la
-    // tarifa, o el mínimo sale en `1,28` al lado de un recomendado de `1,50`.
-    // Redondear no altera el orden, así que mínimo ≤ recomendado ≤ rápido se
-    // sigue cumpliendo.
+    // The three figures are shown together: either all of them get the
+    // tariff's rounding rule, or the minimum comes out at `1,28` next to a
+    // recommended `1,50`. Rounding doesn't change the order, so minimum ≤
+    // recommended ≤ fast still holds.
     final recommended = tariff.applyRounding(recommendedPrice);
 
     return SuggestedPrice(
@@ -590,11 +601,11 @@ class PriceAdvisor {
     );
   }
 
-  /// Cuántos conductores aceptarían [offered], y quién llegaría antes.
+  /// How many drivers would accept [offered], and who would arrive first.
   ///
-  /// Es lo que se llama al mover el deslizador del precio: con los conductores
-  /// cercanos delante, **cuenta**; sin ellos, estima con una curva que hay que
-  /// calibrar.
+  /// It is what gets called when the price slider moves: with the nearby
+  /// drivers at hand, it **counts**; without them, it estimates with a curve
+  /// that has to be calibrated.
   AcceptanceForecast forecast({
     required int offered,
     required double distanceMeters,
@@ -634,8 +645,8 @@ class PriceAdvisor {
       if (soonest == null || arrival < soonest) soonest = arrival;
     }
 
-    // Si alguno no pasó por la matriz, su tiempo de recogida es una
-    // suposición y el conteo deja de ser un conteo. Se dice.
+    // If any of them didn't go through the matrix, their pickup time is a
+    // guess and the count stops being a count. We say so.
     final allRefined = nearbyDrivers.every((c) => c.refined);
 
     return AcceptanceForecast(
@@ -647,7 +658,7 @@ class PriceAdvisor {
     );
   }
 
-  /// El precio de reserva de un conductor: por debajo, no le compensa.
+  /// A driver's reservation price: below it, it isn't worth it for them.
   int _reservationPrice(
     DriverCandidate candidate,
     double distanceMeters,
@@ -662,9 +673,9 @@ class PriceAdvisor {
     final arrival = _durationOf(candidate);
     return advisor.breakEvenFare(
       deadheadMeters: meters,
-      // Aquí entra la aversión al tiempo muerto: el minuto de ir a recoger se
-      // valora como más de un minuto, que es lo que dicen los estudios de
-      // aceptación de carreras.
+      // This is where the aversion to deadhead time comes in: a minute spent
+      // getting to the pickup is valued as more than a minute, which is what
+      // the ride acceptance studies say.
       deadheadDuration: Duration(
         microseconds: (arrival.inMicroseconds * pickupAversion).round(),
       ),
@@ -705,7 +716,7 @@ class PriceAdvisor {
     return best;
   }
 
-  /// El precio al que acepta la fracción [fraction] de una lista ordenada.
+  /// The price at which the fraction [fraction] of a sorted list accepts.
   static int _quantile(List<int> sorted, double fraction) {
     if (sorted.isEmpty) return 0;
     final target = (fraction.clamp(0.0, 1.0) * sorted.length).ceil();

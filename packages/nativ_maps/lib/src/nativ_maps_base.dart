@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:http/http.dart' as http;
 import 'package:nativ_maps/src/auth/credentials.dart';
@@ -11,7 +11,7 @@ import 'package:nativ_maps/src/places/places_client.dart';
 import 'package:nativ_maps/src/routes/routes_client.dart';
 import 'package:nativ_maps/src/tracking/tracking_client.dart';
 
-/// La puerta de entrada a las **44 operaciones** de Amazon Location.
+/// The gateway to Amazon Location's **44 operations**.
 ///
 /// ```dart
 /// final maps = NativMaps(
@@ -21,53 +21,53 @@ import 'package:nativ_maps/src/tracking/tracking_client.dart';
 ///   budget: Budget(maxUnits: 500, window: const Duration(minutes: 1)),
 /// );
 ///
-/// final lugares = await maps.places.searchText(queryText: 'gasolinera');
-/// final ruta = await maps.routes.calculateRoutes(
-///   origin: aqui,
-///   destination: lugares.places.first.position!,
+/// final results = await maps.places.searchText(queryText: 'gasolinera');
+/// final route = await maps.routes.calculateRoutes(
+///   origin: here,
+///   destination: results.places.first.position!,
 /// );
-/// final estilo = maps.maps.styleDescriptorUrl(MapStyle.standard);
+/// final style = maps.maps.styleDescriptorUrl(MapStyle.standard);
 ///
-/// maps.close(); // cierra el cliente HTTP
+/// maps.close(); // closes the HTTP client
 /// ```
 ///
-/// ## Por qué tres clientes y no diecisiete métodos aquí
+/// ## Why five clients and not 44 methods here
 ///
-/// Porque son servicios distintos: **firman con nombres distintos**
-/// —`geo-places`, `geo-routes`, `geo-maps` en la generación v2, y `geo` a
-/// secas en geovallas y rastreo—, tienen hosts distintos y se facturan por
-/// separado. Aplanarlos en una sola clase escondería precisamente la
-/// distinción que hay que tener presente al mirar una factura o al depurar un
-/// `403`.
+/// Because they are different services: **they sign with different names**
+/// —`geo-places`, `geo-routes`, `geo-maps` in the v2 generation, and plain
+/// `geo` for geofencing and tracking—, they have different hosts and they
+/// are billed separately. Flattening them into a single class would hide
+/// precisely the distinction you need to keep in mind when reading a bill or
+/// debugging a `403`.
 ///
-/// | Cliente | Operaciones | Generación |
+/// | Client | Operations | Generation |
 /// |---|---|---|
-/// | [places] | 7 | v2, sin recursos |
-/// | [routes] | 5 | v2, sin recursos |
-/// | [maps] | 5 | v2, sin recursos |
-/// | [geofencing] | 12 | anterior, **exige SigV4** |
-/// | [tracking] | 15 | anterior, **exige SigV4** |
+/// | [places] | 7 | v2, resourceless |
+/// | [routes] | 5 | v2, resourceless |
+/// | [maps] | 5 | v2, resourceless |
+/// | [geofencing] | 12 | previous, **requires SigV4** |
+/// | [tracking] | 15 | previous, **requires SigV4** |
 ///
-/// ## Esto no depende de Flutter
+/// ## This does not depend on Flutter
 ///
-/// A propósito. `nativ_maps` se prueba sin emulador, corre en una
-/// herramienta de línea de órdenes y sirve en un servidor Dart. El widget del
-/// mapa vive en `nativ_maps_flutter`, que reexporta todo esto: instalando
-/// solo ese paquete ya se tienen las cuarenta y cuatro operaciones.
+/// On purpose. `nativ_maps` is tested without an emulator, runs in a
+/// command-line tool and works on a Dart server. The map widget lives in
+/// `nativ_maps_flutter`, which re-exports all of this: installing just that
+/// package gets you all forty-four operations.
 class NativMaps {
-  /// Crea el cliente.
+  /// Creates the client.
   ///
-  /// [region] es la región de AWS, p. ej. `us-east-1`. **Tiene que ser una
-  /// donde Amazon Location esté disponible**; en una que no lo esté, el DNS
-  /// resuelve igual y el error llega como un fallo de conexión genérico.
+  /// [region] is the AWS region, e.g. `us-east-1`. **It has to be one where
+  /// Amazon Location is available**; in one where it is not, DNS resolves
+  /// anyway and the error arrives as a generic connection failure.
   ///
-  /// [budget] es el tope de gasto. Su valor por defecto —600 unidades por
-  /// minuto— no pretende ser el correcto para ninguna app concreta: pretende
-  /// que un bucle desbocado se detenga en el primer minuto en vez de en la
-  /// factura del mes. Ajústalo o pásale [Budget.unlimited] a conciencia.
+  /// [budget] is the spending cap. Its default —600 units per minute— does
+  /// not claim to be right for any particular app: it aims to stop a runaway
+  /// loop within the first minute rather than on the monthly bill. Tune it,
+  /// or pass [Budget.unlimited] knowingly.
   ///
-  /// [httpClient] permite inyectar un `MockClient` en las pruebas. Si se pasa,
-  /// [close] **no** lo cierra: lo cierra quien lo creó.
+  /// [httpClient] lets you inject a `MockClient` in tests. If you pass one,
+  /// [close] does **not** close it: whoever created it closes it.
   NativMaps({
     required this.region,
     required this.credentials,
@@ -104,70 +104,72 @@ class NativMaps {
     tracking = TrackingClient(transport: _transport);
   }
 
-  /// La región de AWS.
+  /// The AWS region.
   final String region;
 
-  /// Cómo se autentica cada petición.
+  /// How each request is authenticated.
   final Credentials credentials;
 
-  /// Idioma de los resultados, en BCP 47.
+  /// Language of the results, in BCP 47.
   final String? language;
 
-  /// Punto de vista político para las fronteras en disputa, en ISO 3166.
+  /// Political view for disputed borders, in ISO 3166.
   final String? politicalView;
 
-  /// Si los resultados se van a guardar. Ver [IntendedUse].
+  /// Whether the results are going to be stored. See [IntendedUse].
   final IntendedUse intendedUse;
 
-  /// El tope de gasto, compartido por los tres clientes.
+  /// The spending cap, shared by the three clients.
   ///
-  /// Es uno solo a propósito: el gasto es de la cuenta de AWS, no de cada
-  /// servicio. Tres presupuestos separados dejarían pasar el triple.
+  /// There is just one on purpose: the spending belongs to the AWS account,
+  /// not to each service. Three separate budgets would let through three
+  /// times as much.
   final Budget budget;
 
   final AlsTransport _transport;
 
-  /// Las siete operaciones de Places.
+  /// The seven Places operations.
   late final PlacesClient places;
 
-  /// Las cinco operaciones de Routes.
+  /// The five Routes operations.
   late final RoutesClient routes;
 
-  /// Las operaciones de Maps.
+  /// The Maps operations.
   late final MapsClient maps;
 
-  /// Las doce operaciones de geovallas.
+  /// The twelve geofencing operations.
   ///
-  /// ⚠️ Son de la **generación anterior**: hay que crear una colección y
-  /// **no admiten clave de API**. Con `ApiKeyCredentials`, la primera llamada
-  /// lanza `NativMapsConfigurationException` explicando que hacen falta
-  /// credenciales SigV4.
+  /// ⚠️ They belong to the **previous generation**: you have to create a
+  /// collection and they **do not accept an API key**. With
+  /// `ApiKeyCredentials`, the first call throws
+  /// `NativMapsConfigurationException` explaining that SigV4 credentials are
+  /// needed.
   late final GeofencingClient geofencing;
 
-  /// Las quince operaciones de rastreo de dispositivos.
+  /// The fifteen device tracking operations.
   ///
-  /// ⚠️ Mismas condiciones que [geofencing]. Y antes de usarlo, la pregunta
-  /// que ahorra dinero: **si ya guardas el histórico en tu propia base de
-  /// datos, esto es infraestructura duplicada.** Lo que sí justifica usarlo
-  /// está en la documentación de `TrackingClient`.
+  /// ⚠️ Same conditions as [geofencing]. And before using it, the question
+  /// that saves money: **if you already store the history in your own
+  /// database, this is duplicated infrastructure.** What does justify using
+  /// it is in the `TrackingClient` documentation.
   late final TrackingClient tracking;
 
-  /// ¿Hay credenciales suficientes para llamar al servicio?
+  /// Are there enough credentials to call the service?
   ///
-  /// Conviene comprobarlo al arrancar: sin esto, la primera pantalla de mapa
-  /// falla con un error de red que no dice que falta la clave.
+  /// Worth checking at startup: without it, the first map screen fails with
+  /// a network error that does not say the key is missing.
   bool get isConfigured => credentials.isConfigured;
 
-  /// Vacía todas las cachés.
+  /// Empties all caches.
   ///
-  /// Hay que llamarlo al cambiar de idioma o de sesión.
+  /// Call it when the language or the session changes.
   void clearCaches() {
     places.clearCache();
     routes.clearCache();
   }
 
-  /// Cierra el cliente HTTP y las credenciales.
+  /// Closes the HTTP client and the credentials.
   ///
-  /// Después de esto, cualquier operación lanza [StateError]. Es idempotente.
+  /// After this, any operation throws [StateError]. It is idempotent.
   void close() => _transport.close();
 }

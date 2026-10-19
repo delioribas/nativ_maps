@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:async';
 import 'dart:convert';
@@ -11,48 +11,47 @@ import 'package:nativ_maps/src/client/budget.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 import 'package:nativ_maps/src/core/exceptions.dart';
 
-/// Ajustes de red compartidos por los tres clientes.
+/// Network settings shared by the three clients.
 @immutable
 class TransportOptions {
-  /// Crea los ajustes. Los valores por defecto son los que se comportan bien
-  /// en un móvil con cobertura irregular.
+  /// Creates the settings. The defaults are the ones that behave well on a
+  /// phone with patchy coverage.
   const TransportOptions({
     this.timeout = const Duration(seconds: 8),
     this.maxRetries = 2,
     this.maxRetryDelay = const Duration(seconds: 30),
-    this.userAgent = 'nativ-maps-dart/0.5.3',
+    this.userAgent = 'nativ-maps-dart/0.9.0',
   });
 
-  /// Tiempo máximo de **cada intento**, no del conjunto.
+  /// Maximum time for **each attempt**, not for the whole thing.
   final Duration timeout;
 
-  /// Reintentos tras el primer envío. `2` significa hasta tres envíos.
+  /// Retries after the first send. `2` means up to three sends.
   final int maxRetries;
 
-  /// Cuánto se espera como mucho entre intentos, incluso si el servidor pide
-  /// más con `Retry-After`.
+  /// The longest wait between attempts, even if the server asks for more with
+  /// `Retry-After`.
   ///
-  /// Obedecer a ciegas un `Retry-After` de diez minutos deja la interfaz
-  /// colgada sin explicación, y el usuario no distingue eso de una app rota.
+  /// Blindly obeying a ten-minute `Retry-After` leaves the UI hanging with no
+  /// explanation, and the user cannot tell that apart from a broken app.
   final Duration maxRetryDelay;
 
-  /// El `User-Agent` que se envía.
+  /// The `User-Agent` that is sent.
   ///
-  /// Identificar el cliente ayuda a AWS a diagnosticar, y a ti a reconocer tu
-  /// propio tráfico en CloudWatch cuando la factura no cuadra.
+  /// Identifying the client helps AWS diagnose, and helps you recognize your
+  /// own traffic in CloudWatch when the bill does not add up.
   final String userAgent;
 }
 
-/// Ejecuta las peticiones: autentica, reintenta, mapea errores y cobra al
-/// presupuesto.
+/// Runs the requests: authenticates, retries, maps errors and charges the
+/// budget.
 ///
-/// Es interno: ninguna de las diecisiete operaciones lo expone. Existe para
-/// que el reintento, el tope de gasto y la traducción de errores estén
-/// escritos **una vez** y no diecisiete, que es donde aparecen las
-/// discrepancias.
+/// It is internal: none of the 44 operations exposes it. It exists so
+/// that retries, the spending cap and error translation are written **once**
+/// and not 44 times, which is where discrepancies creep in.
 @internal
 class AlsTransport {
-  /// Crea el transporte.
+  /// Creates the transport.
   AlsTransport({
     required this.region,
     required this.credentials,
@@ -64,16 +63,16 @@ class AlsTransport {
        _ownsClient = httpClient == null,
        _random = random ?? math.Random();
 
-  /// Región de AWS, p. ej. `us-east-1`.
+  /// AWS region, e.g. `us-east-1`.
   final String region;
 
-  /// Cómo se autentica cada petición.
+  /// How each request is authenticated.
   final Credentials credentials;
 
-  /// El tope de gasto. Se cobra antes de enviar.
+  /// The spending cap. It is charged before sending.
   final Budget budget;
 
-  /// Ajustes de red.
+  /// Network settings.
   final TransportOptions options;
 
   final http.Client _http;
@@ -86,10 +85,10 @@ class AlsTransport {
     'Accept': 'application/json',
   };
 
-  /// Envía un `POST` con cuerpo JSON y devuelve el objeto de la respuesta.
+  /// Sends a `POST` with a JSON body and returns the response object.
   ///
-  /// [billingUnits] es lo que esta llamada cuesta de verdad: 1 casi siempre,
-  /// el número de umbrales en una isócrona, el número de pares en una matriz.
+  /// [billingUnits] is what this call really costs: 1 almost always, the
+  /// number of thresholds for an isoline, the number of pairs for a matrix.
   Future<Map<String, dynamic>> postJson({
     required String operation,
     required AlsService service,
@@ -103,9 +102,9 @@ class AlsTransport {
     budget.charge(operation, billingUnits);
 
     final uri = _buildUri(service, path, queryParameters);
-    // Los nulos se quitan aquí y no en cada operación: Amazon Location trata
-    // un campo presente con valor nulo como un campo enviado, y varios de
-    // ellos provocan un 400 en vez de tomar el valor por defecto.
+    // Nulls are stripped here and not in each operation: Amazon Location
+    // treats a field present with a null value as a field that was sent, and
+    // several of them trigger a 400 instead of taking the default value.
     final payload = jsonEncode(_stripNulls(body));
 
     final response = await _send(
@@ -119,11 +118,11 @@ class AlsTransport {
     return _decode(operation, service, response);
   }
 
-  /// Envía una petición con cuerpo JSON por el método que se indique.
+  /// Sends a request with a JSON body using the given method.
   ///
-  /// Existe porque Geofencing y Tracking usan `PUT`, `DELETE` y `PATCH`
-  /// además de `POST` — la generación v2 solo usa `POST` y `GET`, así que
-  /// hasta que llegaron esas dos familias no hacía falta.
+  /// It exists because Geofencing and Tracking use `PUT`, `DELETE` and
+  /// `PATCH` as well as `POST` — the v2 generation only uses `POST` and
+  /// `GET`, so until those two families arrived it was not needed.
   Future<Map<String, dynamic>> sendJson({
     required String operation,
     required AlsService service,
@@ -152,19 +151,19 @@ class AlsTransport {
       },
     );
 
-    // Varias operaciones de plano de control responden 200 con cuerpo vacío.
-    // Devolver un mapa vacío en lugar de fallar es lo correcto: la operación
-    // salió bien y no hay nada que leer.
+    // Several control plane operations respond 200 with an empty body.
+    // Returning an empty map instead of failing is the right thing: the
+    // operation succeeded and there is nothing to read.
     if (response.statusCode == 200 && response.body.trim().isEmpty) {
       return const <String, dynamic>{};
     }
     return _decode(operation, service, response);
   }
 
-  /// Envía un `GET` y devuelve el objeto de la respuesta.
+  /// Sends a `GET` and returns the response object.
   ///
-  /// Una lista va en [repeatedParameters], **un parámetro por elemento**: el
-  /// servicio lee `a=X,Y` como un único valor `X,Y` y responde `400`.
+  /// A list goes in [repeatedParameters], **one parameter per element**: the
+  /// service reads `a=X,Y` as a single value `X,Y` and responds `400`.
   Future<Map<String, dynamic>> getJson({
     required String operation,
     required AlsService service,
@@ -193,9 +192,9 @@ class AlsTransport {
     return _decode(operation, service, response);
   }
 
-  /// Envía un `GET` y devuelve los bytes crudos.
+  /// Sends a `GET` and returns the raw bytes.
   ///
-  /// Lo usa `GetStaticMap`, que responde con una imagen y no con JSON.
+  /// Used by `GetStaticMap`, which responds with an image and not with JSON.
   Future<AlsBytes> getBytes({
     required String operation,
     required AlsService service,
@@ -230,11 +229,12 @@ class AlsTransport {
     );
   }
 
-  /// Construye la URI final, ya con el destino que decida la credencial.
+  /// Builds the final URI, already pointing at the destination the
+  /// credentials decide.
   ///
-  /// [repeatedParameters] existe para los parámetros que pueden aparecer
-  /// varias veces en la misma URL —`poi-categories` admite hasta nueve—, cosa
-  /// que un `Map<String, String>` no puede representar.
+  /// [repeatedParameters] exists for parameters that can appear several
+  /// times in the same URL —`poi-categories` accepts up to nine—, something a
+  /// `Map<String, String>` cannot represent.
   Uri _buildUri(
     AlsService service,
     String path,
@@ -259,13 +259,13 @@ class AlsTransport {
   static String _trimTrailingSlash(String path) =>
       path.endsWith('/') ? path.substring(0, path.length - 1) : path;
 
-  /// Comprueba que el camino de autenticación sirve para este servicio.
+  /// Checks that the authentication path works for this service.
   ///
-  /// **Las claves de API de Amazon Location solo cubren Places, Routes y
-  /// Maps.** Geofencing y Tracking exigen SigV4, con un proxy o con
-  /// `nativ_maps_sigv4`. Intentarlo con clave da un `403` que se parece a
-  /// todos los demás `403`, así que se corta aquí con un mensaje que dice qué
-  /// hacer.
+  /// **Amazon Location API keys only cover Places, Routes and Maps.**
+  /// Geofencing and Tracking require SigV4, through a proxy or with
+  /// `nativ_maps_sigv4`. Trying it with a key gives a `403` that looks like
+  /// every other `403`, so it is cut off here with a message that says what
+  /// to do.
   void _ensureAuthSupported(String operation, AlsService service) {
     if (service.supportsApiKey) return;
     if (credentials.apiKeyForUrl == null) return;
@@ -292,17 +292,17 @@ class AlsTransport {
     }
   }
 
-  /// Envía con reintentos y retroceso exponencial con fluctuación.
+  /// Sends with retries and exponential backoff with jitter.
   ///
-  /// Solo reintenta lo que puede mejorar solo: `429`, `5xx` y los fallos de
-  /// red. Un `400` o un `403` se devuelven al primer intento, porque
-  /// reintentar un parámetro mal escrito es gastar cuota para obtener tres
-  /// veces el mismo error.
+  /// It only retries what can get better on its own: `429`, `5xx` and network
+  /// failures. A `400` or a `403` is returned on the first attempt, because
+  /// retrying a misspelled parameter is spending quota to get the same error
+  /// three times.
   ///
-  /// La petición se **reconstruye** en cada intento: `http.Request` consume su
-  /// cuerpo al enviarse, así que reutilizar el objeto envía el segundo intento
-  /// vacío — un fallo que solo aparece cuando la red va mal, que es justo
-  /// cuando menos se puede depurar.
+  /// The request is **rebuilt** on every attempt: `http.Request` consumes its
+  /// body when sent, so reusing the object sends the second attempt empty — a
+  /// bug that only shows up when the network is bad, which is exactly when it
+  /// is hardest to debug.
   Future<http.Response> _send({
     required String operation,
     required AlsService service,
@@ -334,9 +334,9 @@ class AlsTransport {
         lastError = e;
         lastResponse = null;
       } on Exception catch (e) {
-        // Cualquier fallo de socket, DNS o TLS. Se capturan por `Exception` y
-        // no por los tipos de `dart:io` a propósito: este paquete es Dart
-        // puro y tiene que compilar también donde `dart:io` no existe.
+        // Any socket, DNS or TLS failure. They are caught as `Exception` and
+        // not by the `dart:io` types on purpose: this package is pure Dart
+        // and has to compile where `dart:io` does not exist, too.
         lastError = e;
         lastResponse = null;
       }
@@ -354,15 +354,15 @@ class AlsTransport {
     );
   }
 
-  /// Cuánto esperar antes del intento [attempt].
+  /// How long to wait before attempt [attempt].
   ///
-  /// Si el servidor mandó `Retry-After`, se respeta hasta
-  /// [TransportOptions.maxRetryDelay]: es el servidor diciendo cuánto esperar,
-  /// y adivinarlo peor solo empeora la congestión.
+  /// If the server sent `Retry-After`, it is honored up to
+  /// [TransportOptions.maxRetryDelay]: it is the server saying how long to
+  /// wait, and guessing worse only makes the congestion worse.
   ///
-  /// Si no, retroceso exponencial con fluctuación de ±30 %. La fluctuación no
-  /// es un adorno: sin ella, veinte móviles que fallan a la vez reintentan a
-  /// la vez y reconstruyen exactamente el pico que causó el `429`.
+  /// Otherwise, exponential backoff with ±30 % jitter. The jitter is not
+  /// decoration: without it, twenty phones that fail at the same time retry
+  /// at the same time and rebuild exactly the spike that caused the `429`.
   Duration _retryDelay(int attempt, http.Response? response) {
     final suggested = _retryAfter(response);
     if (suggested != null) return suggested;
@@ -413,12 +413,11 @@ class AlsTransport {
     return decoded;
   }
 
-  /// Traduce una respuesta de error al tipo del paquete.
+  /// Translates an error response into the package's type.
   ///
-  /// El cuerpo se recorta y **la URL no se incluye nunca**: en el camino de
-  /// clave de API la clave viaja en la cadena de consulta, y un mensaje de
-  /// error acaba en un informe de fallos, en un log o en una captura pegada en
-  /// un chat.
+  /// The body is truncated and **the URL is never included**: on the API key
+  /// path the key travels in the query string, and an error message ends up
+  /// in a crash report, in a log or in a screenshot pasted into a chat.
   AlsApiException _apiException(
     String operation,
     AlsService service,
@@ -438,8 +437,8 @@ class AlsTransport {
         if (detail != null && detail.isNotEmpty) message = detail;
       }
     } on FormatException {
-      // Un cuerpo que no es JSON (una página de la puerta de enlace, por
-      // ejemplo) se deja tal cual recortado.
+      // A body that is not JSON (a gateway page, for example) is left as is,
+      // truncated.
     }
 
     return AlsApiException(
@@ -447,7 +446,7 @@ class AlsTransport {
       service: service,
       statusCode: response.statusCode,
       message: message,
-      // El nombre completo llega como `com.amazon...#ValidationException`.
+      // The full name arrives as `com.amazon...#ValidationException`.
       awsErrorCode: awsCode?.split('#').last,
       requestId:
           response.headers['x-amzn-requestid'] ??
@@ -458,7 +457,7 @@ class AlsTransport {
   static String _truncate(String body, [int max = 500]) =>
       body.length > max ? '${body.substring(0, max)}…' : body;
 
-  /// Quita los nulos, recursivamente, de mapas y listas.
+  /// Strips nulls, recursively, from maps and lists.
   static Object? _stripNulls(Object? value) => switch (value) {
     final Map<String, dynamic> map => <String, dynamic>{
       for (final e in map.entries)
@@ -469,7 +468,7 @@ class AlsTransport {
     _ => value,
   };
 
-  /// Cierra el cliente HTTP y las credenciales. Idempotente.
+  /// Closes the HTTP client and the credentials. Idempotent.
   void close() {
     if (_closed) return;
     _closed = true;
@@ -478,19 +477,19 @@ class AlsTransport {
   }
 }
 
-/// Bytes con su tipo de contenido, lo que devuelve `GetStaticMap`.
+/// Bytes with their content type, what `GetStaticMap` returns.
 @immutable
 class AlsBytes {
-  /// Crea el resultado.
+  /// Creates the result.
   const AlsBytes({required this.bytes, required this.contentType});
 
-  /// Los bytes de la imagen.
+  /// The image bytes.
   final List<int> bytes;
 
-  /// El `Content-Type` que declaró el servicio, p. ej. `image/png`.
+  /// The `Content-Type` the service declared, e.g. `image/png`.
   final String contentType;
 
-  /// Cuántos bytes ocupa.
+  /// How many bytes it takes up.
   int get length => bytes.length;
 
   @override

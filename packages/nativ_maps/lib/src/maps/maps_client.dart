@@ -1,33 +1,33 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/client/transport.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// Las operaciones de Amazon Location Maps v2.
+/// The Amazon Location Maps v2 operations.
 ///
-/// | Operación | Cómo se usa aquí |
+/// | Operation | How it's used here |
 /// |---|---|
-/// | `GetStyleDescriptor` | [styleDescriptorUrl], que consume MapLibre |
-/// | `GetStaticMap` | [staticMap] y [staticMapUrl] |
-/// | `GetTile` | MapLibre las pide sola desde el descriptor |
-/// | `GetGlyphs` | ídem |
-/// | `GetSprites` | ídem |
+/// | `GetStyleDescriptor` | [styleDescriptorUrl], which MapLibre consumes |
+/// | `GetStaticMap` | [staticMap] and [staticMapUrl] |
+/// | `GetTile` | MapLibre requests them on its own from the descriptor |
+/// | `GetGlyphs` | same |
+/// | `GetSprites` | same |
 ///
-/// ## Por qué tres de las cinco no tienen método
+/// ## Why three of the five have no method
 ///
-/// El descriptor de estilo **lleva dentro sus propias URLs** de teselas,
-/// glifos y sprites, con la clave puesta donde hace falta. MapLibre las sigue
-/// solo. Construirlas aparte —como hacía la generación anterior— era una forma
-/// de que se desincronizaran del estilo sin que nadie se enterara: se cambiaba
-/// el estilo y las etiquetas seguían pidiendo los glifos del anterior.
+/// The style descriptor **carries its own URLs** for tiles, glyphs and
+/// sprites, with the key placed where it's needed. MapLibre follows them on
+/// its own. Building them separately —as the previous generation did— was a
+/// way for them to drift out of sync with the style without anyone noticing:
+/// you changed the style and the labels kept requesting the old one's glyphs.
 ///
-/// Están expuestas igual en [tileUrlTemplate], [glyphsUrlTemplate] y
-/// [spritesUrl] para quien monte su propio renderizador o quiera precargar
-/// teselas, pero no son el camino normal.
+/// They're exposed anyway in [tileUrlTemplate], [glyphsUrlTemplate] and
+/// [spritesUrl] for anyone building their own renderer or wanting to preload
+/// tiles, but they're not the normal path.
 class MapsClient {
-  /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
+  /// Builds the client. Internal use: it comes already set up in `NativMaps`.
   @internal
   MapsClient({
     required AlsTransport transport,
@@ -37,20 +37,20 @@ class MapsClient {
 
   final AlsTransport _transport;
 
-  /// Región de AWS.
+  /// AWS region.
   final String region;
 
-  /// Punto de vista político para las fronteras en disputa, en ISO 3166.
+  /// Political view for disputed borders, in ISO 3166.
   final String? politicalView;
 
   static const AlsService _service = AlsService.maps;
 
-  /// El host de Maps para esta región.
+  /// The Maps host for this region.
   String get host => _service.hostFor(region);
 
   // ─── GetStyleDescriptor ───────────────────────────────────────────────
 
-  /// La URL del descriptor de estilo, que es lo que consume MapLibre.
+  /// The style descriptor URL, which is what MapLibre consumes.
   ///
   /// ```dart
   /// NativMap(
@@ -63,27 +63,27 @@ class MapsClient {
   /// )
   /// ```
   ///
-  /// ## El modo oscuro lo renderiza el servidor
+  /// ## Dark mode is rendered by the server
   ///
-  /// [colorScheme] no es un filtro sobre teselas claras: el servicio genera el
-  /// estilo oscuro entero. Por eso las etiquetas siguen siendo legibles, cosa
-  /// que no ocurre al invertir los colores de un mapa claro — que es lo que
-  /// hay que hacer con `google_maps_flutter`.
+  /// [colorScheme] is not a filter over light tiles: the service generates the
+  /// whole dark style. That's why the labels stay readable, which doesn't
+  /// happen when you invert the colors of a light map — which is what you have
+  /// to do with `google_maps_flutter`.
   ///
-  /// ## Lo que Google no da, y aquí es un parámetro
+  /// ## What Google doesn't give you, and here is a parameter
   ///
   /// [traffic], [terrain], [buildings], [contourDensity], [poiDensity],
-  /// [poiCategories] y [travelModes] los dibuja el servidor **dentro del mismo
-  /// estilo**, sin una segunda petición ni una capa superpuesta. [poiDensity]
-  /// en [MapPoiDensity.off] es lo que se quiere cuando el mapa es el fondo de
-  /// datos propios y los puntos de interés solo estorban.
+  /// [poiCategories] and [travelModes] are drawn by the server **inside the
+  /// same style**, with no second request and no overlay layer. [poiDensity]
+  /// set to [MapPoiDensity.off] is what you want when the map is the backdrop
+  /// for your own data and the points of interest just get in the way.
   ///
-  /// **La URL lleva la clave dentro** en el camino de clave de API. No hay que
-  /// registrarla ni enseñarla en pantalla.
+  /// **The URL carries the key inside** on the API key path. Don't log it or
+  /// show it on screen.
   ///
-  /// Devuelve `null` si no hay credenciales configuradas, en vez de lanzar: a
-  /// esto se le llama desde `build()`, y una excepción ahí no degrada la
-  /// pantalla, impide abrirla.
+  /// Returns `null` if no credentials are configured, instead of throwing:
+  /// this gets called from `build()`, and an exception there doesn't degrade
+  /// the screen, it prevents it from opening.
   String? styleDescriptorUrl(
     MapStyle style, {
     MapColorScheme? colorScheme,
@@ -120,7 +120,7 @@ class MapsClient {
       if (contourDensity != null)
         'contour-density': <String>[contourDensity.wireName],
       if (poiDensity != null) 'poi-density': <String>[poiDensity.wireName],
-      // Cada categoría va como un parámetro repetido, no separadas por comas.
+      // Each category goes as a repeated parameter, not comma-separated.
       if (poiCategories.isNotEmpty)
         'poi-categories': poiCategories
             .map((c) => c.wireName)
@@ -141,12 +141,13 @@ class MapsClient {
     return _withApiKey(uri).toString();
   }
 
-  /// La pareja de URLs de estilo para alternar entre día y noche.
+  /// The pair of style URLs for switching between day and night.
   ///
-  /// En la generación anterior esto pedía **dos recursos distintos** creados a
-  /// mano en la consola (`MiMapa` y `MiMapaDark`) que había que mantener
-  /// sincronizados: cambiar uno y olvidar el otro dejaba la app con dos mapas
-  /// que no se parecían. Ahora es el mismo estilo con otro parámetro.
+  /// In the previous generation this required **two separate resources**
+  /// created by hand in the console (`MyMap` and `MyMapDark`) that had to be
+  /// kept in sync: changing one and forgetting the other left the app with two
+  /// maps that didn't look alike. Now it's the same style with a different
+  /// parameter.
   ({String? light, String? dark}) dayNightStyleUrls(
     MapStyle style, {
     MapTraffic? traffic,
@@ -174,28 +175,32 @@ class MapsClient {
 
   // ─── GetStaticMap ─────────────────────────────────────────────────────
 
-  /// Una imagen de mapa ya renderizada, en JPEG. `GET /v2/static/map`.
+  /// An already rendered map image. `GET /v2/static/map`.
   ///
-  /// **Lo pinta el servidor**, así que sirve donde no hay widget: la miniatura
-  /// de una notificación push, el mapa de un PDF, la imagen de un correo, la
-  /// vista previa de una lista. `google_maps_flutter` resuelve esto con
-  /// `takeSnapshot`, que exige tener el mapa montado y visible en pantalla.
+  /// AWS returns it as **PNG** (verified against the service, 2026-10-19); the
+  /// format it actually sends in each response is in `AlsBytes.contentType`.
   ///
-  /// Hay tres formas de encuadrar, **excluyentes** entre sí:
+  /// **The server draws it**, so it works where there's no widget: the
+  /// thumbnail of a push notification, the map in a PDF, the image in an
+  /// email, the preview in a list. `google_maps_flutter` solves this with
+  /// `takeSnapshot`, which requires the map to be mounted and visible on
+  /// screen.
   ///
-  /// - [center] con [zoom] o con [radiusMeters] —uno de los dos, no ambos—:
-  ///   el encuadre clásico;
-  /// - [boundingBox]: el rectángulo que hay que ver;
-  /// - [boundedPositions]: los puntos que tienen que caber, y el servicio
-  ///   calcula el encuadre. Es la más cómoda para pintar una ruta.
+  /// There are three ways to frame it, **mutually exclusive**:
   ///
-  /// [geoJsonOverlay] dibuja geometría encima: la línea de la ruta, los
-  /// marcadores, el polígono de una isócrona. Es lo que convierte esto en una
-  /// miniatura útil y no en un mapa vacío.
+  /// - [center] with [zoom] or with [radiusMeters] —one of the two, not
+  ///   both—: the classic framing;
+  /// - [boundingBox]: the rectangle that has to be visible;
+  /// - [boundedPositions]: the points that have to fit, and the service
+  ///   computes the framing. It's the most convenient one for drawing a route.
   ///
-  /// [width] y [height] van de 64 a 1400 píxeles, y [style] solo admite
-  /// [MapStyle.standard] y [MapStyle.satellite]. Fuera de eso lanza
-  /// `ArgumentError` antes de enviar.
+  /// [geoJsonOverlay] draws geometry on top: the route line, the markers, the
+  /// polygon of an isoline. It's what turns this into a useful thumbnail and
+  /// not an empty map.
+  ///
+  /// [width] and [height] range from 64 to 1400 pixels, and [style] only
+  /// accepts [MapStyle.standard] and [MapStyle.satellite]. Outside of that it
+  /// throws `ArgumentError` before sending.
   Future<AlsBytes> staticMap({
     LatLng? center,
     double? zoom,
@@ -241,12 +246,12 @@ class MapsClient {
     );
   }
 
-  /// La URL del mapa estático, sin descargarlo.
+  /// The static map URL, without downloading it.
   ///
-  /// Sirve para pasársela a un `Image.network` o a una plantilla de correo. A
-  /// cambio, **la URL lleva la clave dentro** en el camino de clave de API: no
-  /// se puede mandar a un tercero ni escribir en un registro. Para eso está
-  /// [staticMap], que descarga los bytes y no expone nada.
+  /// It's for passing to an `Image.network` or to an email template. In
+  /// exchange, **the URL carries the key inside** on the API key path: you
+  /// can't send it to a third party or write it to a log. That's what
+  /// [staticMap] is for: it downloads the bytes and exposes nothing.
   String? staticMapUrl({
     LatLng? center,
     double? zoom,
@@ -292,9 +297,10 @@ class MapsClient {
     return _withApiKey(uri).toString();
   }
 
-  /// `map` es el nombre de archivo que exige el servicio; `map@2x` dobla la
-  /// densidad. Con `/v2/static-map` la pasarela responde 403 «Missing
-  /// Authentication Token», que despista: no falta nada, la ruta no existe.
+  /// `map` is the file name the service requires; `map@2x` doubles the
+  /// density. With `/v2/static-map` the gateway responds 403 "Missing
+  /// Authentication Token", which is misleading: nothing is missing, the path
+  /// doesn't exist.
   static const String _staticMapPath = '/v2/static/map';
 
   Map<String, String> _staticMapQuery({
@@ -352,16 +358,17 @@ class MapsClient {
       );
     }
 
-    // Los nombres de los parámetros no siguen a los de la API en camelCase:
-    // `lang`, `pois` y `scale-unit`. Un nombre que el servicio no conoce no
-    // da error — se ignora en silencio y la imagen sale sin el ajuste.
+    // The parameter names don't follow the API's camelCase ones: `lang`,
+    // `pois` and `scale-unit`. A name the service doesn't know raises no
+    // error — it's silently ignored and the image comes out without the
+    // setting.
     return <String, String>{
       'width': '$width',
       'height': '$height',
       'style': style.wireName,
       if (center != null) 'center': _lonLatParam(center),
       if (zoom != null) 'zoom': _trimNumber(zoom),
-      // (los dos anteriores transforman el valor, así que `?` no aplica)
+      // (the two above transform the value, so `?` doesn't apply)
       if (boundingBox != null)
         'bounding-box': boundingBox.toBbox().map(_trimNumber).join(','),
       if (boundedPositions.isNotEmpty)
@@ -382,14 +389,14 @@ class MapsClient {
 
   // ─── Tiles, glyphs, sprites ───────────────────────────────────────────
 
-  /// La plantilla de URL de teselas, con `{z}`, `{x}` e `{y}` sin sustituir.
+  /// The tile URL template, with `{z}`, `{x}` and `{y}` left unsubstituted.
   ///
-  /// **No hace falta para pintar un mapa**: el descriptor de estilo ya la trae
-  /// dentro y MapLibre la sigue sola. Está aquí para quien monte su propio
-  /// renderizador o quiera precargar una zona a mano.
+  /// **You don't need it to draw a map**: the style descriptor already carries
+  /// it and MapLibre follows it on its own. It's here for anyone building
+  /// their own renderer or wanting to preload an area by hand.
   ///
-  /// [tileset] es normalmente `vector.basemap`, `raster.satellite` o el que
-  /// indique el estilo.
+  /// [tileset] is usually `vector.basemap`, `raster.satellite` or whichever
+  /// the style indicates.
   String? tileUrlTemplate(String tileset) {
     if (!_transport.credentials.isConfigured) return null;
     final base = _transport.credentials.baseUri(_service, region);
@@ -399,10 +406,10 @@ class MapsClient {
     return _keepPlaceholders(_withApiKey(uri).toString());
   }
 
-  /// La plantilla de URL de glifos, con `{fontstack}` y `{range}`.
+  /// The glyphs URL template, with `{fontstack}` and `{range}`.
   ///
-  /// Igual que [tileUrlTemplate]: el estilo ya la trae. Va **sin clave**,
-  /// como en el propio estilo: `GetGlyphs` es público.
+  /// Same as [tileUrlTemplate]: the style already carries it. It goes
+  /// **without the key**, as in the style itself: `GetGlyphs` is public.
   String? glyphsUrlTemplate() {
     if (!_transport.credentials.isConfigured) return null;
     final base = _transport.credentials.baseUri(_service, region);
@@ -412,15 +419,15 @@ class MapsClient {
     return _keepPlaceholders(uri.toString());
   }
 
-  /// La URL de los sprites de un estilo, en la forma que espera la propiedad
-  /// `sprite` de MapLibre: **sin extensión**.
+  /// The URL of a style's sprites, in the form MapLibre's `sprite` property
+  /// expects: **without an extension**.
   ///
-  /// MapLibre le añade `.json` y `.png`, o `@2x.json` y `@2x.png` en
-  /// pantallas de alta densidad. Dependen del estilo y del esquema de color:
-  /// los iconos del modo oscuro no son los del claro.
+  /// MapLibre appends `.json` and `.png`, or `@2x.json` and `@2x.png` on
+  /// high-density screens. They depend on the style and the color scheme: the
+  /// dark mode icons are not the light mode ones.
   ///
-  /// Va **sin clave**: `GetSprites` es público, y un `?key=` al final
-  /// quedaría delante de la extensión que añade MapLibre.
+  /// It goes **without the key**: `GetSprites` is public, and a `?key=` at the
+  /// end would end up in front of the extension MapLibre appends.
   String? spritesUrl(
     MapStyle style, {
     MapColorScheme colorScheme = MapColorScheme.light,
@@ -436,15 +443,15 @@ class MapsClient {
         .toString();
   }
 
-  // ─── Auxiliares ───────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────
 
-  /// Añade la clave a la URL cuando las credenciales son de clave de API.
+  /// Adds the key to the URL when the credentials are an API key.
   ///
-  /// No se puede pasar por `credentials.sign` porque eso trabaja sobre una
-  /// `http.BaseRequest`, y aquí lo que se produce es una URL que se
-  /// le entrega a MapLibre para que la pida él. Es la única frontera del
-  /// paquete donde la clave sale en texto, y por eso el método que la usa
-  /// documenta que la URL no se puede registrar.
+  /// It can't go through `credentials.sign` because that works on an
+  /// `http.BaseRequest`, and what's produced here is a URL that gets handed
+  /// to MapLibre for it to request. It's the only boundary in the package
+  /// where the key goes out in plain text, which is why the method that uses
+  /// it documents that the URL must not be logged.
   Uri _withApiKey(Uri uri) {
     final apiKey = _transport.credentials.apiKeyForUrl;
     if (apiKey == null) return uri;
@@ -456,21 +463,22 @@ class MapsClient {
     );
   }
 
-  /// Devuelve las llaves de una plantilla a su forma literal.
+  /// Returns a template's braces to their literal form.
   ///
-  /// `Uri` las codifica como `%7B` y `%7D`, y entonces ni MapLibre ni un
-  /// `replaceAll('{z}', …)` las encuentran: la petición sale con `{z}` como
-  /// texto y AWS la rechaza.
+  /// `Uri` encodes them as `%7B` and `%7D`, and then neither MapLibre nor a
+  /// `replaceAll('{z}', …)` can find them: the request goes out with `{z}` as
+  /// text and AWS rejects it.
   static String _keepPlaceholders(String url) =>
       url.replaceAll('%7B', '{').replaceAll('%7D', '}');
 
   static String _lonLatParam(LatLng point) =>
       '${_trimNumber(point.longitude)},${_trimNumber(point.latitude)}';
 
-  /// Escribe un número sin notación científica y sin decimales sobrantes.
+  /// Writes a number without scientific notation and without trailing
+  /// decimals.
   ///
-  /// `Uri` no lo hace: un `1e-7` en la cadena de consulta provoca un `400`
-  /// porque el servicio no lo interpreta como número.
+  /// `Uri` doesn't do it: a `1e-7` in the query string causes a `400` because
+  /// the service doesn't interpret it as a number.
   static String _trimNumber(double value) {
     var text = value.toStringAsFixed(6);
     if (!text.contains('.')) return text;

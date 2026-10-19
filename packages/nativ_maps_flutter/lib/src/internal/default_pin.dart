@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -6,31 +6,31 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
-/// El alfiler de `BitmapDescriptor.defaultMarker`, dibujado en Dart.
+/// The `BitmapDescriptor.defaultMarker` pin, drawn in Dart.
 ///
-/// MapLibre no trae ningún icono de marcador. Si no se registra una imagen con
-/// el nombre que pide la capa, el marcador **no se dibuja y nada avisa**. Se
-/// pinta aquí, una vez por color, y el controlador lo registra en el estilo
-/// como cualquier otro icono.
+/// MapLibre doesn't come with any marker icon. If no image is registered under
+/// the name the layer asks for, the marker **isn't drawn and nothing warns
+/// you**. It's painted here, once per color, and the controller registers it
+/// in the style like any other icon.
 abstract final class DefaultPin {
-  /// Ancho en puntos lógicos: el del marcador por defecto de Google.
+  /// Width in logical points: that of Google's default marker.
   static const double width = 27;
 
-  /// Alto en puntos lógicos.
+  /// Height in logical points.
   static const double height = 43;
 
-  /// Se pinta a 3×. iOS registra la imagen con la escala de la pantalla y
-  /// Android con la densidad del bitmap, así que a 3× sale nítido y del mismo
-  /// tamaño en las dos.
+  /// It's painted at 3×. iOS registers the image with the screen's scale and
+  /// Android with the bitmap's density, so at 3× it comes out sharp and the
+  /// same size on both.
   static const double pixelRatio = 3;
 
   static final Map<double, Future<Uint8List>> _cache =
       <double, Future<Uint8List>>{};
 
-  /// El PNG del alfiler teñido con [hue] (0–360, como en Google).
+  /// The PNG of the pin tinted with [hue] (0–360, as in Google).
   ///
-  /// Se guarda por color: tras un cambio de estilo hay que registrarlo otra
-  /// vez, pero no hace falta volver a pintarlo.
+  /// It's cached per color: after a style change it has to be registered
+  /// again, but there's no need to paint it again.
   static Future<Uint8List> png(double hue) =>
       _cache.putIfAbsent(hue % 360, () => _render(hue % 360));
 
@@ -43,7 +43,7 @@ abstract final class DefaultPin {
     const center = Offset(width / 2, radius + stroke);
     const tip = Offset(width / 2, height - stroke);
 
-    // Una gota: el círculo de arriba unido a la punta por sus dos tangentes.
+    // A drop: the top circle joined to the tip by its two tangents.
     final reach = math.acos(radius / (tip.dy - center.dy));
     final pin = Path()
       ..moveTo(tip.dx, tip.dy)

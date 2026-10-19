@@ -143,6 +143,41 @@ void main() {
       expect(canonical, isNot(contains('+')));
     });
 
+    test('la ruta se codifica dos veces: un ARN en la ruta', () {
+      // DisassociateTrackerConsumer lleva el ARN de la colección en la ruta.
+      // Viaja como `arn%3Aaws…` y la ruta canónica lo vuelve a codificar.
+      // Codificándolo una sola vez, AWS respondía 403 a la petición real.
+      const arn =
+          'arn:aws:geo:us-east-1:123456789012:geofence-collection/zonas';
+      final canonical = signer.canonicalRequestFor(
+        method: 'DELETE',
+        uri: Uri.parse(
+          'https://cp.tracking.geo.us-east-1.amazonaws.com'
+          '/tracking/v0/trackers/flota/consumers/${Uri.encodeComponent(arn)}',
+        ),
+        headers: const <String, String>{
+          'host': 'cp.tracking.geo.us-east-1.amazonaws.com',
+        },
+        payloadHash: SigV4Signer.emptyBodySha256,
+      );
+      expect(
+        canonical.split('\n')[1],
+        '/tracking/v0/trackers/flota/consumers/'
+        'arn%253Aaws%253Ageo%253Aus-east-1%253A123456789012%253A'
+        'geofence-collection%252Fzonas',
+      );
+    });
+
+    test('una ruta sin nada que codificar queda igual', () {
+      final canonical = signer.canonicalRequestFor(
+        method: 'GET',
+        uri: Uri.parse('https://places.geo.us-east-1.amazonaws.com/v2/place/x'),
+        headers: const <String, String>{'host': 'example.amazonaws.com'},
+        payloadHash: SigV4Signer.emptyBodySha256,
+      );
+      expect(canonical.split('\n')[1], '/v2/place/x');
+    });
+
     test('codifica los caracteres que Uri.encodeComponent deja pasar', () {
       // `Uri.encodeComponent` no toca `!`, `*`, `'`, `(` ni `)`. AWS sí.
       final canonical = signer.canonicalRequestFor(

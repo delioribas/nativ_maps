@@ -1,0 +1,25 @@
+{
+  "DistanceUnit": "Kilometers",
+  "ForecastedEvents": [
+    {
+      "EventId": "4b455eb6-07d6-4526-6072-f13f151f01c0",
+      "GeofenceId": "carolina",
+      "IsDeviceInGeofence": false,
+      "NearestDistance": 0.769,
+      "EventType": "ENTER",
+      "ForecastedBreachTime": "2026-10-19T06:50:48.83Z",
+      "GeofenceProperties": {
+        "zona": "parque"
+      }
+    },
+    {
+      "EventId": "1da6e402-bba5-4e07-40fb-ac98707f9964",
+      "GeofenceId": "centro-historico",
+      "IsDeviceInGeofence": false,
+      "NearestDistance": 5.882,
+      "EventType": "ENTER",
+      "ForecastedBreachTime": "2026-10-19T06:58:28.999Z"
+    }
+  ],
+  "SpeedUnit": "KilometersPerHour"
+}

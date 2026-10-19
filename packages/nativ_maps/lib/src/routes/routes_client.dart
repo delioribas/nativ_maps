@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/client/budget.dart';
@@ -9,92 +9,92 @@ import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/routes/models.dart';
 import 'package:nativ_maps/src/routes/options.dart';
 
-/// Las **cinco** operaciones de Amazon Location Routes v2.
+/// The **five** operations of Amazon Location Routes v2.
 ///
-/// | Método | Endpoint | Para qué |
+/// | Method | Endpoint | What for |
 /// |---|---|---|
-/// | [calculateRoutes] | `POST /v2/routes` | ruta entre dos puntos |
-/// | [calculateRouteMatrix] | `POST /v2/route-matrix` | quién está más cerca **por carretera** |
-/// | [calculateIsolines] | `POST /v2/isolines` | **área alcanzable en X minutos** |
-/// | [snapToRoads] | `POST /v2/snap-to-roads` | **pegar el rastro GPS a la calle real** |
-/// | [optimizeWaypoints] | `POST /v2/optimize-waypoints` | orden óptimo de paradas |
+/// | [calculateRoutes] | `POST /v2/routes` | route between two points |
+/// | [calculateRouteMatrix] | `POST /v2/route-matrix` | who is closest **by road** |
+/// | [calculateIsolines] | `POST /v2/isolines` | **area reachable in X minutes** |
+/// | [snapToRoads] | `POST /v2/snap-to-roads` | **snap the GPS trace to the real street** |
+/// | [optimizeWaypoints] | `POST /v2/optimize-waypoints` | optimal order of stops |
 ///
-/// Las dos marcadas en negrita **no existen en Google Maps**. Son, junto con
-/// los peajes de [Toll], lo que este paquete da y ningún envoltorio de Google
-/// puede dar.
+/// The two marked in bold **don't exist in Google Maps**. Together with the
+/// tolls in [Toll], they are what this package gives you and no Google wrapper
+/// can.
 ///
-/// ## Los límites duros están comprobados aquí
+/// ## The hard limits are checked here
 ///
-/// Las tres operaciones con límite lo comprueban **antes de enviar**, porque
-/// la alternativa es descubrirlo con un `400` después de haber pagado el viaje
-/// de ida:
+/// The three operations with a limit check it **before sending**, because the
+/// alternative is finding out with a `400` after having paid for the outbound
+/// trip:
 ///
-/// - matriz sin acotar zona: 15 orígenes, 100 destinos, 100 celdas;
-/// - isócronas: 5 umbrales;
-/// - `snapToRoads`: 5 000 puntos — y este **no falla, trocea**.
+/// - matrix without a bounded area: 15 origins, 100 destinations, 100 cells;
+/// - isolines: 5 thresholds;
+/// - `snapToRoads`: 5,000 points — and this one **doesn't fail, it chunks**.
 class RoutesClient {
-  /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
+  /// Builds the client. Internal use: it comes already wired into `NativMaps`.
   @internal
   RoutesClient({required AlsTransport transport, this.language})
     : _transport = transport;
 
   final AlsTransport _transport;
 
-  /// Idioma de las indicaciones, en BCP 47.
+  /// Language of the instructions, in BCP 47.
   final String? language;
 
   static const AlsService _service = AlsService.routes;
 
-  /// Las rutas son las peticiones que más cuestan, y antes no se cacheaban.
+  /// Routes are the most expensive requests, and they used to go uncached.
   ///
-  /// Diez minutos es suficiente para que abrir y cerrar una ficha no las pague
-  /// dos veces, y poco para que la información de tráfico siga siendo
-  /// relevante.
+  /// Ten minutes is long enough that opening and closing a detail screen
+  /// doesn't pay for them twice, and short enough that the traffic information
+  /// is still relevant.
   final LruCache<String, RouteResponse> _routeCache =
       LruCache<String, RouteResponse>(60, ttl: const Duration(minutes: 10));
 
-  // ─── Límites del servicio ─────────────────────────────────────────────
+  // ─── Service limits ───────────────────────────────────────────────────
 
-  /// Orígenes máximos de una matriz sin acotar zona.
+  /// Maximum origins of a matrix without a bounded area.
   static const int maxUnboundedMatrixOrigins = 15;
 
-  /// Destinos máximos de una matriz sin acotar zona.
+  /// Maximum destinations of a matrix without a bounded area.
   static const int maxUnboundedMatrixDestinations = 100;
 
-  /// Celdas máximas de una matriz sin acotar zona.
+  /// Maximum cells of a matrix without a bounded area.
   static const int maxUnboundedMatrixCells = 100;
 
-  /// Umbrales máximos por petición de isócronas. **Se cobra por umbral.**
+  /// Maximum thresholds per isoline request. **Billed per threshold.**
   static const int maxIsolineThresholds = 5;
 
-  /// Puntos máximos por petición de `snapToRoads`.
+  /// Maximum points per `snapToRoads` request.
   static const int maxTracePointsPerRequest = 5000;
 
   // ─── 1 · CalculateRoutes ──────────────────────────────────────────────
 
-  /// Calcula una ruta. `POST /v2/routes`.
+  /// Calculates a route. `POST /v2/routes`.
   ///
   /// ```dart
-  /// final respuesta = await routes.calculateRoutes(
-  ///   origin: posicionActual,
-  ///   destination: destino,
+  /// final response = await routes.calculateRoutes(
+  ///   origin: currentPosition,
+  ///   destination: destination,
   ///   travelMode: TravelMode.scooter,
   ///   legAdditionalFeatures: const [RouteFeature.tolls, RouteFeature.summary],
   /// );
-  /// final ruta = respuesta.best!;
-  /// mapa.addPolyline(Polyline(polylineId: 'ruta', points: ruta.points));
+  /// final route = response.best!;
+  /// map.addPolyline(Polyline(polylineId: 'route', points: route.points));
   /// ```
   ///
-  /// La geometría se pide por defecto en [GeometryFormat.simple]: pesa más por
-  /// la red pero no hay que decodificar nada. Para un histórico largo o una
-  /// conexión mala, [GeometryFormat.flexiblePolyline] baja el tamaño alrededor
-  /// de un 80 % y se decodifica solo.
+  /// The geometry is requested in [GeometryFormat.simple] by default: it
+  /// weighs more over the network but there is nothing to decode. For a long
+  /// history or a poor connection, [GeometryFormat.flexiblePolyline] cuts the
+  /// size by around 80 % and is decoded automatically.
   ///
-  /// [departureTime] y [arrivalTime] son excluyentes. Sin ninguno de los dos
-  /// se envía `DepartNow`, que usa el tráfico de este momento.
+  /// [departureTime] and [arrivalTime] are mutually exclusive. With neither,
+  /// `DepartNow` is sent, which uses the current traffic.
   ///
-  /// **Distancias en metros y duraciones en segundos.** v2 no tiene parámetro
-  /// de unidad; enviar `DistanceUnit` —que existía en v0— provoca un `400`.
+  /// **Distances in meters and durations in seconds.** v2 has no unit
+  /// parameter; sending `DistanceUnit` —which existed in v0— causes a `400`.
   Future<RouteResponse> calculateRoutes({
     required LatLng origin,
     required LatLng destination,
@@ -126,6 +126,28 @@ class RoutesClient {
         'admite entre 0 y 6',
       );
     }
+    // Written instructions only exist for the default steps; with
+    // turn-by-turn ones the API answers 400.
+    if (travelStepType == TravelStepType.turnByTurn &&
+        legAdditionalFeatures.contains(RouteFeature.travelStepInstructions)) {
+      throw ArgumentError.value(
+        travelStepType,
+        'travelStepType',
+        'RouteFeature.travelStepInstructions exige TravelStepType.standard: '
+            'con turnByTurn la API responde 400',
+      );
+    }
+    // A pedestrian pays no tolls, and the API answers 400 instead of
+    // ignoring the request. Caught here, nothing is billed.
+    if (travelMode == TravelMode.pedestrian &&
+        legAdditionalFeatures.contains(RouteFeature.tolls)) {
+      throw ArgumentError.value(
+        legAdditionalFeatures,
+        'legAdditionalFeatures',
+        'RouteFeature.tolls no se admite con TravelMode.pedestrian: la API '
+            'responde 400',
+      );
+    }
 
     final cacheKey = _key(<Object?>[
       'route',
@@ -144,9 +166,9 @@ class RoutesClient {
       avoid?.toJson(),
       travelModeOptions?.toJson(travelMode),
     ]);
-    // Con hora de salida «ahora» la caché sí sirve —dos aperturas seguidas de
-    // la misma ficha—, pero con una hora fija no tiene sentido reutilizar un
-    // resultado calculado con otro tráfico.
+    // With a departure time of "now" the cache does help —opening the same
+    // detail screen twice in a row—, but with a fixed time it makes no sense to
+    // reuse a result calculated with different traffic.
     if (useCache) {
       final hit = _routeCache.get(cacheKey);
       if (hit != null) return hit;
@@ -194,27 +216,28 @@ class RoutesClient {
 
   // ─── 2 · CalculateRouteMatrix ─────────────────────────────────────────
 
-  /// Distancias y tiempos entre todos los pares. `POST /v2/route-matrix`.
+  /// Distances and times between every pair. `POST /v2/route-matrix`.
   ///
-  /// Responde a «cuál de mis diez unidades llega antes» **por carretera**, que
-  /// es una pregunta distinta de «cuál está más cerca en línea recta»: la más
-  /// cercana en línea recta puede estar al otro lado de un río sin puente.
+  /// It answers "which of my ten units gets there first" **by road**, which is
+  /// a different question from "which one is closest in a straight line": the
+  /// closest in a straight line may be on the other side of a river with no
+  /// bridge.
   ///
-  /// ## El coste, que es lo que sorprende
+  /// ## The cost, which is what surprises people
   ///
-  /// **Se factura por par, no por petición.** Una matriz de 10×10 son cien
-  /// cálculos de ruta y cien unidades de presupuesto. Es la operación donde
-  /// más se separan lo que parece —una llamada— y lo que cuesta.
+  /// **It is billed per pair, not per request.** A 10×10 matrix is a hundred
+  /// route calculations and a hundred budget units. It is the operation where
+  /// what it looks like —one call— and what it costs are furthest apart.
   ///
-  /// El patrón barato es filtrar antes: ordenar por [LatLng.distanceTo], que
-  /// es gratis, quedarse con los tres o cuatro primeros y pedir la matriz solo
-  /// de esos.
+  /// The cheap pattern is to filter first: sort by [LatLng.distanceTo], which
+  /// is free, keep the first three or four and request the matrix only for
+  /// those.
   ///
-  /// ## El límite
+  /// ## The limit
   ///
-  /// Sin [routingBoundary], AWS permite 15 orígenes, 100 destinos y 100 celdas.
-  /// Se comprueba antes de enviar y se lanza [ArgumentError] con el cálculo
-  /// hecho, en vez de dejar que el servicio conteste `400`.
+  /// Without [routingBoundary], AWS allows 15 origins, 100 destinations and
+  /// 100 cells. It is checked before sending and an [ArgumentError] is thrown
+  /// with the math already done, instead of letting the service answer `400`.
   Future<RouteMatrix> calculateRouteMatrix({
     required List<LatLng> origins,
     required List<LatLng> destinations,
@@ -296,40 +319,42 @@ class RoutesClient {
 
   // ─── 3 · CalculateIsolines ────────────────────────────────────────────
 
-  /// El área alcanzable dentro de un umbral. `POST /v2/isolines`.
+  /// The area reachable within a threshold. `POST /v2/isolines`.
   ///
-  /// **Google no tiene esto.** Responde a «¿hasta dónde pudo llegar en ocho
-  /// minutos?» sin calcular mil rutas, y funciona en los dos sentidos:
+  /// **Google doesn't have this.** It answers "how far could it get in eight
+  /// minutes?" without calculating a thousand routes, and it works in both
+  /// directions:
   ///
   /// ```dart
-  /// // Hacia fuera: ¿hasta dónde pudo llegar en 8 minutos?
-  /// final zona = await routes.calculateIsolines(
-  ///   origin: ultimaPosicion,
+  /// // Outward: how far could it get in 8 minutes?
+  /// final zone = await routes.calculateIsolines(
+  ///   origin: lastPosition,
   ///   thresholds: Thresholds.time([const Duration(minutes: 8)]),
   ///   travelMode: TravelMode.scooter,
   ///   granularity: const IsolineGranularity(maxPoints: 300),
   /// );
   ///
-  /// // Hacia dentro: ¿quién llega AQUÍ en 10 minutos?
-  /// final alcance = await routes.calculateIsolines(
-  ///   destination: posicionVehiculo,
+  /// // Inward: who can get HERE in 10 minutes?
+  /// final reach = await routes.calculateIsolines(
+  ///   destination: vehiclePosition,
   ///   arrivalTime: DateTime.now().add(const Duration(minutes: 10)),
   ///   thresholds: Thresholds.time([const Duration(minutes: 10)]),
   /// );
   /// ```
   ///
-  /// ## Dos cosas que hay que saber
+  /// ## Two things you need to know
   ///
-  /// **Se cobra por umbral**, hasta cinco. Pedir cinco en una llamada es más
-  /// cómodo que cinco llamadas, pero cuesta exactamente lo mismo: cinco
-  /// unidades.
+  /// **It is billed per threshold**, up to five. Asking for five in one call
+  /// is more convenient than five calls, but it costs exactly the same: five
+  /// units.
   ///
-  /// **[granularity] es obligatoria en la práctica.** Sin `maxPoints`, el
-  /// polígono de treinta minutos trae varios miles de vértices y ahoga el
-  /// mapa: el dispositivo se queda dibujando y la interfaz deja de responder.
-  /// Trescientos puntos son de sobra para que se vea bien.
+  /// **[granularity] is mandatory in practice.** Without `maxPoints`, the
+  /// thirty-minute polygon comes with several thousand vertices and chokes the
+  /// map: the device gets stuck drawing and the UI stops responding. Three
+  /// hundred points are more than enough for it to look right.
   ///
-  /// [origin] y [destination] son excluyentes, y hay que dar uno de los dos.
+  /// [origin] and [destination] are mutually exclusive, and you must give one
+  /// of them.
   Future<IsolineResponse> calculateIsolines({
     LatLng? origin,
     LatLng? destination,
@@ -391,37 +416,39 @@ class RoutesClient {
 
   // ─── 4 · SnapToRoads ──────────────────────────────────────────────────
 
-  /// Pega un rastro GPS a la calle real. `POST /v2/snap-to-roads`.
+  /// Snaps a GPS trace to the real street. `POST /v2/snap-to-roads`.
   ///
-  /// **Google no tiene esto.** Es lo que convierte una nube de puntos que
-  /// zigzaguea sobre las aceras en un recorrido que sigue la calzada, y es la
-  /// diferencia entre un histórico que se puede enseñar a un cliente y uno que
-  /// parece un error.
+  /// **Google doesn't have this.** It is what turns a cloud of points
+  /// zigzagging over the sidewalks into a route that follows the roadway, and
+  /// it is the difference between a history you can show a customer and one
+  /// that looks like a bug.
   ///
-  /// ## El troceado, que es la parte importante
+  /// ## The chunking, which is the important part
   ///
-  /// La API admite entre 2 y **5 000** puntos por petición. Un histórico de un
-  /// día se pasa de largo. Este método **trocea y cose** en vez de fallar:
+  /// The API accepts between 2 and **5,000** points per request. A day's
+  /// history goes way past that. This method **chunks and stitches** instead
+  /// of failing:
   ///
-  /// - parte el rastro en trozos de [maxTracePointsPerRequest];
-  /// - **solapa [overlapPoints] puntos** entre trozos consecutivos, para que
-  ///   el servicio tenga contexto en la costura y no empiece cada trozo
-  ///   pegando el primer punto a la calle equivocada;
-  /// - quita el solape al unir, para que la línea no vuelva sobre sí misma.
+  /// - it splits the trace into chunks of [maxTracePointsPerRequest];
+  /// - it **overlaps [overlapPoints] points** between consecutive chunks, so
+  ///   the service has context at the seam and doesn't start each chunk by
+  ///   snapping the first point to the wrong street;
+  /// - it removes the overlap when joining, so the line doesn't double back
+  ///   on itself.
   ///
-  /// Cada trozo es una petición facturada: 12 000 puntos son tres unidades.
-  /// [SnapToRoadsResponse.chunkCount] dice cuántas fueron de verdad.
+  /// Each chunk is a billed request: 12,000 points are three units.
+  /// [SnapToRoadsResponse.chunkCount] tells you how many there really were.
   ///
-  /// ## Los datos que el localizador ya manda
+  /// ## The data the tracking device already sends
   ///
-  /// [TracePoint] acepta rumbo, velocidad y hora, y **el GT06 manda los tres**.
-  /// Darle solo posiciones desperdicia la mitad de la precisión: con la
-  /// velocidad, el servicio distingue el carril de servicio de la autopista
-  /// paralela.
+  /// [TracePoint] accepts heading, speed and time, and **the GT06 sends all
+  /// three**. Giving it only positions wastes half the accuracy: with the
+  /// speed, the service tells the frontage road apart from the parallel
+  /// highway.
   ///
-  /// [snapRadiusMeters] son 300 por defecto y hasta 10 000. Con cobertura
-  /// urbana mala, 300 se queda corto; alrededor de 500 va mejor para un GT06
-  /// en ciudad.
+  /// [snapRadiusMeters] is 300 by default and up to 10,000. With poor urban
+  /// coverage, 300 falls short; around 500 works better for a GT06 in the
+  /// city.
   Future<SnapToRoadsResponse> snapToRoads({
     required List<TracePoint> tracePoints,
     double? snapRadiusMeters,
@@ -482,9 +509,9 @@ class RoutesClient {
       );
     }
 
-    // En serie y no en paralelo: lanzar veinte peticiones a la vez es la forma
-    // más rápida de encontrarse un 429, y entonces se pierde el rastro entero
-    // por ir con prisa.
+    // Sequential, not parallel: firing twenty requests at once is the fastest
+    // way to run into a 429, and then the whole trace is lost for being in a
+    // hurry.
     final points = <LatLng>[];
     final snapped = <SnappedTracePoint>[];
     final notices = <String>[];
@@ -492,8 +519,8 @@ class RoutesClient {
 
     for (var i = 0; i < chunks.length; i++) {
       final response = await sendChunk(chunks[i]);
-      // El solape se descuenta al coser: sus puntos ya vinieron en el trozo
-      // anterior, y repetirlos dibuja una línea que vuelve sobre sí misma.
+      // The overlap is dropped when stitching: its points already came in the
+      // previous chunk, and repeating them draws a line that doubles back.
       final skip = i == 0 ? 0 : overlapPoints;
       points.addAll(response.geometry.points.skip(skip));
       snapped.addAll(response.snappedPoints.skip(skip));
@@ -510,7 +537,7 @@ class RoutesClient {
     );
   }
 
-  /// Parte el rastro en trozos con solape.
+  /// Splits the trace into overlapping chunks.
   @visibleForTesting
   static List<List<TracePoint>> chunkTraceForTesting(
     List<TracePoint> points,
@@ -538,22 +565,22 @@ class RoutesClient {
 
   // ─── 5 · OptimizeWaypoints ────────────────────────────────────────────
 
-  /// Reordena las paradas para minimizar el recorrido.
+  /// Reorders the stops to minimize the route.
   /// `POST /v2/optimize-waypoints`.
   ///
-  /// **Google no tiene esto** como operación propia. Resuelve el problema del
-  /// viajante con ventanas horarias, tiempos de servicio y descansos
-  /// obligatorios del conductor, que es lo que una hoja de reparto necesita de
-  /// verdad.
+  /// **Google doesn't have this** as an operation of its own. It solves the
+  /// traveling salesman problem with time windows, service times and the
+  /// driver's mandatory rest breaks, which is what a delivery manifest really
+  /// needs.
   ///
-  /// El resultado devuelve **identificadores**, no objetos: en
-  /// [WaypointOptimizationResponse.orderedIds] está el orden con el que
-  /// reordenar tu propia lista de pedidos.
+  /// The result returns **identifiers**, not objects: in
+  /// [WaypointOptimizationResponse.orderedIds] is the order in which to
+  /// reorder your own list of orders.
   ///
-  /// [OptimizationWaypoint.serviceDuration] es el campo que más se olvida y el
-  /// que más cambia el resultado: sin él, la optimización planifica como si
-  /// descargar fuera instantáneo, y una ruta de veinte entregas sale con dos
-  /// horas menos de las que dura.
+  /// [OptimizationWaypoint.serviceDuration] is the most forgotten field and
+  /// the one that changes the result the most: without it, the optimization
+  /// plans as if unloading were instantaneous, and a twenty-delivery route
+  /// comes out two hours shorter than it really takes.
   Future<WaypointOptimizationResponse> optimizeWaypoints({
     required LatLng origin,
     required List<OptimizationWaypoint> waypoints,
@@ -610,22 +637,22 @@ class RoutesClient {
     return WaypointOptimizationResponse.fromJson(json);
   }
 
-  // ─── Auxiliares ───────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────
 
-  /// Vacía la caché de rutas.
+  /// Empties the route cache.
   void clearCache() => _routeCache.clear();
 
   static String _key(List<Object?> parts) => parts.join('|');
 }
 
-/// La matriz llegó con unas dimensiones distintas de las que se pidieron.
+/// The matrix arrived with different dimensions from the ones requested.
 ///
-/// Tiene tipo propio porque la acción es distinta de la de cualquier otro
-/// fallo de lectura: aquí la respuesta es sintácticamente válida y los índices
-/// no significan lo que se cree. Usarla igual daría el vehículo equivocado
-/// como «el más cercano», sin ningún síntoma visible.
+/// It has its own type because the action is different from that of any other
+/// parse failure: here the response is syntactically valid and the indices
+/// don't mean what you think. Using it anyway would give the wrong vehicle as
+/// "the closest one", without any visible symptom.
 class AlsParseExceptionForMatrix implements Exception {
-  /// Crea la excepción con las dimensiones esperadas y las recibidas.
+  /// Creates the exception with the expected and the received dimensions.
   const AlsParseExceptionForMatrix({
     required this.expectedOrigins,
     required this.expectedDestinations,
@@ -633,16 +660,16 @@ class AlsParseExceptionForMatrix implements Exception {
     required this.actualDestinations,
   });
 
-  /// Cuántos orígenes se enviaron.
+  /// How many origins were sent.
   final int expectedOrigins;
 
-  /// Cuántos destinos se enviaron.
+  /// How many destinations were sent.
   final int expectedDestinations;
 
-  /// Cuántas filas trajo la respuesta.
+  /// How many rows the response brought.
   final int actualOrigins;
 
-  /// Cuántas columnas trajo la respuesta.
+  /// How many columns the response brought.
   final int actualDestinations;
 
   @override

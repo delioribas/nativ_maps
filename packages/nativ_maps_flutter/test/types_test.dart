@@ -106,6 +106,32 @@ void main() {
   });
 
   group('Marker', () {
+    test('activar draggable cuenta como cambio', () {
+      // Sin esto en la igualdad, volver a añadir el mismo marcador con
+      // `draggable: true` no se detectaba como cambio.
+      final quieto = Marker(
+        markerId: const MarkerId('a'),
+        position: LatLng(-0.18, -78.47),
+      );
+      expect(quieto.copyWith(draggable: true), isNot(quieto));
+    });
+
+    test('copyWith conserva los tres avisos de arrastre', () {
+      final eventos = <String>[];
+      final m = Marker(
+        markerId: const MarkerId('a'),
+        position: LatLng(-0.18, -78.47),
+        draggable: true,
+        onDragStart: (_) => eventos.add('start'),
+        onDrag: (_) => eventos.add('drag'),
+        onDragEnd: (_) => eventos.add('end'),
+      ).copyWith(position: LatLng(-0.19, -78.48));
+      m.onDragStart!(m.position);
+      m.onDrag!(m.position);
+      m.onDragEnd!(m.position);
+      expect(eventos, <String>['start', 'drag', 'end']);
+    });
+
     test('copyWith conserva el identificador', () {
       // Es la operación que se usa para mover un vehículo: si cambiara el
       // identificador, cada actualización crearía un marcador nuevo y dejaría

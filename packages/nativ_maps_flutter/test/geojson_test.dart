@@ -267,4 +267,38 @@ void main() {
       expect(pin[1], lessThan(centered[1]));
     });
   });
+
+  group('arrastre', () {
+    final quito = LatLng(-0.1807, -78.4678);
+
+    test('el elemento lleva draggable, que es lo que mira el lado nativo', () {
+      final quieto = GeoJson.marker(
+        Marker(markerId: const MarkerId('a'), position: quito),
+      );
+      final movible = GeoJson.marker(
+        Marker(markerId: const MarkerId('b'), position: quito, draggable: true),
+      );
+      expect((quieto['properties'] as Map)['draggable'], isFalse);
+      expect((movible['properties'] as Map)['draggable'], isTrue);
+    });
+
+    test('el id numérico es estable y es el del elemento', () {
+      // El evento de arrastre devuelve este número —a veces como texto— y es
+      // como se vuelve a encontrar el marcador.
+      const id = MarkerId('taxi-42');
+      final feature = GeoJson.marker(Marker(markerId: id, position: quito));
+      expect(feature['id'], GeoJson.featureId(id));
+      expect(
+        GeoJson.featureId(id),
+        GeoJson.featureId(const MarkerId('taxi-42')),
+      );
+      expect(GeoJson.featureId(id), isNonNegative);
+    });
+
+    test('la colección usa el mismo elemento que el arrastre', () {
+      final m = Marker(markerId: const MarkerId('c'), position: quito);
+      final coleccion = GeoJson.markers(<Marker>[m]);
+      expect((coleccion['features'] as List).single, GeoJson.marker(m));
+    });
+  });
 }

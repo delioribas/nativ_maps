@@ -1,47 +1,46 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:collection';
 
-/// Caché de capacidad fija con caducidad, en orden de uso menos reciente.
+/// Fixed-capacity cache with expiry, in least-recently-used order.
 ///
-/// Existe porque las tres operaciones más llamadas son también las que más se
-/// repiten idénticas: un autocompletado reenvía la misma consulta cuando el
-/// usuario borra una letra y la vuelve a escribir; abrir y cerrar una ficha
-/// pide la misma ruta dos veces. Cada repetición es una petición facturada.
+/// It exists because the three most-called operations are also the ones most
+/// often repeated verbatim: an autocomplete resends the same query when the
+/// user deletes a letter and types it again; opening and closing a detail
+/// card requests the same route twice. Every repetition is a billed request.
 ///
-/// Aprovecha que un `Map` de Dart conserva el orden de inserción: leer una
-/// clave la reinserta al final, así que la primera clave del mapa es siempre
-/// la menos usada recientemente.
+/// It relies on a Dart `Map` keeping insertion order: reading a key
+/// reinserts it at the end, so the first key in the map is always the least
+/// recently used.
 class LruCache<K, V> {
-  /// Crea una caché de hasta [capacity] entradas, cada una válida [ttl].
+  /// Creates a cache of up to [capacity] entries, each one valid for [ttl].
   LruCache(this.capacity, {this.ttl}) {
     if (capacity <= 0) {
       throw ArgumentError.value(capacity, 'capacity', 'debe ser positiva');
     }
   }
 
-  /// Número máximo de entradas. Al llegar, se descarta la menos usada.
+  /// Maximum number of entries. Once reached, the least used one is dropped.
   final int capacity;
 
-  /// Cuánto vive una entrada. `null` significa que no caduca.
+  /// How long an entry lives. `null` means it never expires.
   final Duration? ttl;
 
   final LinkedHashMap<K, _CacheEntry<V>> _entries =
       LinkedHashMap<K, _CacheEntry<V>>();
 
-  /// El valor de [key], o `null` si no está o ya caducó.
+  /// The value for [key], or `null` if it is missing or has expired.
   V? get(K key) {
     final entry = _entries.remove(key);
     if (entry == null) return null;
     if (entry.expiresAt != null && DateTime.now().isAfter(entry.expiresAt!)) {
       return null;
     }
-    _entries[key] = entry; // promoción: vuelve al final
+    _entries[key] = entry; // promotion: back to the end
     return entry.value;
   }
 
-  /// Guarda [value] bajo [key], descartando la entrada más antigua si hace
-  /// falta.
+  /// Stores [value] under [key], dropping the oldest entry if needed.
   void set(K key, V value) {
     _entries.remove(key);
     if (_entries.length >= capacity) {
@@ -53,17 +52,17 @@ class LruCache<K, V> {
     );
   }
 
-  /// Olvida la entrada de [key], si existía.
+  /// Forgets the entry for [key], if there was one.
   void invalidate(K key) => _entries.remove(key);
 
-  /// Vacía la caché. Se hace al cambiar de idioma o de sesión: los resultados
-  /// guardados están en el idioma anterior.
+  /// Empties the cache. Done when the language or the session changes: the
+  /// stored results are in the previous language.
   void clear() => _entries.clear();
 
-  /// Cuántas entradas hay guardadas, caducadas incluidas.
+  /// How many entries are stored, expired ones included.
   int get length => _entries.length;
 
-  /// ¿Está vacía?
+  /// Is it empty?
   bool get isEmpty => _entries.isEmpty;
 }
 

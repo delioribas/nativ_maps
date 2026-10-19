@@ -121,8 +121,10 @@ class _RutasDemoState extends State<RutasDemo> {
         // Sin pedir `tolls` explícitamente, los peajes no vienen. Y `summary`
         // hace falta para que `Summary.Overview` traiga distancia y duración
         // por tramo — sin él, salen a cero.
-        legAdditionalFeatures: const <RouteFeature>[
-          RouteFeature.tolls,
+        // A pie no hay peajes: pedirlos es un 400, y el paquete lo corta
+        // antes de enviar.
+        legAdditionalFeatures: <RouteFeature>[
+          if (_modo != TravelMode.pedestrian) RouteFeature.tolls,
           RouteFeature.summary,
           RouteFeature.typicalDuration,
         ],

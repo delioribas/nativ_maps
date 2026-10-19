@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. MIT licence — see LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -51,6 +51,7 @@ class _Plane {
 /// This is what [nearestPointOnPath] returns, and the piece that route
 /// progress, off-route detection and history trimming all rest on.
 @immutable
+@experimental
 class PathMatch {
   /// Creates a match.
   const PathMatch({
@@ -95,6 +96,7 @@ class PathMatch {
 /// The total length of a path, in metres.
 ///
 /// Returns `0` for a path of fewer than two points.
+@experimental
 double pathLength(List<LatLng> path) {
   if (path.length < 2) return 0;
   var total = 0.0;
@@ -109,6 +111,7 @@ double pathLength(List<LatLng> path) {
 /// The result has the same length as [path] and starts at `0`. It is worth
 /// computing once and keeping when progress will be queried many times over
 /// the same route.
+@experimental
 List<double> cumulativeDistances(List<LatLng> path) {
   final cumulative = List<double>.filled(path.length, 0);
   for (var i = 1; i < path.length; i++) {
@@ -124,6 +127,7 @@ List<double> cumulativeDistances(List<LatLng> path) {
 /// clamp, a point well before the start of a segment would report a small
 /// distance for being aligned with its extension — geometrically true and
 /// operationally absurd.
+@experimental
 double crossTrackMeters(LatLng point, LatLng start, LatLng end) {
   final plane = _Plane(start);
   final (px, py) = plane.project(point);
@@ -151,6 +155,7 @@ double crossTrackMeters(LatLng point, LatLng start, LatLng end) {
 /// distance is large; `RouteTracker` does that on its own.
 ///
 /// Throws [ArgumentError] if the path has fewer than two points.
+@experimental
 PathMatch nearestPointOnPath(
   List<LatLng> path,
   LatLng point, {
@@ -221,6 +226,7 @@ PathMatch nearestPointOnPath(
 ///
 /// Clamped at both ends: asking for a negative distance returns the first
 /// point, and asking for more than the total length returns the last.
+@experimental
 LatLng interpolateOnPath(
   List<LatLng> path,
   double alongMeters, {
@@ -272,6 +278,7 @@ LatLng interpolateOnPath(
 /// **Do not use this before computing the trip distance.** Trimming removes
 /// precisely the points of gentle curves, and the sum of distances over the
 /// trimmed path always comes out smaller. Measure first, then trim to store.
+@experimental
 List<LatLng> simplifyPath(
   List<LatLng> path, {
   required double toleranceMeters,

@@ -1,17 +1,17 @@
 # nativ_maps_flutter
 
-**Amazon Location Service con la forma de Google Maps.**
+**Amazon Location Service, shaped like Google Maps.**
 
-Un widget de mapa sobre MapLibre con marcadores, polilíneas, polígonos,
-círculos, **clústeres nativos**, **mapas de calor** y **regiones sin conexión**,
-más las **44 operaciones** de Places, Routes, Maps, geovallas y rastreo.
+A MapLibre map widget with markers, polylines, polygons, circles,
+**native clustering**, **heatmaps** and **offline regions**, plus the
+**44 operations** of Places, Routes, Maps, geofencing and device tracking.
 
 ```dart
 import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
 
 final maps = NativMaps(
   region: 'us-east-1',
-  credentials: const ApiKeyCredentials('tu-clave'),
+  credentials: const ApiKeyCredentials('your-key'),
 );
 
 NativMap(
@@ -20,60 +20,61 @@ NativMap(
     target: LatLng(-0.1807, -78.4678),
     zoom: 13,
   ),
-  onMapCreated: (controlador) => _controlador = controlador,
+  onMapCreated: (controller) => _controller = controller,
 );
 ```
 
-**Instalando solo este paquete ya tienes las 44 operaciones**: reexporta el
-núcleo entero.
+**Installing just this package already gets you all 44 operations**: it
+re-exports the entire core.
 
-## La tesis
+## The thesis
 
-El `LatLng` que devuelve una búsqueda es el que acepta un marcador:
+The `LatLng` a search returns is the one a marker accepts:
 
 ```dart
-final ruta = (await maps.routes.calculateRoutes(
-  origin: aqui, destination: alli,
+final route = (await maps.routes.calculateRoutes(
+  origin: here, destination: there,
 )).best!;
 
-// Sin convertir nada.
-await controlador.addPolyline(
-  Polyline(polylineId: const PolylineId('ruta'), points: ruta.points),
+// No conversion at all.
+await controller.addPolyline(
+  Polyline(polylineId: const PolylineId('route'), points: route.points),
 );
 ```
 
-> Si sabes usar `google_maps_flutter`, ya sabes usar la mitad de esto sin leer
-> nada. Y la otra mitad es lo que Google no te daba.
+> If you know how to use `google_maps_flutter`, you already know how to use
+> half of this without reading anything. And the other half is what Google
+> didn't give you.
 
-## Lo que Google no te daba
+## What Google didn't give you
 
-| | `google_maps_flutter` | Aquí |
+| | `google_maps_flutter` | Here |
 |---|---|---|
-| **Isócronas** | no existe | `calculateIsolines` |
-| **Pegado a carretera** | no existe | `snapToRoads` |
-| **Coste de peajes** | no existe | `Toll` |
-| **Mapas sin conexión** | **prohibido por sus condiciones** | `controller.offline` |
-| Búsqueda y geocodificación | otra API, otra clave | mismo cliente |
-| Clústeres | clase gestora en Dart | **nativo, en el motor** |
-| Mapa de calor | tipo cerrado | **capa nativa** |
-| Modo oscuro | filtro sobre teselas | **lo renderiza el servidor** |
+| **Isochrones** | doesn't exist | `calculateIsolines` |
+| **Snap to roads** | doesn't exist | `snapToRoads` |
+| **Toll costs** | doesn't exist | `Toll` |
+| **Offline maps** | **forbidden by its terms** | `controller.offline` |
+| Search and geocoding | another API, another key | same client |
+| Clustering | manager class in Dart | **native, in the engine** |
+| Heatmap | closed type | **native layer** |
+| Dark mode | filter over the tiles | **rendered by the server** |
 
-## ⚠️ Requisitos de Android
+## ⚠️ Android requirements
 
-- **AGP 8.x**, no 9.x — `maplibre_gl` 0.27.0 aún no es compatible con AGP 9
-- **JDK 21** — `flutter config --jdk-dir="/ruta/al/jdk-21"`
+- **AGP 8.x**, not 9.x — `maplibre_gl` 0.27.0 is not yet compatible with AGP 9
+- **JDK 21** — `flutter config --jdk-dir="/path/to/jdk-21"`
 
-Los detalles están en «Limitaciones conocidas» del
-[README del repositorio](https://github.com/delioribas/nativ_maps#limitaciones-conocidas).
+The details are under "Known limitations" in the
+[repository README](https://github.com/delioribas/nativ_maps#limitaciones-conocidas).
 
-## Documentación
+## Documentation
 
-- [Recetas](https://github.com/delioribas/nativ_maps/blob/main/doc/RECETAS.md) — 40 ejemplos copiables
-- [Migrar desde google_maps_flutter](https://github.com/delioribas/nativ_maps/blob/main/doc/MIGRACION.md)
-- [Para agentes de IA](https://github.com/delioribas/nativ_maps/blob/main/AGENTS.md)
-- [Cobertura](https://github.com/delioribas/nativ_maps/blob/main/doc/COBERTURA.md)
+- [Recipes](https://github.com/delioribas/nativ_maps/blob/main/doc/RECETAS.md) — 40 copy-paste examples
+- [Migrating from google_maps_flutter](https://github.com/delioribas/nativ_maps/blob/main/doc/MIGRACION.md)
+- [For AI agents](https://github.com/delioribas/nativ_maps/blob/main/AGENTS.md)
+- [Coverage](https://github.com/delioribas/nativ_maps/blob/main/doc/COBERTURA.md)
 
-## Licencia
+## License
 
-MIT. Los datos de mapas son de Amazon Location Service y sus proveedores; **la
-atribución es obligatoria y visible**.
+MIT. The map data belongs to Amazon Location Service and its providers;
+**attribution is mandatory and must be visible**.

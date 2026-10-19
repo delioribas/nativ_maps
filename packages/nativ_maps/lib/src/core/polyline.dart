@@ -1,51 +1,52 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// Alfabeto del formato **Flexible Polyline de HERE**.
+/// Alphabet of **HERE's Flexible Polyline** format.
 ///
-/// **No es el de Google.** Google codifica con `carácter − 63`; HERE usa este
-/// base64 propio, donde `A` vale 0 y `_` vale 63. Aplicar el esquema de Google
-/// a una cadena de HERE devuelve números distintos desde el primer carácter, y
-/// el resultado no falla: dibuja una línea en otro sitio.
+/// **It is not Google's.** Google encodes with `character − 63`; HERE uses
+/// this base64 of its own, where `A` is 0 and `_` is 63. Applying Google's
+/// scheme to a HERE string gives different numbers from the first character,
+/// and the result does not fail: it draws a line somewhere else.
 const String _flexibleAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-/// Tabla inversa del alfabeto, construida una sola vez.
+/// Reverse lookup table for the alphabet, built only once.
 final Map<int, int> _flexibleValues = <int, int>{
   for (var i = 0; i < _flexibleAlphabet.length; i++)
     _flexibleAlphabet.codeUnitAt(i): i,
 };
 
-/// Decodifica el formato **Flexible Polyline de HERE**, que es el que devuelve
-/// Amazon Location v2 cuando se pide `GeometryFormat.flexiblePolyline`.
+/// Decodes **HERE's Flexible Polyline** format, which is what Amazon Location
+/// v2 returns when you ask for `GeometryFormat.flexiblePolyline`.
 ///
-/// ## Los dos errores que este código evita
+/// ## The two bugs this code avoids
 ///
-/// Este decodificador nació corrigiendo dos fallos que se tapaban entre sí.
-/// Quedan documentados porque los dos son fáciles de reintroducir:
+/// This decoder was born fixing two bugs that masked each other. They stay
+/// documented because both are easy to reintroduce:
 ///
-/// **1 · El alfabeto.** Hacer `codeUnitAt(i) - 63` es el esquema de las
-/// polilíneas de Google. HERE usa [_flexibleAlphabet]. Con la cadena de
-/// referencia `BFoz5xJ67i1B1B7PzIhaxL7Y`, la `B` inicial vale 1 con la tabla
-/// correcta y 3 con la de Google.
+/// **1 · The alphabet.** Doing `codeUnitAt(i) - 63` is the Google polyline
+/// scheme. HERE uses [_flexibleAlphabet]. With the reference string
+/// `BFoz5xJ67i1B1B7PzIhaxL7Y`, the leading `B` is 1 with the right table and
+/// 3 with Google's.
 ///
-/// **2 · La cabecera son dos enteros, no uno:**
+/// **2 · The header is two integers, not one:**
 ///
 /// ```text
-/// [versión] [contenido de cabecera] [datos…]
+/// [version] [header content] [data…]
 /// ```
 ///
-/// Leer solo el primero y tomarlo por el contenido hace que la precisión salga
-/// `1 & 0x0F = 1` —dividir entre 10 en lugar de entre 100 000— y una ruta de
-/// Quito aparece en mitad del Pacífico.
+/// Reading only the first one and taking it as the content makes the
+/// precision come out as `1 & 0x0F = 1` —dividing by 10 instead of by
+/// 100,000— and a route in Quito shows up in the middle of the Pacific.
 ///
-/// Lanza [FormatException] si la cadena trae un carácter fuera del alfabeto o
-/// una versión que no es la 1. Prefiere fallar a devolver una línea inventada.
+/// Throws [FormatException] if the string contains a character outside the
+/// alphabet or a version other than 1. It prefers failing to returning a
+/// made-up line.
 ///
-/// Referencia: https://github.com/heremaps/flexible-polyline
+/// Reference: https://github.com/heremaps/flexible-polyline
 List<LatLng> decodeFlexiblePolyline(String encoded) {
   if (encoded.isEmpty) return const <LatLng>[];
 
@@ -75,9 +76,9 @@ List<LatLng> decodeFlexiblePolyline(String encoded) {
     return (unsigned & 1) != 0 ? ~(unsigned >> 1) : unsigned >> 1;
   }
 
-  // La versión se lee y se descarta: solo existe la 1, pero hay que consumirla
-  // para que el siguiente entero sea la cabecera de verdad. Este es el paso
-  // que faltaba.
+  // The version is read and discarded: only version 1 exists, but it has to
+  // be consumed so that the next integer is the real header. This is the step
+  // that was missing.
   final version = readUnsigned();
   if (version != 1) {
     throw FormatException(
@@ -89,7 +90,7 @@ List<LatLng> decodeFlexiblePolyline(String encoded) {
 
   final header = readUnsigned();
   final precision = header & 0x0F;
-  final thirdDimension = (header >> 4) & 0x07; // 0 = solo lat/lon
+  final thirdDimension = (header >> 4) & 0x07; // 0 = lat/lon only
   final scale = math.pow(10, precision).toDouble();
 
   var lat = 0;
@@ -100,24 +101,24 @@ List<LatLng> decodeFlexiblePolyline(String encoded) {
     lat += readSigned();
     if (index >= encoded.length) break;
     lng += readSigned();
-    // El tercer eje (altitud, nivel…) se consume para no desalinear la
-    // secuencia, pero no se guarda: LatLng es plano.
+    // The third axis (altitude, level…) is consumed so the sequence does not
+    // fall out of alignment, but it is not kept: LatLng is flat.
     if (thirdDimension != 0 && index < encoded.length) readSigned();
     points.add(LatLng(lat / scale, lng / scale));
   }
   return points;
 }
 
-/// Codifica una lista de puntos en el formato **Flexible Polyline de HERE**.
+/// Encodes a list of points in **HERE's Flexible Polyline** format.
 ///
-/// Es la operación inversa de [decodeFlexiblePolyline]. Existe sobre todo para
-/// poder probar el decodificador contra sí mismo con puntos generados, y para
-/// guardar un rastro comprimido en la base de datos propia: una ruta de mil
-/// puntos ocupa alrededor de una décima parte que su JSON.
+/// It is the inverse of [decodeFlexiblePolyline]. It exists mainly to test
+/// the decoder against itself with generated points, and to store a
+/// compressed track in your own database: a thousand-point route takes up
+/// about a tenth of its JSON.
 ///
-/// [precision] son los decimales que se conservan. Cinco es el valor que usa
-/// Amazon Location y da algo más de un metro de resolución; siete llega al
-/// centímetro y ocupa cerca de un 40 % más.
+/// [precision] is the number of decimals kept. Five is the value Amazon
+/// Location uses and gives a little over one meter of resolution; seven
+/// reaches the centimeter and takes up about 40 % more.
 String encodeFlexiblePolyline(Iterable<LatLng> points, {int precision = 5}) {
   if (precision < 0 || precision > 15) {
     throw ArgumentError.value(precision, 'precision', 'debe estar en [0, 15]');
@@ -138,8 +139,8 @@ String encodeFlexiblePolyline(Iterable<LatLng> points, {int precision = 5}) {
   void writeSigned(int value) =>
       writeUnsigned(value < 0 ? ~(value << 1) : value << 1);
 
-  writeUnsigned(1); // versión
-  writeUnsigned(precision); // cabecera: sin tercer eje
+  writeUnsigned(1); // version
+  writeUnsigned(precision); // header: no third axis
 
   var lastLat = 0;
   var lastLng = 0;
@@ -154,13 +155,13 @@ String encodeFlexiblePolyline(Iterable<LatLng> points, {int precision = 5}) {
   return buffer.toString();
 }
 
-/// Decodifica el formato de **polilínea codificada de Google**.
+/// Decodes **Google's encoded polyline** format.
 ///
-/// Amazon Location no lo devuelve nunca. Está aquí porque los proyectos que
-/// migran desde `google_maps_flutter` suelen tener rastros ya guardados en
-/// este formato, y sin esto habría que mantener dos decodificadores en la app.
+/// Amazon Location never returns it. It is here because projects migrating
+/// from `google_maps_flutter` often have tracks already stored in this format,
+/// and without it the app would have to maintain two decoders.
 ///
-/// Lanza [FormatException] ante un carácter fuera de rango.
+/// Throws [FormatException] on an out-of-range character.
 List<LatLng> decodeGooglePolyline(String encoded, {int precision = 5}) {
   if (encoded.isEmpty) return const <LatLng>[];
 

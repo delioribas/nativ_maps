@@ -1,20 +1,20 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
-// Solo se usan anotaciones aquí, y vienen de `meta`. Importar
-// `package:flutter/foundation.dart` sobraría en Flutter 3.32 y `meta`
-// sobraría en 3.44+; se elige `meta`, que funciona en las dos.
+// Only annotations are used here, and they come from `meta`. Importing
+// `package:flutter/foundation.dart` would be redundant on Flutter 3.32 and
+// `meta` would be redundant on 3.44+; `meta` is chosen, since it works on both.
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/nativ_maps.dart';
 
-/// Dónde está la cámara del mapa.
+/// Where the map camera is.
 ///
-/// Mismo nombre y mismos campos que en `google_maps_flutter`, con una
-/// diferencia de vocabulario que conviene conocer: lo que Google llama [tilt],
-/// MapLibre lo llama *pitch*. Aquí se llama `tilt` porque el objetivo es que
-/// el código que viene de Google compile sin tocarlo.
+/// Same name and same fields as in `google_maps_flutter`, with one difference
+/// in vocabulary worth knowing: what Google calls [tilt], MapLibre calls
+/// *pitch*. Here it's called `tilt` because the goal is for code coming from
+/// Google to compile without touching it.
 @immutable
 class CameraPosition {
-  /// Crea la posición de cámara.
+  /// Creates the camera position.
   const CameraPosition({
     required this.target,
     this.zoom = 0.0,
@@ -22,19 +22,19 @@ class CameraPosition {
     this.tilt = 0.0,
   });
 
-  /// El punto que queda en el centro de la pantalla.
+  /// The point that sits at the center of the screen.
   final LatLng target;
 
-  /// El nivel de acercamiento. 0 es el mundo entero; 20, un portal.
+  /// The zoom level. 0 is the whole world; 20, a doorway.
   final double zoom;
 
-  /// Hacia dónde apunta el norte, en grados en el sentido de las agujas.
+  /// Where north points, in degrees clockwise.
   final double bearing;
 
-  /// La inclinación en grados. 0 es cenital; 60, casi a ras.
+  /// The tilt in degrees. 0 is straight down; 60, almost at ground level.
   final double tilt;
 
-  /// Copia con algún campo cambiado.
+  /// A copy with some fields changed.
   CameraPosition copyWith({
     LatLng? target,
     double? zoom,
@@ -64,7 +64,7 @@ class CameraPosition {
       'CameraPosition($target, zoom: $zoom, bearing: $bearing, tilt: $tilt)';
 }
 
-/// Qué clase de movimiento de cámara es.
+/// What kind of camera move it is.
 enum _CameraUpdateKind {
   newCameraPosition,
   newLatLng,
@@ -79,18 +79,19 @@ enum _CameraUpdateKind {
   tiltTo,
 }
 
-/// Una orden de movimiento de cámara.
+/// A camera move command.
 ///
-/// Las **nueve fábricas de `google_maps_flutter` están todas**, con el mismo
-/// nombre y la misma firma, más `bearingTo` y `tiltTo`, que Google no tiene.
+/// **All nine `google_maps_flutter` factories are here**, with the same name
+/// and the same signature, plus `bearingTo` and `tiltTo`, which Google doesn't
+/// have.
 ///
 /// ```dart
-/// controller.animateCamera(CameraUpdate.newLatLngZoom(posicion, 16));
-/// controller.moveCamera(CameraUpdate.newLatLngBounds(ruta.bounds!, 48));
+/// controller.animateCamera(CameraUpdate.newLatLngZoom(position, 16));
+/// controller.moveCamera(CameraUpdate.newLatLngBounds(route.bounds!, 48));
 /// ```
 ///
-/// Es un valor inerte: describir un movimiento no lo ejecuta y no toca el
-/// mapa. Lo aplica el controlador.
+/// It's an inert value: describing a move doesn't execute it and doesn't
+/// touch the map. The controller applies it.
 @immutable
 class CameraUpdate {
   const CameraUpdate._(
@@ -106,19 +107,19 @@ class CameraUpdate {
     this.tilt,
   });
 
-  /// Lleva la cámara a una posición completa.
+  /// Takes the camera to a complete position.
   factory CameraUpdate.newCameraPosition(CameraPosition position) =>
       CameraUpdate._(_CameraUpdateKind.newCameraPosition, position: position);
 
-  /// Centra en un punto, conservando el zoom.
+  /// Centers on a point, keeping the zoom.
   factory CameraUpdate.newLatLng(LatLng target) =>
       CameraUpdate._(_CameraUpdateKind.newLatLng, target: target);
 
-  /// Encuadra un rectángulo con [padding] píxeles de margen.
+  /// Frames a rectangle with [padding] pixels of margin.
   ///
-  /// Es la fábrica que conviene usar para enseñar una ruta entera o todos los
-  /// vehículos a la vez: elegir el zoom a mano da encuadres que se salen por
-  /// los bordes en unas pantallas y sobran en otras.
+  /// It's the factory to use for showing a whole route or every vehicle at
+  /// once: picking the zoom by hand gives framings that spill over the edges
+  /// on some screens and leave room to spare on others.
   factory CameraUpdate.newLatLngBounds(
     LatLngBounds bounds, [
     double padding = 32,
@@ -128,7 +129,7 @@ class CameraUpdate {
     padding: padding,
   );
 
-  /// Centra en un punto con un zoom concreto.
+  /// Centers on a point with a specific zoom.
   factory CameraUpdate.newLatLngZoom(LatLng target, double zoom) =>
       CameraUpdate._(
         _CameraUpdateKind.newLatLngZoom,
@@ -136,71 +137,71 @@ class CameraUpdate {
         zoom: zoom,
       );
 
-  /// Desplaza la vista [dx] y [dy] píxeles.
+  /// Scrolls the view by [dx] and [dy] pixels.
   factory CameraUpdate.scrollBy(double dx, double dy) =>
       CameraUpdate._(_CameraUpdateKind.scrollBy, dx: dx, dy: dy);
 
-  /// Cambia el zoom en [amount] niveles, opcionalmente alrededor de [focus].
+  /// Changes the zoom by [amount] levels, optionally around [focus].
   factory CameraUpdate.zoomBy(double amount, [LatLng? focus]) =>
       CameraUpdate._(_CameraUpdateKind.zoomBy, zoom: amount, target: focus);
 
-  /// Acerca un nivel.
+  /// Zooms in one level.
   factory CameraUpdate.zoomIn() =>
       const CameraUpdate._(_CameraUpdateKind.zoomIn);
 
-  /// Aleja un nivel.
+  /// Zooms out one level.
   factory CameraUpdate.zoomOut() =>
       const CameraUpdate._(_CameraUpdateKind.zoomOut);
 
-  /// Fija el zoom a un valor absoluto.
+  /// Sets the zoom to an absolute value.
   factory CameraUpdate.zoomTo(double zoom) =>
       CameraUpdate._(_CameraUpdateKind.zoomTo, zoom: zoom);
 
-  /// Gira el mapa hasta el rumbo indicado.
+  /// Rotates the map to the given bearing.
   ///
-  /// No existe en `google_maps_flutter`, donde hay que reconstruir una
-  /// `CameraPosition` entera solo para girar.
+  /// It doesn't exist in `google_maps_flutter`, where you have to rebuild a
+  /// whole `CameraPosition` just to rotate.
   factory CameraUpdate.bearingTo(double bearing) =>
       CameraUpdate._(_CameraUpdateKind.bearingTo, bearing: bearing);
 
-  /// Inclina el mapa hasta el ángulo indicado.
+  /// Tilts the map to the given angle.
   factory CameraUpdate.tiltTo(double tilt) =>
       CameraUpdate._(_CameraUpdateKind.tiltTo, tilt: tilt);
 
   final _CameraUpdateKind _kind;
 
-  /// La posición completa, en [CameraUpdate.newCameraPosition].
+  /// The complete position, in [CameraUpdate.newCameraPosition].
   final CameraPosition? position;
 
-  /// El punto de destino, en las fábricas que centran.
+  /// The target point, in the factories that center.
   final LatLng? target;
 
-  /// El rectángulo, en [CameraUpdate.newLatLngBounds].
+  /// The rectangle, in [CameraUpdate.newLatLngBounds].
   final LatLngBounds? bounds;
 
-  /// El zoom, absoluto o relativo según la fábrica.
+  /// The zoom, absolute or relative depending on the factory.
   final double? zoom;
 
-  /// El margen en píxeles, en [CameraUpdate.newLatLngBounds].
+  /// The margin in pixels, in [CameraUpdate.newLatLngBounds].
   final double? padding;
 
-  /// Desplazamiento horizontal en píxeles.
+  /// Horizontal scroll in pixels.
   final double? dx;
 
-  /// Desplazamiento vertical en píxeles.
+  /// Vertical scroll in pixels.
   final double? dy;
 
-  /// El rumbo, en [CameraUpdate.bearingTo].
+  /// The bearing, in [CameraUpdate.bearingTo].
   final double? bearing;
 
-  /// La inclinación, en [CameraUpdate.tiltTo].
+  /// The tilt, in [CameraUpdate.tiltTo].
   final double? tilt;
 
-  /// Aplica este movimiento sobre [current] y devuelve la cámara resultante.
+  /// Applies this move to [current] and returns the resulting camera.
   ///
-  /// Los movimientos que necesitan saber el tamaño de la pantalla —encuadrar
-  /// un rectángulo, desplazar por píxeles— los resuelve el motor, no esto:
-  /// aquí devuelven `null` y el controlador toma el otro camino.
+  /// The moves that need to know the screen size —framing a rectangle,
+  /// scrolling by pixels— are resolved by the engine, not by this: here they
+  /// return `null` and the controller takes the other path.
   @internal
   CameraPosition? resolve(CameraPosition current) => switch (_kind) {
     _CameraUpdateKind.newCameraPosition => position,
@@ -218,15 +219,15 @@ class CameraUpdate {
     _CameraUpdateKind.zoomOut => current.copyWith(zoom: current.zoom - 1),
     _CameraUpdateKind.bearingTo => current.copyWith(bearing: bearing),
     _CameraUpdateKind.tiltTo => current.copyWith(tilt: tilt),
-    // Estos dos necesitan el tamaño del lienzo.
+    // These two need the canvas size.
     _CameraUpdateKind.newLatLngBounds || _CameraUpdateKind.scrollBy => null,
   };
 
-  /// ¿Es un encuadre de rectángulo?
+  /// Whether it's a rectangle framing.
   @internal
   bool get isBoundsFit => _kind == _CameraUpdateKind.newLatLngBounds;
 
-  /// ¿Es un desplazamiento por píxeles?
+  /// Whether it's a scroll by pixels.
   @internal
   bool get isScrollBy => _kind == _CameraUpdateKind.scrollBy;
 
@@ -234,24 +235,24 @@ class CameraUpdate {
   String toString() => 'CameraUpdate.${_kind.name}';
 }
 
-/// Cuánto se puede acercar y alejar el mapa.
+/// How far the map can be zoomed in and out.
 ///
-/// El mismo nombre que en `google_maps_flutter`.
+/// The same name as in `google_maps_flutter`.
 @immutable
 class MinMaxZoomPreference {
-  /// Crea la preferencia.
+  /// Creates the preference.
   const MinMaxZoomPreference(this.minZoom, this.maxZoom);
 
-  /// Sin límites: de 0 a 22.
+  /// No limits: from 0 to 22.
   static const MinMaxZoomPreference unbounded = MinMaxZoomPreference(
     null,
     null,
   );
 
-  /// El zoom mínimo, o `null` para no limitarlo.
+  /// The minimum zoom, or `null` to leave it unlimited.
   final double? minZoom;
 
-  /// El zoom máximo, o `null` para no limitarlo.
+  /// The maximum zoom, or `null` to leave it unlimited.
   final double? maxZoom;
 
   @override

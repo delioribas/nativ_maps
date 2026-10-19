@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # The only one on pub.dev. Brings the widget and all 44 operations.
-  nativ_maps_flutter: ^0.5.3
+  nativ_maps_flutter: ^0.9.0
 
   # The other two are NOT published: consume them via git, pinned to a TAG and
   # never to a branch. Add them only if you need them.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.5.3
+      ref: v0.9.0
   nativ_maps_google:     # ONLY if you are migrating from google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.5.3
+      ref: v0.9.0
 ```
 
 ```dart
@@ -40,7 +40,7 @@ falta y duplica los símbolos.
 
 ---
 
-## 1 · Las quince reglas duras
+## 1 · Las reglas duras
 
 Si solo lees una sección, que sea esta. Cada regla existe porque romperla
 produce un fallo **silencioso**.
@@ -62,6 +62,9 @@ produce un fallo **silencioso**.
 | 13 | `batchEvaluateGeofences` **devuelve vacío a propósito** | Los eventos salen por **EventBridge**, no por la respuesta. Para saberlo ahora, `GeofenceGeometry.contains` (local, gratis) |
 | 14 | Mira `BatchResult.errors` siempre | Estas operaciones responden 200 aunque falle la mitad |
 | 15 | En rastreo, `sampleTime` es **la hora del GPS** | La de envío desordena el histórico y engaña al filtrado del rastreador |
+| 16 | Cada operación de lugares admite **su** subconjunto de `PlaceFeature` | Fuera de su fila, `400`. La tabla, medida contra AWS, está en la documentación de `PlaceFeature`: `contact` no vale en `autocomplete`, `core` no vale en `searchText` |
+| 17 | Las instrucciones escritas exigen `TravelStepType.standard` | Con `turnByTurn` —el valor por defecto— y `RouteFeature.travelStepInstructions`, AWS responde `400`; el paquete lo corta antes de enviar |
+| 18 | A pie no hay peajes | `RouteFeature.tolls` con `TravelMode.pedestrian` lanza `ArgumentError` antes de enviar; AWS respondería `400` |
 
 ---
 
@@ -255,7 +258,7 @@ String? styleDescriptorUrl(          // returns null if there are no credentials
 
 ({String? light, String? dark}) dayNightStyleUrls(MapStyle style, {...});
 
-Future<AlsBytes> staticMap({         // the image bytes (JPEG)
+Future<AlsBytes> staticMap({         // the image bytes (PNG; see .contentType)
   LatLng? center, double? zoom,      // center+(zoom XOR radiusMeters) XOR
   LatLngBounds? boundingBox,         // boundingBox XOR boundedPositions
   List<LatLng> boundedPositions = const [],
@@ -411,6 +414,11 @@ Future<TrackingPage<String>> listConsumers({required String trackerName,
 **Dart puro. Ninguna de estas llamadas usa la red ni gasta unidades**, salvo
 `DispatchPlanner.rank`, que sí llama a la matriz.
 
+⚠️ **Toda esta capa es `@experimental`**: queda **fuera de la promesa de
+estabilidad de la 1.0** y puede cambiar en una versión menor. Nadie ha cobrado
+todavía carreras reales con ella; cuando se haya calibrado con uso de verdad,
+se congelará.
+
 ```dart
 // ── GPS reading: the input type for the whole layer
 PositionFix({
@@ -552,16 +560,6 @@ int breakEvenFare({...the same four...})   // what to counter-offer
 // BidEvaluation: .net .netPerHour .worthIt .drivingCost .commission
 //                .deadheadShare .engagedDuration
 
-// ── Suggested fare for the passenger
-FareAdvisor({required Tariff tariff, double minimumRatio = 0.80,
-             double maximumRatio = 1.40, double midpointRatio = 0.95,
-             double steepness = 9.0})
-FareSuggestion suggest({required double distanceMeters,
-  required Duration duration, DateTime? departure,
-  double demandFactor = 1.0, int tolls = 0})
-double acceptanceProbability({required int offered, required int reference,
-                              double demandFactor = 1.0})
-
 // ── Suggested price (bidding model, inDrive-style)
 MarketConditions({
   int availableDrivers = 0,
@@ -675,7 +673,8 @@ Future<Offset> getScreenCoordinate(LatLng latLng);   // Flutter LOGICAL pixels,
 Future<LatLng> getLatLng(Offset screenCoordinate);   // on Android AND iOS
 Future<double> getMetersPerPixel(double latitude);
 
-// Markers
+// Markers. Marker(draggable: true, onDragStart:, onDrag:, onDragEnd:) drags
+// with the finger instead of panning; the controller keeps the new position.
 Future<void> addMarker(Marker m);
 Future<void> addMarkers(Iterable<Marker> ms);   // USE THIS for more than a handful
 Future<void> updateMarker(Marker m);
@@ -684,8 +683,11 @@ Future<void> setMarkers(Iterable<Marker> ms);   // leaves EXACTLY that set
 Future<void> clearMarkers();
 List<Marker> get markers;
 
-// Same for polylines / polygons / circles:
+// Same for polylines / polygons / circles / ground overlays / tile overlays:
 //   addX · removeX(XId) · setXs(Iterable) · clearXs · get xs
+// Ground and tile overlays are drawn UNDER the package's areas, lines and
+// markers. GroundOverlay.imageUrl takes https or data:. AWS's own tiles are
+// 512 px: TileOverlay(tileSize: 512).
 
 // What Google doesn't have
 Future<void> addHeatmap(Heatmap h);
@@ -717,7 +719,9 @@ NativMap(
   onClusterTap: (Cluster c) {},         // without it, tapping a cluster expands it
   onPolylineTap: (Polyline p) {},
   onCameraMove: (CameraPosition p) {},  // debounced at 60 ms
-  onCameraIdle: () {},                  // ← FETCH DATA HERE, not in onCameraMove
+  onCameraIdle: () {},                  // ← FETCH DATA HERE, not in onCameraMove.
+                                        //   Fires once for the initial camera,
+                                        //   then once per new resting place
   myLocationEnabled: false,
   myLocationTracking: MyLocationTracking.none,
   compassEnabled: true,
@@ -748,6 +752,7 @@ NativMap(
 | `GoogleMapController` | `NativMapController` | — |
 | `MapType.terrain` | `MapStyle.standard` + `terrain:` | Aquí el relieve es un parámetro, no un estilo cerrado |
 | `setMapStyle(json)` (Google JSON) | `setGoogleMapStyle(json)` en `nativ_maps_google` | Traducción **aproximada**, con informe |
+| El aspecto por defecto de Google | `applyGoogleLook()` en `nativ_maps_google`, dentro de `onStyleLoaded` | Paleta medida en la app de Google. Solo `MapStyle.standard` claro; tipografía, iconos y datos siguen siendo de AWS |
 | `tilt` | `tilt` (MapLibre lo llama *pitch*) | Se mantiene el nombre de Google |
 
 **Con `nativ_maps_google` importado, `animateCamera`, `moveCamera`,
@@ -1119,17 +1124,6 @@ final total = recorder.finish().distanceMeters;
 final toStore = simplifyPath(trip.track, toleranceMeters: 5);
 ```
 
-### Enseñar `acceptanceProbability` como si fuera un dato
-
-```dart
-// ❌ "87 % probability" with two decimals: nobody ever questions it again.
-Text('${(p * 100).toStringAsFixed(1)}% acceptance');
-
-// ✅ It is a tunable curve, not a measurement. Show it as qualitative
-//    guidance until you calibrate it with your own history.
-Text(p > 0.6 ? 'Good price' : 'Nobody may answer');
-```
-
 ### Enseñar la probabilidad de aceptación cuando es una estimación
 
 ```dart
@@ -1190,8 +1184,9 @@ PlaceType       .country .region .subRegion .locality .district .subDistrict
 PlaceFeature    .core .contact .timeZone .access .phonemes
                 .secondaryAddresses .intersections
 RouteFeature    .elevation .incidents .passThroughWaypoints .summary
-                .tollSystems .tolls .travelStepInstructions .truckRoadTypes
-                .typicalDuration .zones
+                .tolls .travelStepInstructions .truckRoadTypes
+                .typicalDuration .zones          // NOT .tollSystems: AWS rejects it
+TravelStepType  .turnByTurn .standard            // instructions need .standard
 MapTraffic      .all .congestion
 MapTerrain      .hillshade .terrain3d
 MapBuildings    .buildings3d
@@ -1209,7 +1204,7 @@ JointType       .mitered .round .bevel
 
 ## 8 · Antes de dar por buena la integración
 
-1. `dart run melos run verify` en la raíz → formato, análisis y las 399 pruebas.
+1. `dart run melos run verify` en la raíz → formato, análisis y las 428 pruebas.
    Y `tool/test_floor.sh <bin de Flutter 3.32>`: el suelo, con cada paquete
    resuelto suelto, como lo ve quien lo instala.
 2. Android: AGP **8.x** (no 9.x) y **JDK 21**. Ver «Limitaciones conocidas» en

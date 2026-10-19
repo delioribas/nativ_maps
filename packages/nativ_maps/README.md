@@ -1,39 +1,39 @@
 # nativ_maps
 
-**Amazon Location Service v2 en Dart puro, con la forma de Google Maps.**
+**Amazon Location Service v2 in pure Dart, shaped like Google Maps.**
 
-Las **44 operaciones** —Places, Routes, Maps, geovallas y rastreo de
-dispositivos— detrás de un cliente tipado, con tope de gasto, reintentos y
-**sin ninguna dependencia de Flutter**.
+All **44 operations** —Places, Routes, Maps, geofencing and device
+tracking— behind a typed client, with a spending cap, retries and
+**no Flutter dependency at all**.
 
 ```dart
 import 'package:nativ_maps/nativ_maps.dart';
 
 final maps = NativMaps(
   region: 'us-east-1',
-  credentials: const ApiKeyCredentials('tu-clave'),
+  credentials: const ApiKeyCredentials('your-key'),
   language: 'es',
   budget: Budget(maxUnits: 500),
 );
 
-final lugares = await maps.places.searchText(queryText: 'gasolinera');
-final ruta = await maps.routes.calculateRoutes(
-  origin: aqui,
-  destination: lugares.places.first.position!,
+final results = await maps.places.searchText(queryText: 'gasolinera');
+final route = await maps.routes.calculateRoutes(
+  origin: here,
+  destination: results.places.first.position!,
 );
 ```
 
-## ¿Buscas el mapa?
+## Looking for the map?
 
-Este paquete **no dibuja**. El widget está en
-[`nativ_maps_flutter`](https://pub.dev/packages/nativ_maps_flutter), que
-reexporta todo esto: instalando solo ese ya tienes las cuarenta y cuatro
-más el mapa.
+This package **does not draw**. The widget lives in
+[`nativ_maps_flutter`](https://pub.dev/packages/nativ_maps_flutter), which
+re-exports all of this: installing just that one gets you all forty-four
+operations plus the map.
 
-Este vive aparte para poder **probarse sin emulador** y para servir en una
-herramienta de línea de órdenes o un servidor Dart.
+This one lives apart so it can be **tested without an emulator** and used in
+a command-line tool or a Dart server.
 
-## Las 44 operaciones
+## The 44 operations
 
 | Places · 7 | Routes · 5 | Maps · 5 |
 |---|---|---|
@@ -45,67 +45,68 @@ herramienta de línea de órdenes o un servidor Dart.
 | `searchNearby` | | |
 | `suggest` | | |
 
-Las dos en negrita **no existen en Google Maps**.
+The two in bold **do not exist in Google Maps**.
 
-| Geovallas · 12 | Rastreo de dispositivos · 15 |
+| Geofencing · 12 | Device tracking · 15 |
 |---|---|
 | `putGeofence` · `batchPutGeofence` | `batchUpdateDevicePosition` |
 | `getGeofence` · `listGeofences` | `getDevicePosition` |
 | `batchDeleteGeofence` | `batchGetDevicePosition` |
 | `batchEvaluateGeofences` | `getDevicePositionHistory` |
 | **`forecastGeofenceEvents`** | `listDevicePositions` |
-| 5 de gestión de colecciones | **`verifyDevicePosition`** |
-| | 9 de gestión y de enlace |
+| 5 for managing collections | **`verifyDevicePosition`** |
+| | 9 for management and linking |
 
-**`forecastGeofenceEvents`** avisa **antes** de que un dispositivo entre o salga
-de una zona. **`verifyDevicePosition`** detecta ubicaciones falseadas. Ninguna
-de las dos tiene equivalente en Google Maps.
+**`forecastGeofenceEvents`** warns **before** a device enters or leaves a
+zone. **`verifyDevicePosition`** detects spoofed locations. Neither has an
+equivalent in Google Maps.
 
-> ⚠️ Geovallas y rastreo son de la **generación anterior** de Amazon Location:
-> hay que crear un recurso y **no admiten clave de API** —hacen falta
-> credenciales SigV4—. El paquete lo comprueba **antes de enviar**, con un
-> mensaje que dice qué hacer, en vez de dejar que llegue como un `403`
-> idéntico a todos los demás.
+> ⚠️ Geofencing and tracking belong to the **previous generation** of Amazon
+> Location: you have to create a resource and they **do not accept an API
+> key** —SigV4 credentials are needed—. The package checks this **before
+> sending**, with a message that says what to do, instead of letting it
+> arrive as a `403` identical to every other one.
 
-## La capa de cálculo
+## The calculation layer
 
-Dart puro, **sin peticiones**: lo que hace falta encima del servicio para que
-una aplicación de taxi, de pujas o de rastreo funcione de verdad.
+Pure Dart, **no requests**: what you need on top of the service for a taxi,
+bidding or tracking app to actually work.
 
-| Clase | Qué resuelve |
+| Class | What it solves |
 |---|---|
-| `TripRecorder` | mide el viaje sin que el ruido del GPS lo infle |
-| `Tariff` | taxímetro con desglose auditable, franjas y espera |
-| `RouteTracker` | ETA por maniobra y desvío, sin llamadas |
-| `RideAuction` · `BidAdvisor` | subasta tipo inDrive y rentabilidad real |
-| `PriceAdvisor` | precio sugerido con el porqué de cada factor |
-| `TariffCalibration` | ajusta la tarifa a los precios de tu ciudad |
-| `DispatchPlanner` | el conductor más cercano en tiempo, no en línea recta |
-| `TelemetryAnalyzer` | acelerones, frenazos, curvas y excesos |
+| `TripRecorder` | measures the trip without GPS noise inflating it |
+| `Tariff` | taximeter with an auditable breakdown, time bands and waiting time |
+| `RouteTracker` | ETA per maneuver and off-route detection, no calls |
+| `RideAuction` · `BidAdvisor` | inDrive-style auction and real profitability |
+| `PriceAdvisor` | suggested price with the reason behind each factor |
+| `TariffCalibration` | fits the tariff to the prices in your city |
+| `DispatchPlanner` | the closest driver in time, not in a straight line |
+| `TelemetryAnalyzer` | harsh acceleration, harsh braking, cornering and speeding |
 
-Un coche parado con ±20 m de incertidumbre acumula **más de 5 km** por hora si
-se suman las distancias entre lecturas. `TripRecorder` acumula **menos de
-50 m**. Esa diferencia es lo que el pasajero acaba pagando.
+A parked car with ±20 m of uncertainty racks up **more than 5 km** per hour
+if you add up the distances between readings. `TripRecorder` racks up **less
+than 50 m**. That difference is what the passenger ends up paying.
 
-## Control de gasto
+## Spending control
 
-Amazon Location se factura **por petición**, y algunas cobran más de una:
+Amazon Location bills **per request**, and some requests cost more than one
+unit:
 
-| Operación | Lo que parece | Lo que cuesta |
+| Operation | What it looks like | What it costs |
 |---|---|---|
-| `calculateIsolines` con 5 umbrales | 1 petición | **5 unidades** |
-| `calculateRouteMatrix` de 10×10 | 1 petición | **100 unidades** |
+| `calculateIsolines` with 5 thresholds | 1 request | **5 units** |
+| `calculateRouteMatrix` of 10×10 | 1 request | **100 units** |
 
-`Budget` cuenta las unidades reales y corta antes de enviar. Los límites duros
-del servicio también se comprueban antes, con el cálculo hecho en el mensaje de
-error.
+`Budget` counts the real units and cuts off before sending. The service's
+hard limits are also checked beforehand, with the math spelled out in the
+error message.
 
-## Documentación
+## Documentation
 
-- [Recetas](https://github.com/delioribas/nativ_maps/blob/main/doc/RECETAS.md) — 40 ejemplos copiables
-- [Para agentes de IA](https://github.com/delioribas/nativ_maps/blob/main/AGENTS.md)
-- [Cobertura](https://github.com/delioribas/nativ_maps/blob/main/doc/COBERTURA.md)
+- [Recipes](https://github.com/delioribas/nativ_maps/blob/main/doc/RECETAS.md) — 40 copy-paste examples
+- [For AI agents](https://github.com/delioribas/nativ_maps/blob/main/AGENTS.md)
+- [Coverage](https://github.com/delioribas/nativ_maps/blob/main/doc/COBERTURA.md)
 
-## Licencia
+## License
 
 MIT

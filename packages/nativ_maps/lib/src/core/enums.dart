@@ -1,425 +1,435 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
-/// Los tres servicios de Amazon Location v2.
+/// The three Amazon Location v2 services.
 ///
-/// Existe por una razón muy concreta: **cada uno firma con un nombre
-/// distinto**. Equivocarse produce un `403` idéntico al de una clave inválida,
-/// y se pierde una tarde buscando en el sitio equivocado. Al ser un enum, el
-/// nombre no se puede escribir mal.
+/// It exists for one very specific reason: **each one signs with a different
+/// name**. Getting it wrong produces a `403` identical to that of an invalid
+/// key, and you lose an afternoon looking in the wrong place. Being an enum,
+/// the name cannot be misspelled.
 enum AlsService {
-  /// Búsqueda, geocodificación y fichas de lugar.
+  /// Search, geocoding and place details.
   places('geo-places', 'places'),
 
-  /// Rutas, matrices, isócronas, pegado a carretera y optimización.
+  /// Routes, matrices, isolines, snap to roads and optimization.
   routes('geo-routes', 'routes'),
 
-  /// Estilos, teselas y mapas estáticos.
+  /// Styles, tiles and static maps.
   maps('geo-maps', 'maps'),
 
-  /// Geovallas: evaluar posiciones contra zonas y predecir entradas y salidas.
+  /// Geofences: evaluating positions against zones and predicting entries and
+  /// exits.
   ///
-  /// **Firma con `geo`, no con `geo-geofencing`.** Es de la generación
-  /// anterior, la que sigue usando recursos creados en la consola, y AWS no ha
-  /// sacado una v2 de ella. El nombre de firma es el del servicio heredado.
+  /// **Signs with `geo`, not with `geo-geofencing`.** It belongs to the
+  /// previous generation, the one that still uses resources created in the
+  /// console, and AWS has not released a v2 of it. The signing name is that of
+  /// the legacy service.
   geofencing('geo', 'geofencing'),
 
-  /// El plano de control de las geovallas: crear, borrar y listar colecciones.
+  /// The geofencing control plane: creating, deleting and listing collections.
   ///
-  /// **Va a otro host**: `cp.geofencing.geo.…`, con el prefijo `cp.` delante.
-  /// Mandar una operación de control al host de datos da un `404` que parece
-  /// una ruta mal escrita.
+  /// **It goes to another host**: `cp.geofencing.geo.…`, with the `cp.` prefix
+  /// in front. Sending a control operation to the data host gives a `404` that
+  /// looks like a misspelled path.
   geofencingControl('geo', 'cp.geofencing'),
 
-  /// Rastreo de dispositivos: posiciones, histórico y verificación.
+  /// Device tracking: positions, history and verification.
   ///
-  /// Firma con `geo`, como [geofencing].
+  /// Signs with `geo`, like [geofencing].
   tracking('geo', 'tracking'),
 
-  /// El plano de control del rastreo: crear, borrar y listar rastreadores.
+  /// The tracking control plane: creating, deleting and listing trackers.
   ///
-  /// También con el prefijo `cp.`.
+  /// Also with the `cp.` prefix.
   trackingControl('geo', 'cp.tracking');
 
   const AlsService(this.signingName, this.hostPrefix);
 
-  /// El nombre con el que SigV4 firma las peticiones a este servicio.
+  /// The name SigV4 uses to sign requests to this service.
   ///
-  /// Hay **dos generaciones y no comparten nombre**:
+  /// There are **two generations and they do not share names**:
   ///
-  /// - Places, Routes y Maps v2 firman con `geo-places`, `geo-routes` y
+  /// - Places, Routes and Maps v2 sign with `geo-places`, `geo-routes` and
   ///   `geo-maps`.
-  /// - Geofencing y Tracking firman con `geo` a secas, porque son de la
-  ///   generación anterior.
+  /// - Geofencing and Tracking sign with plain `geo`, because they belong to
+  ///   the previous generation.
   ///
-  /// Equivocarse da un `403` idéntico al de una clave inválida. Al ser un
-  /// enum, el nombre no se puede escribir mal.
+  /// Getting it wrong gives a `403` identical to that of an invalid key. Being
+  /// an enum, the name cannot be misspelled.
   final String signingName;
 
-  /// El prefijo del host: `{hostPrefix}.geo.{región}.amazonaws.com`.
+  /// The host prefix: `{hostPrefix}.geo.{region}.amazonaws.com`.
   ///
-  /// El prefijo `cp.` de los planos de control forma parte de esto:
+  /// The control planes' `cp.` prefix is part of it:
   /// `cp.geofencing.geo.us-east-1.amazonaws.com`.
   final String hostPrefix;
 
-  /// ¿Es de la generación v2, la que no necesita crear recursos?
+  /// Does it belong to the v2 generation, the one that needs no resources
+  /// created?
   ///
-  /// Importa para dos cosas: la generación v2 acepta clave de API y la
-  /// anterior **no** —solo SigV4—, y la anterior sí usa `DistanceUnit`,
-  /// que en v2 provoca un `400`.
+  /// It matters for two things: the v2 generation accepts an API key and the
+  /// previous one does **not** —only SigV4—, and the previous one does use
+  /// `DistanceUnit`, which in v2 triggers a `400`.
   bool get isV2 => this == places || this == routes || this == maps;
 
-  /// ¿Admite autenticación con clave de API?
+  /// Does it accept API key authentication?
   ///
-  /// **Solo la generación v2.** Las claves de API de Amazon Location cubren
-  /// Places, Routes y Maps; Geofencing y Tracking exigen SigV4, sea con un
-  /// proxy o con `nativ_maps_sigv4`. Intentarlo con clave da un `403`.
+  /// **Only the v2 generation.** Amazon Location API keys cover Places,
+  /// Routes and Maps; Geofencing and Tracking require SigV4, either through a
+  /// proxy or with `nativ_maps_sigv4`. Trying it with a key gives a `403`.
   bool get supportsApiKey => isV2;
 
-  /// El host del servicio en [region].
+  /// The service host in [region].
   ///
-  /// Por ejemplo, `places.geo.us-east-1.amazonaws.com`.
+  /// For example, `places.geo.us-east-1.amazonaws.com`.
   String hostFor(String region) => '$hostPrefix.geo.$region.amazonaws.com';
 }
 
-/// Modo de viaje para las operaciones de Routes.
+/// Travel mode for the Routes operations.
 ///
-/// El nombre de la moto es el que más confusión causa: en la generación
-/// anterior era `Motorcycle`; en v2 se llama [scooter], y la documentación de
-/// AWS dice explícitamente que **también cubre las motocicletas**, no solo los
-/// ciclomotores.
+/// The motorbike's name is the one that causes the most confusion: in the
+/// previous generation it was `Motorcycle`; in v2 it is called [scooter], and
+/// the AWS documentation explicitly says it **also covers motorcycles**, not
+/// just mopeds.
 enum TravelMode {
-  /// Coche o furgoneta. El valor por defecto de todas las operaciones.
+  /// Car or van. The default for every operation.
   car('Car'),
 
-  /// Camión. Admite dimensiones, peso y mercancías peligrosas en
-  /// `TruckOptions`, que cambian la ruta por restricciones de vía.
+  /// Truck. Accepts dimensions, weight and hazardous cargo in
+  /// `TruckOptions`, which change the route because of road restrictions.
   truck('Truck'),
 
-  /// A pie. Ignora sentidos únicos y usa aceras y pasos.
+  /// On foot. Ignores one-way streets and uses sidewalks and crossings.
   pedestrian('Pedestrian'),
 
-  /// Moto, ciclomotor o motocicleta.
+  /// Scooter, moped or motorcycle.
   scooter('Scooter');
 
   const TravelMode(this.wireName);
 
-  /// El literal que viaja en el JSON de la petición.
+  /// The literal that travels in the request JSON.
   final String wireName;
 }
 
-/// Catálogo de estilos de mapa de Maps v2.
+/// Catalog of Maps v2 map styles.
 ///
-/// En la generación anterior había que crear un recurso «Map» en la consola y
-/// el nombre lo elegías tú, así que un nombre mal escrito solo se descubría en
-/// tiempo de ejecución. En v2 el catálogo es fijo y no se crea nada: por eso
-/// esto es un enum y no un `String`.
+/// In the previous generation you had to create a "Map" resource in the
+/// console and you chose its name, so a misspelled name was only discovered at
+/// runtime. In v2 the catalog is fixed and nothing is created: that is why
+/// this is an enum and not a `String`.
 enum MapStyle {
-  /// Cartografía completa a color. El estilo por defecto.
+  /// Full-color cartography. The default style.
   standard('Standard'),
 
-  /// Un solo tono, pensado como fondo bajo datos propios.
+  /// A single tone, meant as a background under your own data.
   monochrome('Monochrome'),
 
-  /// Satélite con etiquetas y vías encima.
+  /// Satellite with labels and roads on top.
   hybrid('Hybrid'),
 
-  /// Solo imagen de satélite, sin etiquetas.
+  /// Satellite imagery only, no labels.
   satellite('Satellite');
 
   const MapStyle(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Tono del mapa.
+/// Map tone.
 ///
-/// Sustituye a la pareja de recursos «claro» y «oscuro» que había que crear a
-/// mano en la generación anterior y mantener sincronizados. Ahora es el mismo
-/// estilo con otro parámetro, y **lo renderiza el servidor**: no es un filtro
-/// de color sobre teselas claras, así que las etiquetas siguen siendo legibles.
+/// It replaces the pair of "light" and "dark" resources that in the previous
+/// generation had to be created by hand and kept in sync. Now it is the same
+/// style with another parameter, and **the server renders it**: it is not a
+/// color filter over light tiles, so the labels stay legible.
 enum MapColorScheme {
-  /// Fondo claro. Es el valor por defecto del servicio.
+  /// Light background. It is the service default.
   light('Light'),
 
-  /// Fondo oscuro.
+  /// Dark background.
   dark('Dark');
 
   const MapColorScheme(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Si el resultado se va a guardar en tu propia infraestructura.
+/// Whether the result is going to be stored in your own infrastructure.
 ///
-/// No es un detalle técnico ni una optimización: la documentación de AWS dice
-/// que **guardar un resultado obtenido con [singleUse] incumple las
-/// condiciones del servicio**. [storage] se factura más caro.
+/// It is not a technical detail or an optimization: the AWS documentation says
+/// that **storing a result obtained with [singleUse] breaches the service
+/// terms**. [storage] is billed at a higher price.
 ///
-/// La regla práctica: una dirección que se escribe en la ficha de un
-/// cliente es [storage]; una que solo se enseña en pantalla mientras se
-/// elige, es [singleUse].
+/// The rule of thumb: an address written into a customer's record is
+/// [storage]; one that is only shown on screen while choosing is
+/// [singleUse].
 enum IntendedUse {
-  /// El resultado se muestra y se descarta. Más barato.
+  /// The result is shown and discarded. Cheaper.
   singleUse('SingleUse'),
 
-  /// El resultado se guarda en tu base de datos. Más caro, y obligatorio si
-  /// lo vas a persistir.
+  /// The result is stored in your database. More expensive, and mandatory if
+  /// you are going to persist it.
   storage('Storage');
 
   const IntendedUse(this.wireName);
 
-  /// El literal que viaja en el JSON o en la URL.
+  /// The literal that travels in the JSON or in the URL.
   final String wireName;
 }
 
-/// Qué se optimiza al calcular una ruta.
+/// What is optimized when calculating a route.
 enum RouteOptimization {
-  /// La ruta más rápida en tiempo. El valor por defecto.
+  /// The fastest route in time. The default.
   fastestRoute('FastestRoute'),
 
-  /// La ruta más corta en distancia, aunque tarde más.
+  /// The shortest route in distance, even if it takes longer.
   shortestRoute('ShortestRoute');
 
   const RouteOptimization(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Cómo se usa la información de tráfico al calcular.
+/// How traffic information is used when calculating.
 enum TrafficUsage {
-  /// Se tiene en cuenta el tráfico en tiempo real. Por defecto.
+  /// Real-time traffic is taken into account. The default.
   useTrafficData('UseTrafficData'),
 
-  /// Se ignora. Da resultados reproducibles, útil para comparar.
+  /// It is ignored. Gives reproducible results, useful for comparing.
   ignoreTrafficData('IgnoreTrafficData');
 
   const TrafficUsage(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Formato en el que llega la geometría de una ruta o una isócrona.
+/// Format in which the geometry of a route or an isoline arrives.
 enum GeometryFormat {
-  /// Lista de coordenadas sin comprimir (`LineString`). Más pesada por la red,
-  /// pero no hay nada que decodificar.
+  /// Uncompressed list of coordinates (`LineString`). Heavier over the
+  /// network, but there is nothing to decode.
   simple('Simple'),
 
-  /// Cadena comprimida en el formato **Flexible Polyline de HERE**, que no
-  /// es el de Google. Mucho más ligera; la decodifica
-  /// `decodeFlexiblePolyline`.
+  /// String compressed in **HERE's Flexible Polyline** format, which is not
+  /// Google's. Much lighter; `decodeFlexiblePolyline` decodes it.
   flexiblePolyline('FlexiblePolyline');
 
   const GeometryFormat(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Detalle de las indicaciones paso a paso de una ruta.
+/// What a route's steps look like.
+///
+/// Measured against the service on 2026-10-19: both return the steps of the
+/// route (`Depart`, `Turn`, `Arrive`…); what changes is whether they can carry
+/// a written instruction.
 enum TravelStepType {
-  /// Una indicación por maniobra: «gire a la derecha en…».
+  /// Steps with the maneuver details —turn angle, intensity, exit number—
+  /// and **no written instruction**.
+  ///
+  /// It can't be combined with `RouteFeature.travelStepInstructions`: the
+  /// service answers 400, and the package stops it before sending.
   turnByTurn('TurnByTurn'),
 
-  /// Una indicación por tramo, sin maniobras intermedias.
-  general('General'),
-
-  /// Sin indicaciones. Es lo más barato de transmitir cuando solo se quiere
-  /// la línea para pintarla.
-  none('Default');
+  /// The service's default steps, and the only ones that take
+  /// `RouteFeature.travelStepInstructions`: with it, each step carries a ready
+  /// instruction in the request's language —"Gire a la derecha en Avenida
+  /// Amazonas…"— in `TravelStep.instruction`.
+  standard('Default');
 
   const TravelStepType(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Qué se optimiza al reordenar las paradas de `optimizeWaypoints`.
+/// What is optimized when reordering the stops in `optimizeWaypoints`.
 enum WaypointOptimization {
-  /// Minimiza el tiempo total del recorrido.
+  /// Minimizes the total travel time.
   fastestRoute('FastestRoute'),
 
-  /// Minimiza la distancia total.
+  /// Minimizes the total distance.
   shortestRoute('ShortestRoute');
 
   const WaypointOptimization(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Rasgos del descriptor de estilo (Maps v2)
+//  Style descriptor features (Maps v2)
 //
-//  Estos siete parámetros son lo que en `google_maps_flutter` no existe o
-//  requiere una capa aparte: el tráfico, el relieve, los edificios en 3D y la
-//  densidad de puntos de interés los pinta el servidor dentro del mismo
-//  estilo, sin una segunda petición ni una capa superpuesta.
+//  These seven parameters are what in `google_maps_flutter` does not exist or
+//  needs a separate layer: traffic, terrain, 3D buildings and point-of-interest
+//  density are drawn by the server inside the same style, with no second
+//  request and no overlay.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Cómo se dibujan los edificios.
+/// How buildings are drawn.
 enum MapBuildings {
-  /// Edificios extruidos en tres dimensiones.
+  /// Buildings extruded in three dimensions.
   ///
-  /// Solo vale con [MapStyle.standard] y [MapStyle.monochrome].
+  /// Only works with [MapStyle.standard] and [MapStyle.monochrome].
   buildings3d('Buildings3D');
 
   const MapBuildings(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Cómo se dibuja el relieve del terreno.
+/// How terrain relief is drawn.
 enum MapTerrain {
-  /// Sombreado del relieve. Solo con [MapStyle.standard] y
+  /// Relief shading. Only with [MapStyle.standard] and
   /// [MapStyle.monochrome].
   hillshade('Hillshade'),
 
-  /// Modelo tridimensional del terreno.
+  /// Three-dimensional terrain model.
   terrain3d('Terrain3D');
 
   const MapTerrain(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Densidad de las curvas de nivel.
+/// Density of contour lines.
 ///
-/// No disponible en `ap-southeast-1` ni `ap-southeast-5` (GrabMaps), ni con
+/// Not available in `ap-southeast-1` or `ap-southeast-5` (GrabMaps), nor with
 /// [MapStyle.satellite].
 enum MapContourDensity {
-  /// Pocas curvas, solo las principales.
+  /// Few lines, only the main ones.
   low('Low'),
 
-  /// Densidad intermedia.
+  /// Intermediate density.
   medium('Medium'),
 
-  /// Todas las curvas disponibles.
+  /// Every available line.
   high('High');
 
   const MapContourDensity(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Tráfico en tiempo real dibujado dentro del estilo.
+/// Real-time traffic drawn inside the style.
 ///
-/// Este es el equivalente real de `trafficEnabled` de `google_maps_flutter`:
-/// no es una capa superpuesta que se pide aparte, es el propio servidor
-/// coloreando las vías al generar el estilo.
+/// This is the real equivalent of `google_maps_flutter`'s `trafficEnabled`:
+/// it is not an overlay requested separately, it is the server itself
+/// coloring the roads when generating the style.
 enum MapTraffic {
-  /// Congestión más incidencias (obras, accidentes, cortes).
+  /// Congestion plus incidents (roadworks, accidents, closures).
   all('All'),
 
-  /// Solo el color de congestión de las vías.
+  /// Only the roads' congestion color.
   congestion('Congestion');
 
   const MapTraffic(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Cuántos puntos de interés se dibujan.
+/// How many points of interest are drawn.
 enum MapPoiDensity {
-  /// Ninguno. Es lo que se quiere cuando el mapa es el fondo de datos propios.
+  /// None. It is what you want when the map is the background for your own
+  /// data.
   off('Off'),
 
-  /// Muy pocos.
+  /// Very few.
   verySparse('VerySparse'),
 
-  /// Pocos.
+  /// Few.
   sparse('Sparse'),
 
-  /// El valor por defecto del servicio.
+  /// The service default.
   standard('Default'),
 
-  /// Muchos.
+  /// Many.
   dense('Dense'),
 
-  /// Todos los disponibles.
+  /// All available.
   veryDense('VeryDense');
 
   const MapPoiDensity(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Categorías de puntos de interés que se dibujan.
+/// Point-of-interest categories that are drawn.
 ///
-/// Al indicar alguna, solo se dibujan esas. Se pueden pasar hasta nueve, y no
-/// tiene efecto si la densidad es [MapPoiDensity.off].
+/// When you specify any, only those are drawn. You can pass up to nine, and it
+/// has no effect if the density is [MapPoiDensity.off].
 enum MapPoiCategory {
-  /// Restaurantes, bares y cafeterías.
+  /// Restaurants, bars and cafés.
   foodAndDrink('FoodAndDrink'),
 
-  /// Ocio y espectáculos.
+  /// Leisure and shows.
   entertainment('Entertainment'),
 
-  /// Monumentos y museos.
+  /// Monuments and museums.
   sightsAndMuseums('SightsAndMuseums'),
 
-  /// Estaciones, paradas y aeropuertos.
+  /// Stations, stops and airports.
   transportation('Transportation'),
 
-  /// Hoteles y alojamiento.
+  /// Hotels and lodging.
   accommodations('Accommodations'),
 
-  /// Parques y aire libre.
+  /// Parks and the outdoors.
   leisureAndOutdoor('LeisureAndOutdoor'),
 
-  /// Comercios.
+  /// Shops.
   shopping('Shopping'),
 
-  /// Oficinas y servicios.
+  /// Offices and services.
   businessAndServices('BusinessAndServices'),
 
-  /// Instalaciones y edificios públicos.
+  /// Public facilities and buildings.
   facilitiesAndBuildings('FacilitiesAndBuildings');
 
   const MapPoiCategory(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Información adicional de un modo de transporte, dibujada en el estilo.
+/// Additional information for a mode of transport, drawn in the style.
 enum MapTravelMode {
-  /// Redes de transporte público.
+  /// Public transit networks.
   transit('Transit'),
 
-  /// Restricciones de vía para camiones.
+  /// Road restrictions for trucks.
   truck('Truck');
 
   const MapTravelMode(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }
 
-/// Unidad de la barra de escala de un mapa estático.
+/// Unit of a static map's scale bar.
 enum ScaleBarUnit {
-  /// Kilómetros.
+  /// Kilometers.
   kilometers('Kilometers'),
 
-  /// Kilómetros con millas debajo.
+  /// Kilometers with miles below.
   kilometersMiles('KilometersMiles'),
 
-  /// Millas.
+  /// Miles.
   miles('Miles'),
 
-  /// Millas con kilómetros debajo.
+  /// Miles with kilometers below.
   milesKilometers('MilesKilometers');
 
   const ScaleBarUnit(this.wireName);
 
-  /// El literal que viaja en la URL.
+  /// The literal that travels in the URL.
   final String wireName;
 }

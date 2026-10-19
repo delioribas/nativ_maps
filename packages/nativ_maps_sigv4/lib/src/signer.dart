@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,15 +6,15 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:meta/meta.dart';
 
-/// Unas credenciales de AWS.
+/// A set of AWS credentials.
 ///
-/// [sessionToken] solo lo llevan las temporales —las de un pool de identidades
-/// de Cognito o las de un rol asumido—, y **es obligatorio incluirlo en la
-/// firma** cuando existe: omitirlo da un `403` que se parece exactamente al de
-/// una clave mala.
+/// [sessionToken] is only carried by temporary ones —those from a Cognito
+/// identity pool or from an assumed role—, and **it must be included in the
+/// signature** when it exists: leaving it out gives a `403` that looks exactly
+/// like the one for a bad key.
 @immutable
 class AwsCredentials {
-  /// Crea las credenciales.
+  /// Creates the credentials.
   const AwsCredentials({
     required this.accessKeyId,
     required this.secretAccessKey,
@@ -22,25 +22,25 @@ class AwsCredentials {
     this.expiration,
   });
 
-  /// El identificador de la clave.
+  /// The key's identifier.
   final String accessKeyId;
 
-  /// La clave secreta. **Nunca se escribe en un registro ni en un error.**
+  /// The secret key. **It is never written to a log or to an error.**
   final String secretAccessKey;
 
-  /// El testigo de sesión, en credenciales temporales.
+  /// The session token, in temporary credentials.
   final String? sessionToken;
 
-  /// Cuándo caducan, en credenciales temporales.
+  /// When they expire, in temporary credentials.
   final DateTime? expiration;
 
-  /// ¿Son temporales?
+  /// Are they temporary?
   bool get isTemporary => sessionToken != null;
 
-  /// ¿Están caducadas, con [margin] de margen?
+  /// Have they expired, with a [margin] of safety?
   ///
-  /// El margen existe porque una petición firmada con credenciales que caducan
-  /// dentro de dos segundos llega caducada. Un minuto es de sobra.
+  /// The margin exists because a request signed with credentials that expire
+  /// two seconds from now arrives expired. One minute is more than enough.
   bool isExpired({Duration margin = const Duration(minutes: 1)}) {
     final expires = expiration;
     if (expires == null) return false;
@@ -52,53 +52,54 @@ class AwsCredentials {
       'AwsCredentials($accessKeyId${isTemporary ? ', temporales' : ''})';
 }
 
-/// Firma peticiones con **AWS Signature Version 4**.
+/// Signs requests with **AWS Signature Version 4**.
 ///
-/// ## Por qué esto está en su propio paquete
+/// ## Why this is in its own package
 ///
-/// El paquete oficial `aws_signature_v4` funciona bien, pero arrastra
-/// dieciséis dependencias transitivas. Quien solo usa una clave de API no
-/// tiene por qué pagarlas.
+/// The official `aws_signature_v4` package works well, but it drags in sixteen
+/// transitive dependencies. Someone who only uses an API key has no reason to
+/// pay for them.
 ///
-/// Esta implementación depende de `crypto` y nada más. Está verificada contra
-/// los **vectores oficiales de la suite de pruebas de SigV4 de AWS**, que es
-/// la única forma de confiar en un firmador: un fallo de firma no da un error
-/// legible, da un `403` idéntico al de una clave inválida.
+/// This implementation depends on `crypto` and nothing else. It is verified
+/// against the **official vectors of AWS's SigV4 test suite**, which is the
+/// only way to trust a signer: a signing bug doesn't give a readable error, it
+/// gives a `403` identical to that of an invalid key.
 ///
-/// ## El error que más cuesta
+/// ## The most expensive mistake
 ///
-/// **Los tres servicios de Amazon Location firman con nombres distintos**:
-/// `geo-places`, `geo-routes` y `geo-maps`. No es `geo`, ni el nombre del
-/// host. Firmar con el equivocado da un `403` que no se distingue del de una
-/// clave mala, y ahí es donde se pierde la tarde.
+/// **The three Amazon Location services sign with different names**:
+/// `geo-places`, `geo-routes` and `geo-maps`. Not `geo`, nor the host name.
+/// Signing with the wrong one gives a `403` indistinguishable from that of a
+/// bad key, and that is where the afternoon goes.
 ///
-/// Por eso `SigV4Credentials` recibe un `AlsService` y no una cadena: el
-/// nombre lo pone el enum, no quien llama.
+/// That is why `SigV4Credentials` takes an `AlsService` and not a string: the
+/// name is set by the enum, not by the caller.
 @immutable
 class SigV4Signer {
-  /// Crea el firmador.
+  /// Creates the signer.
   const SigV4Signer();
 
-  /// El algoritmo, que va literal en la cabecera.
+  /// The algorithm, which goes verbatim into the header.
   static const String algorithm = 'AWS4-HMAC-SHA256';
 
-  /// El SHA-256 en hexadecimal de un cuerpo vacío.
+  /// The hex SHA-256 of an empty body.
   ///
-  /// Se usa tantas veces —toda petición `GET`— que merece ser constante.
+  /// It is used so often —every `GET` request— that it deserves to be a
+  /// constant.
   static const String emptyBodySha256 =
       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-  /// Firma una petición y devuelve las cabeceras que hay que añadir.
+  /// Signs a request and returns the headers that must be added.
   ///
-  /// Devuelve las cabeceras en lugar de modificar la petición para que sirva
-  /// igual con `http`, con `dio` o con lo que sea, y para poder probarla sin
-  /// construir una petición.
+  /// It returns the headers instead of modifying the request so that it works
+  /// the same with `http`, with `dio` or with anything else, and so that it can
+  /// be tested without building a request.
   ///
-  /// [uri] tiene que llevar ya todos los parámetros de consulta: la firma los
-  /// cubre, así que añadir uno después la invalida.
+  /// [uri] must already carry all the query parameters: the signature covers
+  /// them, so adding one afterwards invalidates it.
   ///
-  /// [signedAt] existe para las pruebas; en producción se deja sin poner y se
-  /// usa la hora actual en UTC.
+  /// [signedAt] exists for tests; in production it is left unset and the
+  /// current UTC time is used.
   Map<String, String> sign({
     required String method,
     required Uri uri,
@@ -117,12 +118,12 @@ class SigV4Signer {
         ? emptyBodySha256
         : _hex(sha256.convert(body).bytes);
 
-    // ── 1 · Petición canónica ──────────────────────────────────────────
+    // ── 1 · Canonical request ──────────────────────────────────────────
     //
-    // El orden de todo aquí es parte del algoritmo: cabeceras ordenadas por
-    // nombre en minúsculas, parámetros de consulta ordenados por clave y
-    // luego por valor, y la ruta codificada. Cualquier desviación produce una
-    // firma distinta y un 403 sin explicación.
+    // The order of everything here is part of the algorithm: headers sorted
+    // by lowercase name, query parameters sorted by key and then by value,
+    // and the path encoded. Any deviation produces a different signature and
+    // an unexplained 403.
     final canonicalHeaders = <String, String>{
       'host': _hostHeader(uri),
       'x-amz-date': amzDate,
@@ -147,7 +148,7 @@ class SigV4Signer {
       payloadHash,
     ].join('\n');
 
-    // ── 2 · Cadena que se firma ────────────────────────────────────────
+    // ── 2 · String to sign ─────────────────────────────────────────────
     final scope = '$dateStamp/$region/$service/aws4_request';
     final stringToSign = <String>[
       algorithm,
@@ -156,10 +157,10 @@ class SigV4Signer {
       _hex(sha256.convert(utf8.encode(canonicalRequest)).bytes),
     ].join('\n');
 
-    // ── 3 · Clave de firma, derivada en cuatro pasos ───────────────────
+    // ── 3 · Signing key, derived in four steps ─────────────────────────
     //
-    // Cada paso usa el resultado del anterior como clave. El primero lleva el
-    // prefijo `AWS4` pegado al secreto, que es fácil de olvidar.
+    // Each step uses the previous result as its key. The first one has the
+    // `AWS4` prefix glued to the secret, which is easy to forget.
     final signature = _hex(
       _hmac(
         _signingKey(credentials.secretAccessKey, dateStamp, region, service),
@@ -180,12 +181,12 @@ class SigV4Signer {
     };
   }
 
-  /// La petición canónica, expuesta para poder probarla contra los vectores
-  /// oficiales de AWS.
+  /// The canonical request, exposed so it can be tested against AWS's
+  /// official vectors.
   ///
-  /// La suite de pruebas de AWS trae, para cada caso, el fichero `.creq` con
-  /// esta cadena exacta. Poder compararla es lo que convierte «la firma sale
-  /// mal» en «el paso 1 sale mal».
+  /// For each case, AWS's test suite ships the `.creq` file with this exact
+  /// string. Being able to compare it is what turns "the signature comes out
+  /// wrong" into "step 1 comes out wrong".
   @visibleForTesting
   String canonicalRequestFor({
     required String method,
@@ -209,13 +210,13 @@ class SigV4Signer {
     ].join('\n');
   }
 
-  /// La firma hexadecimal de una petición canónica ya construida.
+  /// The hex signature of an already built canonical request.
   ///
-  /// Expuesta para poder comprobar el resultado **exacto** contra los vectores
-  /// oficiales de AWS, que publican la petición canónica (`.creq`) y la firma
-  /// final por separado. Sin esto solo se podría comprobar que la firma tiene
-  /// la forma correcta, que es una garantía mucho más débil: una firma mal
-  /// calculada también tiene sesenta y cuatro caracteres hexadecimales.
+  /// Exposed so the **exact** result can be checked against AWS's official
+  /// vectors, which publish the canonical request (`.creq`) and the final
+  /// signature separately. Without this you could only check that the
+  /// signature has the right shape, which is a much weaker guarantee: a
+  /// miscalculated signature also has sixty-four hex characters.
   @visibleForTesting
   String signatureOfCanonicalRequest({
     required String canonicalRequest,
@@ -239,7 +240,7 @@ class SigV4Signer {
     );
   }
 
-  // ─── Piezas del algoritmo ─────────────────────────────────────────────
+  // ─── Pieces of the algorithm ──────────────────────────────────────────
 
   static List<int> _signingKey(
     String secret,
@@ -247,8 +248,8 @@ class SigV4Signer {
     String region,
     String service,
   ) {
-    // El prefijo `AWS4` va pegado al secreto. Olvidarlo da una firma válida en
-    // forma y rechazada por el servidor.
+    // The `AWS4` prefix is glued to the secret. Forgetting it gives a
+    // signature that is valid in shape and rejected by the server.
     final kDate = _hmac(utf8.encode('AWS4$secret'), utf8.encode(dateStamp));
     final kRegion = _hmac(kDate, utf8.encode(region));
     final kService = _hmac(kRegion, utf8.encode(service));
@@ -263,17 +264,17 @@ class SigV4Signer {
 
   static String _byteToHex(int byte) => byte.toRadixString(16).padLeft(2, '0');
 
-  /// La marca de tiempo en el formato compacto de AWS: `20260822T120000Z`.
+  /// The timestamp in AWS's compact format: `20260822T120000Z`.
   static String _amzDate(DateTime utc) {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${utc.year}${two(utc.month)}${two(utc.day)}T'
         '${two(utc.hour)}${two(utc.minute)}${two(utc.second)}Z';
   }
 
-  /// La cabecera `Host`, con el puerto solo si no es el estándar.
+  /// The `Host` header, with the port only if it is not the standard one.
   ///
-  /// Incluir `:443` en un HTTPS invalida la firma, porque el cliente HTTP no
-  /// lo manda y el servidor firma sin él.
+  /// Including `:443` on an HTTPS request invalidates the signature, because
+  /// the HTTP client doesn't send it and the server signs without it.
   static String _hostHeader(Uri uri) {
     final isDefaultPort =
         (uri.scheme == 'https' && uri.port == 443) ||
@@ -282,22 +283,21 @@ class SigV4Signer {
     return isDefaultPort ? uri.host : '${uri.host}:${uri.port}';
   }
 
-  /// La ruta canónica.
+  /// The canonical URI: the path **as it travels**, encoded again.
   ///
-  /// Los segmentos van codificados con el juego de caracteres sin reservar de
-  /// RFC 3986, y **la barra no se codifica**. `Uri.path` ya viene codificado,
-  /// así que se decodifica y se vuelve a codificar para normalizar: dos rutas
-  /// equivalentes con codificaciones distintas tienen que dar la misma firma.
+  /// Every service except S3 encodes twice. `Uri.path` is already encoded —an
+  /// ARN in the path travels as `arn%3Aaws`— and the canonical URI encodes it
+  /// again: `arn%253Aaws`. The slash is not encoded.
+  ///
+  /// It used to be decoded and then encoded only once. That made no difference
+  /// as long as the path had nothing to encode; with an ARN, as in
+  /// `DisassociateTrackerConsumer`, AWS responded 403.
   static String _canonicalPath(Uri uri) {
     if (uri.path.isEmpty) return '/';
-    final segments = uri.path.split('/').map((segment) {
-      if (segment.isEmpty) return '';
-      return _uriEncode(Uri.decodeComponent(segment));
-    });
-    return segments.join('/');
+    return uri.path.split('/').map(_uriEncode).join('/');
   }
 
-  /// La cadena de consulta canónica: ordenada por clave y luego por valor.
+  /// The canonical query string: sorted by key and then by value.
   static String _canonicalQuery(Uri uri) {
     final pairs = <(String, String)>[];
     uri.queryParametersAll.forEach((key, values) {
@@ -312,12 +312,12 @@ class SigV4Signer {
     return pairs.map((pair) => '${pair.$1}=${pair.$2}').join('&');
   }
 
-  /// Codifica según RFC 3986, que **no** es lo que hace
-  /// `Uri.encodeComponent`.
+  /// Encodes according to RFC 3986, which is **not** what
+  /// `Uri.encodeComponent` does.
   ///
-  /// Dos diferencias que importan: `Uri.encodeComponent` deja pasar `!`, `*`,
-  /// `'`, `(` y `)`, que AWS sí codifica; y codifica el espacio como `%20`,
-  /// que es lo correcto —nunca como `+`—.
+  /// Two differences that matter: `Uri.encodeComponent` lets `!`, `*`, `'`,
+  /// `(` and `)` through, which AWS does encode; and it encodes the space as
+  /// `%20`, which is correct —never as `+`—.
   static String _uriEncode(String value) {
     const unreserved =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~';
@@ -333,8 +333,8 @@ class SigV4Signer {
     return buffer.toString();
   }
 
-  /// Colapsa espacios consecutivos, como exige el algoritmo para los valores
-  /// de cabecera.
+  /// Collapses consecutive spaces, as the algorithm requires for header
+  /// values.
   static String _collapseSpaces(String value) {
     final buffer = StringBuffer();
     var lastWasSpace = false;

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -7,10 +7,11 @@ import 'package:nativ_maps/src/core/enums.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/routes/routes_client.dart';
 
-/// Dónde está un conductor.
+/// Where a driver is.
 @immutable
+@experimental
 class DriverLocation {
-  /// Crea una posición de conductor.
+  /// Creates a driver position.
   const DriverLocation({
     required this.driverId,
     required this.position,
@@ -19,29 +20,30 @@ class DriverLocation {
     this.headingDegrees,
   });
 
-  /// Quién es.
+  /// Who it is.
   final String driverId;
 
-  /// Dónde está.
+  /// Where it is.
   final LatLng position;
 
-  /// Cuándo se supo por última vez.
+  /// When it was last heard from.
   final DateTime? updatedAt;
 
-  /// ¿Está libre?
+  /// Is it free?
   final bool available;
 
-  /// Hacia dónde mira, en grados desde el norte.
+  /// Which way it faces, in degrees from north.
   final double? headingDegrees;
 
   @override
   String toString() => 'DriverLocation($driverId, $position)';
 }
 
-/// Un conductor candidato para una recogida.
+/// A candidate driver for a pickup.
 @immutable
+@experimental
 class DriverCandidate {
-  /// Crea un candidato.
+  /// Creates a candidate.
   const DriverCandidate({
     required this.driver,
     required this.straightLineMeters,
@@ -49,28 +51,28 @@ class DriverCandidate {
     this.drivingDuration,
   });
 
-  /// El conductor.
+  /// The driver.
   final DriverLocation driver;
 
-  /// La distancia en línea recta hasta la recogida, en metros.
+  /// The straight-line distance to the pickup, in meters.
   ///
-  /// Es gratis de calcular y sirve para preseleccionar, **no para elegir**.
+  /// It is free to compute and good for shortlisting, **not for choosing**.
   final double straightLineMeters;
 
-  /// Los metros de conducción reales, si se refinó con la matriz.
+  /// The real driving meters, if it was refined with the matrix.
   final double? drivingMeters;
 
-  /// El tiempo de conducción real, si se refinó con la matriz.
+  /// The real driving time, if it was refined with the matrix.
   final Duration? drivingDuration;
 
-  /// ¿Se refinó con una llamada al servicio?
+  /// Was it refined with a call to the service?
   bool get refined => drivingDuration != null;
 
-  /// Cuánto se aleja el trayecto real de la línea recta.
+  /// How far the real path strays from the straight line.
   ///
-  /// Un valor de 1,4 es lo normal en una ciudad con trama regular. Por encima
-  /// de 2,5 casi siempre hay un río, una vía de tren o una autopista de por
-  /// medio, y es justo el caso en el que ordenar por línea recta se equivoca.
+  /// A value of 1.4 is normal in a city with a regular street grid. Above 2.5
+  /// there is almost always a river, a railway or a highway in the way, and
+  /// that is exactly the case where sorting by straight line gets it wrong.
   double? get detourFactor {
     final meters = drivingMeters;
     if (meters == null || straightLineMeters <= 0) return null;
@@ -85,53 +87,55 @@ class DriverCandidate {
             '${straightLineMeters.round()} m straight line)';
 }
 
-/// Elige a qué conductores ofrecerles una carrera.
+/// Chooses which drivers to offer a ride to.
 ///
-/// ## Las dos fases, y por qué son dos
+/// ## The two phases, and why there are two
 ///
-/// **Ordenar por distancia en línea recta está mal.** El conductor que está a
-/// 300 m al otro lado del río tarda quince minutos; el que está a 1,2 km por
-/// la avenida tarda cuatro. Con la línea recta le ofreces la carrera al
-/// primero.
+/// **Sorting by straight-line distance is wrong.** The driver 300 m away on
+/// the other side of the river takes fifteen minutes; the one 1.2 km away
+/// down the avenue takes four. With the straight line you offer the ride to
+/// the first one.
 ///
-/// **Pedir la matriz para toda la flota también está mal**, pero por dinero:
-/// cada celda se factura, y una flota de 800 coches son 800 celdas por cada
-/// petición de carrera.
+/// **Requesting the matrix for the whole fleet is wrong too**, but because of
+/// money: every cell is billed, and a fleet of 800 cars means 800 cells for
+/// every ride request.
 ///
-/// Por eso hay dos fases:
+/// That is why there are two phases:
 ///
-/// 1. [shortlist] filtra por línea recta. Es local, instantáneo y **gratis**.
-/// 2. [rank] refina solo esos con una llamada a la matriz.
+/// 1. [shortlist] filters by straight line. It is local, instant and **free**.
+/// 2. [rank] refines only those with one call to the matrix.
 ///
-/// Con 12 candidatos, una carrera cuesta 12 celdas en vez de 800.
+/// With 12 candidates, a ride costs 12 cells instead of 800.
 @immutable
+@experimental
 class DispatchPlanner {
-  /// Crea un planificador.
+  /// Creates a planner.
   const DispatchPlanner({
     required this.routes,
     this.shortlistSize = 12,
     this.maxRadiusMeters = 8000,
   });
 
-  /// El cliente con el que se refina.
+  /// The client used for refining.
   final RoutesClient routes;
 
-  /// Cuántos candidatos se llevan a la fase de refinado.
+  /// How many candidates go on to the refining phase.
   ///
-  /// El máximo de orígenes de una matriz sin acotar es 15. Por encima de eso
-  /// [rank] trocea en varias llamadas, y cada una se factura aparte.
+  /// The maximum number of origins in an unbounded matrix is 15. Above that,
+  /// [rank] splits into several calls, and each one is billed separately.
   final int shortlistSize;
 
-  /// Radio máximo en línea recta, en metros.
+  /// Maximum straight-line radius, in meters.
   ///
-  /// Un conductor a 30 km no va a ir, y meterlo en la matriz es tirar dinero.
+  /// A driver 30 km away is not going to come, and putting them in the matrix
+  /// is throwing money away.
   final double maxRadiusMeters;
 
-  /// Preselecciona por distancia en línea recta. **No gasta peticiones.**
+  /// Shortlists by straight-line distance. **Spends no requests.**
   ///
-  /// Descarta a los no disponibles y a los que se hayan quedado sin actualizar
-  /// más de [staleAfter], si se indica: un coche cuya última posición es de
-  /// hace diez minutos ya no está donde dice.
+  /// Drops the unavailable ones and, if given, those that have gone without
+  /// an update for longer than [staleAfter]: a car whose last position is ten
+  /// minutes old is no longer where it says it is.
   List<DriverCandidate> shortlist(
     List<DriverLocation> drivers,
     LatLng pickup, {
@@ -140,9 +144,9 @@ class DispatchPlanner {
   }) {
     final moment = now ?? DateTime.now();
 
-    // Rechazo por caja envolvente antes de calcular ninguna distancia. Con
-    // flotas grandes esto quita el 99 % de los candidatos con dos restas, sin
-    // trigonometría.
+    // Bounding-box rejection before computing any distance. With large fleets
+    // this removes 99 % of the candidates with two subtractions, without
+    // trigonometry.
     final latDegrees = maxRadiusMeters / 111320.0;
     final cosLat = math.cos(pickup.latitude * math.pi / 180).abs();
     final lonDegrees = cosLat < 1e-6
@@ -180,16 +184,16 @@ class DispatchPlanner {
     return candidates.take(shortlistSize).toList();
   }
 
-  /// Refina la preselección con tiempos de conducción reales.
+  /// Refines the shortlist with real driving times.
   ///
-  /// Manda a los conductores como **orígenes** y la recogida como único
-  /// destino, así que cuesta una celda por candidato. Si hay más de 15 se
-  /// trocea, porque ese es el máximo de orígenes de una matriz sin acotar.
+  /// Sends the drivers as **origins** and the pickup as the only destination,
+  /// so it costs one cell per candidate. If there are more than 15 it is
+  /// split, because that is the maximum number of origins in an unbounded
+  /// matrix.
   ///
-  /// El resultado va ordenado por tiempo de conducción. Los candidatos para
-  /// los que el servicio no supo calcular ruta —una isla, una zona sin
-  /// cartografía— se quedan al final con sus datos sin refinar, en vez de
-  /// desaparecer sin explicación.
+  /// The result is sorted by driving time. Candidates for which the service
+  /// could not compute a route —an island, an unmapped area— stay at the end
+  /// with their unrefined data, instead of disappearing without explanation.
   Future<List<DriverCandidate>> rank(
     List<DriverCandidate> candidates,
     LatLng pickup, {
@@ -234,9 +238,9 @@ class DispatchPlanner {
     return <DriverCandidate>[...refinedList, ...unroutable];
   }
 
-  /// Preselecciona y refina de una vez.
+  /// Shortlists and refines in one go.
   ///
-  /// Es lo que se llama al recibir una petición de carrera.
+  /// It is what you call when a ride request comes in.
   Future<List<DriverCandidate>> findNearest(
     List<DriverLocation> drivers,
     LatLng pickup, {

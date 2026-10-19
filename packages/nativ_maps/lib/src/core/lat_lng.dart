@@ -1,31 +1,31 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 
-/// Un punto geográfico: latitud y longitud en grados decimales.
+/// A geographic point: latitude and longitude in decimal degrees.
 ///
-/// El orden es **latitud primero**, como en `google_maps_flutter`. Amazon
-/// Location y GeoJSON usan el contrario (`[lon, lat]`), y esa discrepancia es
-/// el error más repetido al hablar con servicios de mapas: no da un fallo,
-/// da un punto en otro continente. Por eso la conversión no se hace a mano en
-/// ningún sitio — se hace en [toLonLat] y [LatLng.fromLonLat], que son las dos
-/// únicas fronteras donde el orden cambia.
+/// The order is **latitude first**, as in `google_maps_flutter`. Amazon
+/// Location and GeoJSON use the opposite (`[lon, lat]`), and that mismatch is
+/// the most common mistake when talking to map services: it does not fail, it
+/// gives you a point on another continent. That is why the conversion is not
+/// done by hand anywhere — it happens in [toLonLat] and [LatLng.fromLonLat],
+/// the only two boundaries where the order changes.
 ///
 /// ```dart
 /// const quito = LatLng(-0.1807, -78.4678);
-/// quito.toLonLat(); // [-78.4678, -0.1807]  ← lo que espera Amazon Location
+/// quito.toLonLat(); // [-78.4678, -0.1807]  ← what Amazon Location expects
 /// ```
 @immutable
 class LatLng {
-  /// Crea un punto a partir de latitud y longitud en grados.
+  /// Creates a point from latitude and longitude in degrees.
   ///
-  /// Lanza [ArgumentError] si la latitud queda fuera de `[-90, 90]` o la
-  /// longitud fuera de `[-180, 180]`. Comprobarlo aquí y no más adelante
-  /// importa: un par invertido —longitud donde va la latitud— casi siempre
-  /// tiene latitud fuera de rango, así que este constructor caza la inversión
-  /// en el sitio donde ocurrió y no tres capas más abajo.
+  /// Throws [ArgumentError] if the latitude falls outside `[-90, 90]` or the
+  /// longitude outside `[-180, 180]`. Checking it here and not later matters:
+  /// a swapped pair —longitude where the latitude goes— almost always has an
+  /// out-of-range latitude, so this constructor catches the swap at the spot
+  /// where it happened and not three layers further down.
   LatLng(this.latitude, this.longitude) {
     if (latitude.isNaN ||
         longitude.isNaN ||
@@ -42,14 +42,14 @@ class LatLng {
     }
   }
 
-  /// Crea un punto desde el orden de Amazon Location y GeoJSON:
-  /// `[longitud, latitud]`.
+  /// Creates a point from the Amazon Location and GeoJSON order:
+  /// `[longitude, latitude]`.
   ///
-  /// Lanza [FormatException] si la lista no tiene al menos dos números. No
-  /// devuelve `LatLng(0, 0)`: esa coordenada existe —está en el golfo de
-  /// Guinea— y un marcador allí se pinta exactamente igual que uno correcto.
-  /// En una app de rastreo, una posición falsa en silencio es peor que un
-  /// error a la vista.
+  /// Throws [FormatException] if the list does not have at least two numbers.
+  /// It does not return `LatLng(0, 0)`: that coordinate exists —it is in the
+  /// Gulf of Guinea— and a marker there is drawn exactly like a correct one.
+  /// In a tracking app, a silently wrong position is worse than an error in
+  /// plain sight.
   factory LatLng.fromLonLat(List<dynamic> lonLat) {
     if (lonLat.length < 2) {
       throw FormatException('se esperaba [lon, lat]', lonLat.toString());
@@ -62,27 +62,27 @@ class LatLng {
     return LatLng(lat.toDouble(), lon.toDouble());
   }
 
-  /// Latitud en grados decimales, dentro de `[-90, 90]`.
+  /// Latitude in decimal degrees, within `[-90, 90]`.
   final double latitude;
 
-  /// Longitud en grados decimales, dentro de `[-180, 180]`.
+  /// Longitude in decimal degrees, within `[-180, 180]`.
   final double longitude;
 
-  /// Alias corto de [latitude].
+  /// Short alias for [latitude].
   double get lat => latitude;
 
-  /// Alias corto de [longitude].
+  /// Short alias for [longitude].
   double get lng => longitude;
 
-  /// Este punto en el orden de Amazon Location y GeoJSON: `[lon, lat]`.
+  /// This point in the Amazon Location and GeoJSON order: `[lon, lat]`.
   List<double> toLonLat() => <double>[longitude, latitude];
 
-  /// Distancia en metros por el gran círculo (fórmula del haversine).
+  /// Great-circle distance in meters (haversine formula).
   ///
-  /// Es distancia en línea recta sobre la esfera, **no por carretera**. Para
-  /// distancia real de conducción hace falta `RoutesClient.calculateRoutes` o
-  /// `calculateRouteMatrix`, que cuestan una petición; esta no cuesta nada y
-  /// sirve para ordenar candidatos antes de pagar por los que sobreviven.
+  /// It is straight-line distance over the sphere, **not by road**. For real
+  /// driving distance you need `RoutesClient.calculateRoutes` or
+  /// `calculateRouteMatrix`, which cost a request; this one costs nothing and
+  /// is good for sorting candidates before paying for the ones that survive.
   double distanceTo(LatLng other) {
     final dLat = _toRadians(other.latitude - latitude);
     final dLon = _toRadians(other.longitude - longitude);
@@ -95,11 +95,10 @@ class LatLng {
     return earthRadiusMeters * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  /// Rumbo inicial en grados hacia [other]: 0 es el norte, aumenta en el
-  /// sentido de las agujas del reloj.
+  /// Initial bearing in degrees towards [other]: 0 is north, increasing
+  /// clockwise.
   ///
-  /// Es el valor que espera `icon-rotate` para orientar el icono de un
-  /// vehículo.
+  /// It is the value `icon-rotate` expects to orient a vehicle's icon.
   double bearingTo(LatLng other) {
     final lat1 = _toRadians(latitude);
     final lat2 = _toRadians(other.latitude);
@@ -111,10 +110,10 @@ class LatLng {
     return (math.atan2(y, x) * 180.0 / math.pi + 360.0) % 360.0;
   }
 
-  /// El punto que está a [meters] metros en el rumbo [bearingDegrees].
+  /// The point [meters] meters away on bearing [bearingDegrees].
   ///
-  /// Útil para construir el rectángulo alrededor de una posición sin pedir
-  /// nada al servicio.
+  /// Useful for building the rectangle around a position without asking the
+  /// service for anything.
   LatLng offset(double meters, double bearingDegrees) {
     final angular = meters / earthRadiusMeters;
     final bearing = _toRadians(bearingDegrees);
@@ -138,7 +137,7 @@ class LatLng {
     );
   }
 
-  /// Copia con la latitud o la longitud cambiadas.
+  /// Copy with the latitude or the longitude changed.
   LatLng copyWith({double? latitude, double? longitude}) =>
       LatLng(latitude ?? this.latitude, longitude ?? this.longitude);
 
@@ -156,17 +155,17 @@ class LatLng {
   String toString() => 'LatLng($latitude, $longitude)';
 }
 
-/// Un rectángulo geográfico, definido por sus esquinas suroeste y noreste.
+/// A geographic rectangle, defined by its southwest and northeast corners.
 ///
-/// No admite rectángulos que crucen el antimeridiano (±180°): la mayoría de
-/// las operaciones de Amazon Location tampoco, y aceptarlo aquí solo movería
-/// el fallo al servidor.
+/// It does not accept rectangles that cross the antimeridian (±180°): most
+/// Amazon Location operations do not either, and accepting it here would only
+/// move the failure to the server.
 @immutable
 class LatLngBounds {
-  /// Crea un rectángulo a partir de sus dos esquinas.
+  /// Creates a rectangle from its two corners.
   ///
-  /// Lanza [ArgumentError] si el suroeste queda al norte o al este del
-  /// noreste, es decir, si las esquinas llegaron cambiadas.
+  /// Throws [ArgumentError] if the southwest ends up north or east of the
+  /// northeast, that is, if the corners arrived swapped.
   LatLngBounds({required this.southwest, required this.northeast}) {
     if (southwest.latitude > northeast.latitude) {
       throw ArgumentError(
@@ -184,14 +183,14 @@ class LatLngBounds {
     }
   }
 
-  /// El rectángulo mínimo que encierra todos los puntos de [points].
+  /// The smallest rectangle enclosing every point in [points].
   ///
-  /// Lanza [ArgumentError] con la lista vacía.
+  /// Throws [ArgumentError] with an empty list.
   ///
-  /// Antes esto era un `assert`, que Dart elimina al compilar en modo release:
-  /// la app instalada devolvía un rectángulo de infinitos en silencio y se lo
-  /// pasaba a `fitBounds`. Es decir, avisaba en depuración y fallaba en
-  /// producción, que es exactamente el orden equivocado.
+  /// This used to be an `assert`, which Dart strips when compiling in release
+  /// mode: the installed app silently returned a rectangle of infinities and
+  /// passed it to `fitBounds`. In other words, it warned in debug and failed in
+  /// production, which is exactly the wrong way round.
   factory LatLngBounds.fromPoints(Iterable<LatLng> points) {
     if (points.isEmpty) {
       throw ArgumentError.value(
@@ -216,7 +215,7 @@ class LatLngBounds {
     );
   }
 
-  /// El rectángulo desde el formato de Amazon Location:
+  /// The rectangle from the Amazon Location format:
   /// `[minLon, minLat, maxLon, maxLat]`.
   factory LatLngBounds.fromBbox(List<dynamic> bbox) {
     if (bbox.length < 4 || bbox.any((dynamic v) => v is! num)) {
@@ -232,25 +231,25 @@ class LatLngBounds {
     );
   }
 
-  /// Esquina suroeste: la de menor latitud y menor longitud.
+  /// Southwest corner: the one with the lowest latitude and longitude.
   final LatLng southwest;
 
-  /// Esquina noreste: la de mayor latitud y mayor longitud.
+  /// Northeast corner: the one with the highest latitude and longitude.
   final LatLng northeast;
 
-  /// Alias corto de [southwest].
+  /// Short alias for [southwest].
   LatLng get sw => southwest;
 
-  /// Alias corto de [northeast].
+  /// Short alias for [northeast].
   LatLng get ne => northeast;
 
-  /// El punto central del rectángulo.
+  /// The center point of the rectangle.
   LatLng get center => LatLng(
     (southwest.latitude + northeast.latitude) / 2,
     (southwest.longitude + northeast.longitude) / 2,
   );
 
-  /// El rectángulo en el formato de Amazon Location:
+  /// The rectangle in the Amazon Location format:
   /// `[minLon, minLat, maxLon, maxLat]`.
   List<double> toBbox() => <double>[
     southwest.longitude,
@@ -259,14 +258,14 @@ class LatLngBounds {
     northeast.latitude,
   ];
 
-  /// ¿Cae [point] dentro del rectángulo? Los bordes cuentan como dentro.
+  /// Does [point] fall inside the rectangle? The edges count as inside.
   bool contains(LatLng point) =>
       point.latitude >= southwest.latitude &&
       point.latitude <= northeast.latitude &&
       point.longitude >= southwest.longitude &&
       point.longitude <= northeast.longitude;
 
-  /// El menor rectángulo que contiene a este y a [other].
+  /// The smallest rectangle containing this one and [other].
   LatLngBounds extend(LatLngBounds other) => LatLngBounds(
     southwest: LatLng(
       math.min(southwest.latitude, other.southwest.latitude),
@@ -278,10 +277,10 @@ class LatLngBounds {
     ),
   );
 
-  /// El mismo rectángulo con un margen de [meters] metros por cada lado.
+  /// The same rectangle with a margin of [meters] meters on each side.
   ///
-  /// El resultado se recorta a los límites del mundo, así que ensanchar un
-  /// rectángulo pegado al polo no produce una latitud imposible.
+  /// The result is clipped to the world's limits, so widening a rectangle
+  /// next to the pole does not produce an impossible latitude.
   LatLngBounds padded(double meters) {
     final latDelta = meters / 111320.0;
     final cosLat = math.cos(_toRadians(center.latitude)).abs();
@@ -312,7 +311,7 @@ class LatLngBounds {
   String toString() => 'LatLngBounds($southwest, $northeast)';
 }
 
-/// Radio medio de la Tierra en metros, el valor que usa Amazon Location.
+/// Mean Earth radius in meters, the value Amazon Location uses.
 const double earthRadiusMeters = 6371000.0;
 
 double _toRadians(double degrees) => degrees * math.pi / 180.0;

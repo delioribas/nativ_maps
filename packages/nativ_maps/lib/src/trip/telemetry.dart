@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -6,25 +6,27 @@ import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/trip/position_filter.dart';
 
-/// Qué clase de suceso de conducción se detectó.
+/// What kind of driving event was detected.
+@experimental
 enum DrivingEventType {
-  /// Acelerón.
+  /// Harsh acceleration.
   harshAcceleration,
 
-  /// Frenazo.
+  /// Harsh braking.
   harshBraking,
 
-  /// Curva tomada deprisa.
+  /// A curve taken too fast.
   harshCornering,
 
-  /// Circulación por encima del límite.
+  /// Driving above the limit.
   speeding,
 }
 
-/// Un suceso de conducción, con dónde y cuándo pasó.
+/// A driving event, with where and when it happened.
 @immutable
+@experimental
 class DrivingEvent {
-  /// Crea un suceso.
+  /// Creates an event.
   const DrivingEvent({
     required this.type,
     required this.timestamp,
@@ -33,28 +35,28 @@ class DrivingEvent {
     required this.speedKmh,
   });
 
-  /// Qué clase de suceso es.
+  /// What kind of event it is.
   final DrivingEventType type;
 
-  /// Cuándo ocurrió.
+  /// When it happened.
   final DateTime timestamp;
 
-  /// Dónde ocurrió.
+  /// Where it happened.
   final LatLng position;
 
-  /// Cuánto: metros por segundo al cuadrado, o km/h de exceso.
+  /// How much: meters per second squared, or km/h over the limit.
   ///
-  /// Para las tres primeras clases es aceleración; para
-  /// [DrivingEventType.speeding] es cuánto se pasó del límite.
+  /// For the first three kinds it is acceleration; for
+  /// [DrivingEventType.speeding] it is how far over the limit it went.
   final double magnitude;
 
-  /// La velocidad en ese momento, en km/h.
+  /// The speed at that moment, in km/h.
   final double speedKmh;
 
-  /// La magnitud en unidades de gravedad, para las de aceleración.
+  /// The magnitude in units of gravity, for the acceleration ones.
   ///
-  /// Un frenazo de emergencia ronda los 0,6 g. Un frenazo brusco pero normal
-  /// se queda en 0,35 g.
+  /// Emergency braking is around 0.6 g. Harsh but normal braking stays at
+  /// 0.35 g.
   double get gForce => magnitude.abs() / 9.80665;
 
   @override
@@ -63,32 +65,33 @@ class DrivingEvent {
       '${timestamp.toIso8601String()})';
 }
 
-/// La nota de conducción de un trayecto o de un conductor.
+/// The driving score of a trip or of a driver.
 @immutable
+@experimental
 class DrivingScore {
-  /// Crea una nota.
+  /// Creates a score.
   const DrivingScore({
     required this.value,
     required this.distanceKm,
     required this.counts,
   });
 
-  /// La nota, de 0 a 100.
+  /// The score, from 0 to 100.
   final int value;
 
-  /// Sobre cuántos kilómetros se calculó.
+  /// Over how many kilometers it was computed.
   final double distanceKm;
 
-  /// Cuántos sucesos de cada clase.
+  /// How many events of each kind.
   final Map<DrivingEventType, int> counts;
 
-  /// Cuántos sucesos hubo en total.
+  /// How many events there were in total.
   int get eventCount => counts.values.fold(0, (sum, howMany) => sum + howMany);
 
-  /// Sucesos por cada cien kilómetros.
+  /// Events per hundred kilometers.
   ///
-  /// **Es la única cifra comparable entre conductores.** El total absoluto
-  /// solo dice quién conduce más horas.
+  /// **It is the only figure comparable across drivers.** The absolute total
+  /// only tells you who drives more hours.
   double get eventsPer100Km =>
       distanceKm <= 0 ? 0 : eventCount / distanceKm * 100;
 
@@ -98,41 +101,41 @@ class DrivingScore {
       '${distanceKm.toStringAsFixed(1)} km)';
 }
 
-/// Detecta acelerones, frenazos, curvas bruscas y excesos de velocidad.
+/// Detects harsh acceleration, harsh braking, harsh cornering and speeding.
 ///
 /// ```dart
-/// final analizador = TelemetryAnalyzer(speedLimitKmh: 50);
-/// for (final lectura in flujoDelGps) {
-///   for (final suceso in analizador.add(lectura)) {
-///     avisar(suceso);
+/// final analyzer = TelemetryAnalyzer(speedLimitKmh: 50);
+/// for (final fix in gpsStream) {
+///   for (final event in analyzer.add(fix)) {
+///     notify(event);
 ///   }
 /// }
-/// print(analizador.score());
+/// print(analyzer.score());
 /// ```
 ///
-/// ## Por qué no vale derivar la velocidad de las posiciones
+/// ## Why deriving speed from positions does not work
 ///
-/// Calcular la aceleración como `Δposición / Δt²` amplifica el ruido del GPS
-/// al cuadrado: un rebote de 15 m entre dos lecturas de un segundo aparece
-/// como 30 m/s², tres veces la gravedad, y el analizador detecta frenazos en
-/// un coche parado.
+/// Computing acceleration as `Δposition / Δt²` squares the GPS noise: a 15 m
+/// bounce between two fixes one second apart shows up as 30 m/s², three times
+/// gravity, and the analyzer detects harsh braking in a parked car.
 ///
-/// Por eso se exige la **velocidad declarada por el receptor** —la del efecto
-/// Doppler, que es independiente de la posición— y las lecturas que no la
-/// traen no generan sucesos de aceleración. Es preferible perder detecciones a
-/// inventarlas: un informe lleno de frenazos falsos deja de leerse a la
-/// primera semana.
+/// That is why it requires the **speed reported by the receiver** —the
+/// Doppler one, which is independent of the position— and fixes that do not
+/// carry it generate no acceleration events. Missing detections is better
+/// than inventing them: a report full of false harsh braking stops being read
+/// after the first week.
 ///
-/// ## Los umbrales
+/// ## The thresholds
 ///
-/// | Suceso | Por defecto | Referencia |
+/// | Event | Default | Reference |
 /// |---|---|---|
-/// | Acelerón | 3,0 m/s² | 0,31 g |
-/// | Frenazo | −3,5 m/s² | 0,36 g |
-/// | Curva | 3,5 m/s² lateral | pasajero desplazado |
-/// | Exceso | límite + 8 km/h | margen del velocímetro |
+/// | Harsh acceleration | 3.0 m/s² | 0.31 g |
+/// | Harsh braking | −3.5 m/s² | 0.36 g |
+/// | Cornering | 3.5 m/s² lateral | passenger thrown sideways |
+/// | Speeding | limit + 8 km/h | speedometer margin |
+@experimental
 class TelemetryAnalyzer {
-  /// Crea un analizador.
+  /// Creates an analyzer.
   TelemetryAnalyzer({
     this.harshAccelerationMps2 = 3.0,
     this.harshBrakingMps2 = -3.5,
@@ -143,34 +146,34 @@ class TelemetryAnalyzer {
     this.maxSampleGap = const Duration(seconds: 10),
   });
 
-  /// A partir de cuánto es un acelerón, en m/s².
+  /// The threshold for harsh acceleration, in m/s².
   final double harshAccelerationMps2;
 
-  /// A partir de cuánto es un frenazo, en m/s². Es negativo.
+  /// The threshold for harsh braking, in m/s². It is negative.
   final double harshBrakingMps2;
 
-  /// A partir de cuánta aceleración lateral es una curva brusca, en m/s².
+  /// The lateral acceleration above which cornering is harsh, in m/s².
   final double harshCorneringMps2;
 
-  /// El límite de velocidad de la vía, en km/h, si se conoce.
+  /// The road's speed limit, in km/h, if known.
   ///
-  /// El paquete **no** lo averigua: Amazon Location no publica los límites por
-  /// tramo. Sale de la cartografía propia, de un fichero de zonas o de la
-  /// política de la flota.
+  /// The package does **not** look it up: Amazon Location does not publish
+  /// per-segment limits. It comes from your own map data, a zones file or the
+  /// fleet's policy.
   final double? speedLimitKmh;
 
-  /// Cuánto se tolera por encima del límite antes de contar exceso.
+  /// How much over the limit is tolerated before counting as speeding.
   final double speedToleranceKmh;
 
-  /// Cuánto tiene que durar el exceso para generar un solo suceso.
+  /// How long the speeding has to last to generate a single event.
   ///
-  /// Sin esto, un minuto a 60 en una vía de 50 genera sesenta sucesos.
+  /// Without this, a minute at 60 on a 50 road generates sixty events.
   final Duration minSpeedingDuration;
 
-  /// Separación máxima entre lecturas para poder derivar aceleración.
+  /// Maximum gap between fixes for acceleration to be derived.
   ///
-  /// Con un hueco de dos minutos, la diferencia de velocidades no describe
-  /// ninguna maniobra concreta.
+  /// With a two-minute gap, the difference in speeds does not describe any
+  /// specific maneuver.
   final Duration maxSampleGap;
 
   final List<DrivingEvent> _events = <DrivingEvent>[];
@@ -179,14 +182,14 @@ class TelemetryAnalyzer {
   DateTime? _speedingSince;
   double _speedingPeak = 0;
 
-  /// Todos los sucesos detectados, en orden.
+  /// All the detected events, in order.
   List<DrivingEvent> get events => List<DrivingEvent>.unmodifiable(_events);
 
-  /// Procesa una lectura y devuelve los sucesos que provocó.
+  /// Processes a fix and returns the events it caused.
   ///
-  /// Los sucesos se registran **en un solo sitio**, al final: repartir el
-  /// `add` entre varios caminos de salida es cómo se acaba contando un exceso
-  /// de velocidad dos veces.
+  /// Events are recorded **in a single place**, at the end: spreading the
+  /// `add` across several exit paths is how you end up counting a speeding
+  /// episode twice.
   List<DrivingEvent> add(PositionFix fix) {
     final produced = <DrivingEvent>[];
     final previous = _previous;
@@ -196,7 +199,7 @@ class TelemetryAnalyzer {
       _distanceMeters += previous.position.distanceTo(fix.position);
     }
 
-    // Sin velocidad del receptor no se evalúa nada: ver la nota de la clase.
+    // Without the receiver's speed nothing is evaluated: see the class note.
     final speed = fix.speedKmh;
     if (speed != null) {
       final speeding = _closeSpeedingEpisode(fix, speed);
@@ -213,7 +216,7 @@ class TelemetryAnalyzer {
           gap <= maxSampleGap) {
         final seconds = gap.inMicroseconds / 1e6;
 
-        // ── Aceleración longitudinal
+        // ── Longitudinal acceleration
         final acceleration = (speed - previousSpeed) / 3.6 / seconds;
         if (acceleration >= harshAccelerationMps2) {
           produced.add(
@@ -230,7 +233,7 @@ class TelemetryAnalyzer {
           );
         }
 
-        // ── Aceleración lateral: velocidad por velocidad angular
+        // ── Lateral acceleration: speed times angular velocity
         final heading = fix.headingDegrees;
         final previousHeading = previous.headingDegrees;
         if (heading != null && previousHeading != null) {
@@ -250,10 +253,10 @@ class TelemetryAnalyzer {
     return produced;
   }
 
-  /// Cierra un episodio de exceso de velocidad, si acaba de terminar.
+  /// Closes a speeding episode, if it has just ended.
   ///
-  /// Devuelve el suceso **al bajar** del umbral, no mientras se está por
-  /// encima: así un minuto a 70 en una vía de 50 es un suceso y no sesenta.
+  /// Returns the event **when dropping** below the threshold, not while above
+  /// it: that way a minute at 70 on a 50 road is one event and not sixty.
   DrivingEvent? _closeSpeedingEpisode(PositionFix fix, double speed) {
     final limit = speedLimitKmh;
     if (limit == null) return null;
@@ -294,10 +297,10 @@ class TelemetryAnalyzer {
     speedKmh: speed,
   );
 
-  /// La diferencia de rumbo más corta entre dos ángulos, con signo.
+  /// The shortest signed heading difference between two angles.
   ///
-  /// Sin esto, pasar de 359° a 1° parece un giro de 358 grados y todo coche
-  /// que cruce el norte genera una curva brusca.
+  /// Without this, going from 359° to 1° looks like a 358-degree turn and
+  /// every car that crosses north generates harsh cornering.
   static double _headingDelta(double from, double to) {
     var d = (to - from) % 360;
     if (d > 180) d -= 360;
@@ -305,12 +308,12 @@ class TelemetryAnalyzer {
     return d;
   }
 
-  /// Calcula la nota a partir de lo detectado hasta ahora.
+  /// Computes the score from what has been detected so far.
   ///
-  /// Parte de 100 y descuenta por suceso y por cada cien kilómetros, de forma
-  /// que un conductor con mucha ruta no salga penalizado por acumular más
-  /// sucesos absolutos. Los pesos por defecto castigan más el frenazo, que es
-  /// el que mejor predice el accidente.
+  /// It starts at 100 and deducts per event and per hundred kilometers, so
+  /// that a driver with a lot of mileage is not penalized for piling up more
+  /// absolute events. The default weights punish harsh braking the most,
+  /// since it is the best predictor of accidents.
   DrivingScore score({
     double harshWeight = 4,
     double corneringWeight = 2,
@@ -338,7 +341,7 @@ class TelemetryAnalyzer {
     );
   }
 
-  /// Vuelve al estado inicial.
+  /// Returns to the initial state.
   void reset() {
     _events.clear();
     _previous = null;

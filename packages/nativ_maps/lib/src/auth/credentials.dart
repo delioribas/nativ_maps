@@ -1,80 +1,81 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 
-/// Cómo se autentica una petición a Amazon Location.
+/// How a request to Amazon Location is authenticated.
 ///
-/// Los tres caminos del mundo real caben detrás de esta interfaz, y la app que
-/// los usa no tiene que enterarse de cuál está puesto:
+/// The three real-world paths fit behind this interface, and the app that
+/// uses them does not need to know which one is in place:
 ///
-/// | Camino | Implementación | Coste |
+/// | Path | Implementation | Cost |
 /// |---|---|---|
-/// | Clave de API | `ApiKeyCredentials` | se extrae de un APK |
-/// | Proxy que firma | `ProxyCredentials` | un endpoint nuevo |
-/// | SigV4 en el móvil | `nativ_maps_sigv4` | configurar Cognito |
+/// | API key | `ApiKeyCredentials` | can be extracted from an APK |
+/// | Signing proxy | `ProxyCredentials` | a new endpoint |
+/// | SigV4 on the phone | `nativ_maps_sigv4` | setting up Cognito |
 ///
-/// Cambiar de camino es cambiar el objeto que se pasa al construir el cliente.
-/// Nada más arriba se entera.
+/// Switching paths means switching the object passed when building the
+/// client. Nothing further up notices.
 ///
-/// ## Por qué [sign] recibe el servicio
+/// ## Why [sign] receives the service
 ///
-/// Porque **los tres servicios firman con nombres distintos**: `geo-places`,
-/// `geo-routes` y `geo-maps`. Firmar con el equivocado da un `403` idéntico al
-/// de una clave mala. Pasar [AlsService] en vez de una cadena hace que ese
-/// error no se pueda cometer.
+/// Because **the three services sign with different names**: `geo-places`,
+/// `geo-routes` and `geo-maps`. Signing with the wrong one gives a `403`
+/// identical to that of a bad key. Passing [AlsService] instead of a string
+/// makes that mistake impossible.
 abstract interface class Credentials {
-  /// Devuelve la petición lista para enviar: firmada, con la clave puesta o
-  /// redirigida al proxy, según el camino.
+  /// Returns the request ready to send: signed, with the key attached or
+  /// redirected to the proxy, depending on the path.
   ///
-  /// Puede devolver una petición distinta de la recibida. No debe modificar
-  /// [request] si devuelve otra.
+  /// It may return a different request from the one it received. It must not
+  /// modify [request] if it returns another one.
   Future<http.BaseRequest> sign(
     http.BaseRequest request,
     AlsService service,
     String region,
   );
 
-  /// La base a la que se dirigen las peticiones de [service] en [region].
+  /// The base that requests for [service] in [region] are sent to.
   ///
-  /// El camino directo devuelve el host de AWS; el de proxy, el del backend.
-  /// Que lo decida la credencial y no el cliente es lo que permite cambiar de
-  /// camino sin tocar ninguna de las diecisiete operaciones.
+  /// The direct path returns the AWS host; the proxy path, the backend's.
+  /// Letting the credentials decide, rather than the client, is what allows
+  /// switching paths without touching any of the 44 operations.
   Uri baseUri(AlsService service, String region);
 
-  /// ¿Hay configuración suficiente para llamar al servicio?
+  /// Is there enough configuration to call the service?
   ///
-  /// Se consulta antes de enviar, para que una clave vacía dé un error claro
-  /// en lugar de un `403` del servidor cinco capas más abajo.
+  /// It is checked before sending, so that an empty key gives a clear error
+  /// instead of a `403` from the server five layers further down.
   bool get isConfigured;
 
-  /// La clave que hay que poner en la cadena de consulta de una URL que se le
-  /// entrega a MapLibre, o `null` si este camino no usa clave.
+  /// The key to put in the query string of a URL handed to MapLibre, or
+  /// `null` if this path does not use a key.
   ///
-  /// Existe porque hay una frontera que [sign] no puede cubrir: el descriptor
-  /// de estilo y las teselas **no los pide este paquete**, los pide MapLibre a
-  /// partir de una URL que le damos. Ahí no hay `http.BaseRequest` que firmar.
+  /// It exists because there is a boundary [sign] cannot cover: the style
+  /// descriptor and the tiles **are not requested by this package**, MapLibre
+  /// requests them from a URL we give it. There is no `http.BaseRequest` to
+  /// sign there.
   ///
-  /// El camino de proxy y el de SigV4 devuelven `null` a propósito: los dos
-  /// autentican con cabeceras, y el widget del mapa las instala con
-  /// `setCustomHeaders`. Solo el de clave de API necesita ponerla en la URL, y
-  /// por eso ese es el único camino en el que la clave sale en texto.
+  /// The proxy path and the SigV4 path return `null` on purpose: both
+  /// authenticate with headers, and the map widget installs them with
+  /// `setCustomHeaders`. Only the API key path needs to put it in the URL,
+  /// and that is why it is the only path where the key appears in plain text.
   String? get apiKeyForUrl;
 
-  /// Libera lo que haya que liberar (clientes HTTP internos, temporizadores de
-  /// renovación de credenciales temporales). Es idempotente.
+  /// Releases whatever needs releasing (internal HTTP clients, renewal timers
+  /// for temporary credentials). It is idempotent.
   void close();
 }
 
-/// Base cómoda para escribir una [Credentials] propia.
+/// Convenient base for writing your own [Credentials].
 ///
-/// Da por hecho el camino directo a AWS —el host de [AlsService.hostFor]— y
-/// deja solo [sign] por implementar. Quien necesite otro destino, que
-/// implemente [Credentials] entera.
+/// It assumes the direct path to AWS —the host from [AlsService.hostFor]—
+/// and leaves only [sign] to implement. If you need another destination,
+/// implement the full [Credentials].
 @immutable
 abstract base class DirectCredentials implements Credentials {
-  /// Constructor constante para las subclases.
+  /// Const constructor for subclasses.
   const DirectCredentials();
 
   @override

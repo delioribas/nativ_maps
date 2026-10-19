@@ -1,56 +1,58 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/client/transport.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
+import 'package:nativ_maps/src/core/rings.dart';
 import 'package:nativ_maps/src/geofencing/models.dart'
     show BatchItemError, BatchResult, DevicePositionUpdate;
 import 'package:nativ_maps/src/tracking/models.dart';
 
-/// Las **15 operaciones** de rastreo de dispositivos de Amazon Location.
+/// The **15 device tracking operations** of Amazon Location.
 ///
-/// | Método | Endpoint | Para qué |
+/// | Method | Endpoint | What for |
 /// |---|---|---|
-/// | [batchUpdateDevicePosition] | `POST …/positions` | subir posiciones |
-/// | [getDevicePosition] | `GET …/devices/{d}/positions/latest` | la última |
-/// | [batchGetDevicePosition] | `POST …/get-positions` | las últimas de varios |
-/// | [getDevicePositionHistory] | `POST …/devices/{d}/list-positions` | el histórico |
-/// | [listDevicePositions] | `POST …/list-positions` | **quién hay en esta zona** |
-/// | [batchDeleteDevicePositionHistory] | `POST …/delete-positions` | borrar histórico |
-/// | [verifyDevicePosition] | `POST …/positions/verify` | **¿me están mintiendo?** |
-/// | [createTracker] · [describeTracker] | control | gestionar |
-/// | [updateTracker] · [deleteTracker] | control | gestionar |
-/// | [listTrackers] | control | listarlos |
-/// | [associateConsumer] | control | **enlazar geovallas** |
-/// | [disassociateConsumer] · [listConsumers] | control | ver y deshacer |
+/// | [batchUpdateDevicePosition] | `POST …/positions` | upload positions |
+/// | [getDevicePosition] | `GET …/devices/{d}/positions/latest` | the latest |
+/// | [batchGetDevicePosition] | `POST …/get-positions` | the latest of several |
+/// | [getDevicePositionHistory] | `POST …/devices/{d}/list-positions` | the history |
+/// | [listDevicePositions] | `POST …/list-positions` | **who is in this area** |
+/// | [batchDeleteDevicePositionHistory] | `POST …/delete-positions` | delete history |
+/// | [verifyDevicePosition] | `POST …/positions/verify` | **are they lying to me?** |
+/// | [createTracker] · [describeTracker] | control | manage |
+/// | [updateTracker] · [deleteTracker] | control | manage |
+/// | [listTrackers] | control | list them |
+/// | [associateConsumer] | control | **link geofences** |
+/// | [disassociateConsumer] · [listConsumers] | control | inspect and undo |
 ///
-/// ## ⚠️ Antes de usarlo: ¿de verdad lo necesitas?
+/// ## ⚠️ Before using it: do you really need it?
 ///
-/// Si ya guardas el histórico de tus dispositivos en tu propia base de datos
-/// —lo normal cuando los localizadores reportan a un servidor propio—, esto es
-/// **infraestructura duplicada** y una segunda factura por el mismo dato.
+/// If you already store your devices' history in your own database —the
+/// usual case when tracking devices report to your own server—, this is
+/// **duplicated infrastructure** and a second bill for the same data.
 ///
-/// Las tres cosas que sí justifican usarlo:
+/// The three things that do justify using it:
 ///
-/// 1. **[associateConsumer]**: enlazar el rastreador con una colección de
-///    geovallas hace que AWS evalúe **automáticamente** cada posición y
-///    dispare eventos en EventBridge. Sin esto hay que llamar a
-///    `batchEvaluateGeofences` a mano por cada posición.
-/// 2. **[verifyDevicePosition]**: detecta ubicaciones falseadas. No hay forma
-///    de hacer esto por tu cuenta.
-/// 3. **[listDevicePositions] con `filterGeometry`**: «quién hay dentro de
-///    este polígono ahora mismo», resuelto por el servicio.
+/// 1. **[associateConsumer]**: linking the tracker to a geofence collection
+///    makes AWS evaluate every position **automatically** and fire events on
+///    EventBridge. Without it you have to call `batchEvaluateGeofences` by
+///    hand for every position.
+/// 2. **[verifyDevicePosition]**: detects spoofed locations. There is no way
+///    to do this on your own.
+/// 3. **[listDevicePositions] with `filterGeometry`**: "who is inside this
+///    polygon right now", resolved by the service.
 ///
-/// ## Tres cosas que no son como en v2
+/// ## Three things that are not like in v2
 ///
-/// 1. **Hay que crear un rastreador.** Con [createTracker] o en la consola.
-/// 2. **No admite clave de API.** Hacen falta credenciales SigV4.
-/// 3. **El histórico se borra a los 30 días.** No es configurable. Si necesitas
-///    guardarlo más, hay que copiarlo a tu propio almacenamiento.
+/// 1. **You have to create a tracker.** With [createTracker] or in the
+///    console.
+/// 2. **It doesn't accept an API key.** SigV4 credentials are required.
+/// 3. **The history is deleted after 30 days.** It is not configurable. If
+///    you need to keep it longer, you have to copy it to your own storage.
 class TrackingClient {
-  /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
+  /// Builds the client. Internal use: it comes already wired into `NativMaps`.
   @internal
   TrackingClient({required AlsTransport transport}) : _transport = transport;
 
@@ -59,47 +61,47 @@ class TrackingClient {
   static const AlsService _data = AlsService.tracking;
   static const AlsService _control = AlsService.trackingControl;
 
-  /// Máximo de dispositivos por llamada por lotes.
+  /// Maximum devices per batch call.
   static const int maxDevicesPerBatch = 10;
 
-  /// Cuántos días conserva AWS el histórico. **No es configurable.**
+  /// How many days AWS keeps the history. **It is not configurable.**
   static const int historyRetentionDays = 30;
 
-  // ─── Posiciones ───────────────────────────────────────────────────────
+  // ─── Positions ────────────────────────────────────────────────────────
 
-  /// Sube posiciones de hasta 10 dispositivos.
+  /// Uploads positions for up to 10 devices.
   ///
   /// ```dart
   /// await maps.tracking.batchUpdateDevicePosition(
-  ///   trackerName: 'flota',
+  ///   trackerName: 'fleet',
   ///   updates: [
-  ///     for (final p in lote)
+  ///     for (final p in batch)
   ///       DevicePositionUpdate(
   ///         deviceId: p.imei,
   ///         position: LatLng(p.lat, p.lng),
-  ///         sampleTime: p.horaDelGps,          // la del GPS, no la de ahora
+  ///         sampleTime: p.gpsTime,             // the GPS time, not now
   ///         horizontalAccuracyMeters: p.hdop * 5,
   ///       ),
   ///   ],
   /// );
   /// ```
   ///
-  /// ## Lo que el rastreador puede descartar
+  /// ## What the tracker may discard
   ///
-  /// **No todo lo que se sube se guarda.** El `positionFiltering` del
-  /// rastreador decide, y con el valor por defecto
-  /// —[PositionFiltering.timeBased]— solo se guarda **una posición cada 30
-  /// segundos por dispositivo**. Un
-  /// localizador que reporta cada cinco segundos verá cinco de cada seis
-  /// posiciones descartadas sin ningún error.
+  /// **Not everything you upload gets stored.** The tracker's
+  /// `positionFiltering` decides, and with the default
+  /// —[PositionFiltering.timeBased]— only **one position every 30 seconds per
+  /// device** is stored. A
+  /// tracking device that reports every five seconds will see five out of six
+  /// positions discarded without any error.
   ///
-  /// Para rastreo de vehículos, [PositionFiltering.distanceBased] es casi
-  /// siempre lo correcto.
+  /// For vehicle tracking, [PositionFiltering.distanceBased] is almost always
+  /// the right choice.
   ///
-  /// ## El troceado
+  /// ## The chunking
   ///
-  /// El máximo son 10 por llamada. Este método **trocea solo** y devuelve el
-  /// total agregado, en vez de obligar a quien llama a partir la lista.
+  /// The maximum is 10 per call. This method **chunks on its own** and returns
+  /// the aggregated total, instead of forcing the caller to split the list.
   Future<BatchResult> batchUpdateDevicePosition({
     required String trackerName,
     required List<DevicePositionUpdate> updates,
@@ -130,11 +132,11 @@ class TrackingClient {
     return BatchResult(total: updates.length, errors: errores);
   }
 
-  /// La última posición conocida de un dispositivo.
+  /// The last known position of a device.
   ///
-  /// Comprobar [DevicePosition.isFresh] antes de tratarla como «dónde está
-  /// ahora» no es opcional: un vehículo cuya última posición es de hace media
-  /// hora **no está** ahí.
+  /// Checking [DevicePosition.isFresh] before treating it as "where it is now"
+  /// is not optional: a vehicle whose last position is half an hour old **is
+  /// not** there.
   Future<DevicePosition> getDevicePosition({
     required String trackerName,
     required String deviceId,
@@ -150,10 +152,11 @@ class TrackingClient {
     return DevicePosition.fromJson(json);
   }
 
-  /// Las últimas posiciones de varios dispositivos, hasta 10.
+  /// The latest positions of several devices, up to 10.
   ///
-  /// Devuelve las posiciones **y los errores por dispositivo**: uno que no
-  /// exista no hace fallar la llamada entera, aparece en [BatchResult.errors].
+  /// Returns the positions **and the per-device errors**: one that doesn't
+  /// exist doesn't make the whole call fail, it shows up in
+  /// [BatchResult.errors].
   Future<({List<DevicePosition> positions, BatchResult result})>
   batchGetDevicePosition({
     required String trackerName,
@@ -192,25 +195,25 @@ class TrackingClient {
     );
   }
 
-  /// El histórico de posiciones de un dispositivo.
+  /// The position history of a device.
   ///
-  /// Sin fechas, el servicio devuelve **las últimas 24 horas**.
+  /// Without dates, the service returns **the last 24 hours**.
   ///
-  /// **AWS borra el histórico a los 30 días** y no es configurable: pedir algo
-  /// más antiguo devuelve una lista vacía, no un error.
+  /// **AWS deletes the history after 30 days** and it is not configurable:
+  /// asking for anything older returns an empty list, not an error.
   ///
-  /// El resultado entra directamente en `snapToRoads` para limpiarlo:
+  /// The result goes straight into `snapToRoads` to clean it up:
   ///
   /// ```dart
-  /// final historico = await maps.tracking.getDevicePositionHistory(
-  ///   trackerName: 'flota',
+  /// final history = await maps.tracking.getDevicePositionHistory(
+  ///   trackerName: 'fleet',
   ///   deviceId: imei,
   ///   from: DateTime.now().subtract(const Duration(hours: 8)),
   /// );
   ///
-  /// final limpio = await maps.routes.snapToRoads(
+  /// final cleaned = await maps.routes.snapToRoads(
   ///   tracePoints: [
-  ///     for (final p in historico.items)
+  ///     for (final p in history.items)
   ///       TracePoint(position: p.position, timestamp: p.sampleTime),
   ///   ],
   /// );
@@ -258,20 +261,20 @@ class TrackingClient {
     );
   }
 
-  /// Las últimas posiciones de **todos** los dispositivos del rastreador.
+  /// The latest positions of **all** the tracker's devices.
   ///
-  /// Con [filterGeometry] responde a «**quién hay dentro de este polígono
-  /// ahora mismo**», resuelto por el servicio en vez de bajándose la flota
-  /// entera y filtrando en el móvil.
+  /// With [filterGeometry] it answers "**who is inside this polygon right
+  /// now**", resolved by the service instead of downloading the whole fleet
+  /// and filtering on the phone.
   ///
   /// ```dart
-  /// final dentro = await maps.tracking.listDevicePositions(
-  ///   trackerName: 'flota',
-  ///   filterGeometry: zonaDeInteres,   // un polígono
+  /// final inside = await maps.tracking.listDevicePositions(
+  ///   trackerName: 'fleet',
+  ///   filterGeometry: areaOfInterest,   // a polygon
   /// );
   /// ```
   ///
-  /// El filtro admite **un solo polígono** y hasta 1 000 vértices.
+  /// The filter accepts **a single polygon** and up to 1,000 vertices.
   Future<TrackingPage<DevicePosition>> listDevicePositions({
     required String trackerName,
     List<LatLng>? filterGeometry,
@@ -297,12 +300,8 @@ class TrackingClient {
         if (filterGeometry != null)
           'FilterGeometry': <String, dynamic>{
             'Polygon': <dynamic>[
-              <dynamic>[
-                for (final p in filterGeometry) p.toLonLat(),
-                // El anillo tiene que ir cerrado.
-                if (filterGeometry.first != filterGeometry.last)
-                  filterGeometry.first.toLonLat(),
-              ],
+              // Closed and counterclockwise: otherwise, 400.
+              ringToLonLat(filterGeometry, counterClockwise: true),
             ],
           },
       },
@@ -317,11 +316,10 @@ class TrackingClient {
     );
   }
 
-  /// Borra el histórico de varios dispositivos.
+  /// Deletes the history of several devices.
   ///
-  /// **No se puede deshacer.** Sirve para atender una solicitud de borrado de
-  /// datos personales: el recorrido de un vehículo *es* dato personal de quien
-  /// lo conduce.
+  /// **It cannot be undone.** It is for handling a personal-data deletion
+  /// request: a vehicle's route *is* personal data of whoever drives it.
   Future<BatchResult> batchDeleteDevicePositionHistory({
     required String trackerName,
     required List<String> deviceIds,
@@ -344,34 +342,34 @@ class TrackingClient {
     );
   }
 
-  /// Comprueba si una posición declarada es de fiar.
+  /// Checks whether a reported position can be trusted.
   ///
-  /// Contrasta lo que dice el dispositivo con lo que el servicio deduce de su
-  /// dirección IP y de los puntos Wi-Fi que ve. Detecta dos cosas:
+  /// It compares what the device says with what the service infers from its
+  /// IP address and the Wi-Fi access points it sees. It detects two things:
   ///
-  /// - **Que la posición llegó por un proxy o una VPN**, que es la señal más
-  ///   fuerte de ubicación falseada.
-  /// - **Cuánto se separa** de la posición deducida.
+  /// - **That the position arrived through a proxy or a VPN**, which is the
+  ///   strongest signal of a spoofed location.
+  /// - **How far it is** from the inferred position.
   ///
   /// ```dart
   /// final v = await maps.tracking.verifyDevicePosition(
-  ///   trackerName: 'flota',
+  ///   trackerName: 'fleet',
   ///   deviceId: imei,
-  ///   position: posicionDeclarada,
-  ///   sampleTime: hora,
-  ///   ipv4Address: ipDelDispositivo,
-  ///   wifiAccessPoints: puntosVistos,
+  ///   position: reportedPosition,
+  ///   sampleTime: gpsTime,
+  ///   ipv4Address: deviceIp,
+  ///   wifiAccessPoints: visibleAccessPoints,
   /// );
   ///
-  /// if (v.isSuspicious()) revisar(imei);
+  /// if (v.isSuspicious()) review(imei);
   /// ```
   ///
-  /// **Sin [ipv4Address] ni [wifiAccessPoints] no puede deducir gran cosa**:
-  /// son las dos señales independientes del GPS, y sin ellas solo queda lo que
-  /// el propio dispositivo declara.
+  /// **Without [ipv4Address] or [wifiAccessPoints] it can't infer much**:
+  /// they are the two signals independent of the GPS, and without them all
+  /// that is left is what the device itself reports.
   ///
-  /// La desviación llega en la unidad pedida —kilómetros por defecto—; aquí se
-  /// convierte a **metros**, como el resto del paquete.
+  /// The deviation arrives in the requested unit —kilometers by default—; here
+  /// it is converted to **meters**, like the rest of the package.
   Future<PositionVerification> verifyDevicePosition({
     required String trackerName,
     required String deviceId,
@@ -410,7 +408,7 @@ class TrackingClient {
       deviceId: v.deviceId,
       proxyDetected: v.proxyDetected,
       inferredPosition: v.inferredPosition,
-      // De kilómetros a metros.
+      // From kilometers to meters.
       deviationMeters: v.deviationMeters == null
           ? null
           : v.deviationMeters! * 1000,
@@ -420,16 +418,16 @@ class TrackingClient {
     );
   }
 
-  // ─── Rastreadores · plano de control ──────────────────────────────────
+  // ─── Trackers · control plane ─────────────────────────────────────────
 
-  /// Crea un rastreador.
+  /// Creates a tracker.
   ///
-  /// **[positionFiltering] es la decisión que hay que pensar.** El valor por
-  /// defecto del servicio guarda una posición cada 30 segundos aunque el
-  /// vehículo esté parado; [PositionFiltering.distanceBased] solo guarda si se
-  /// movió más de 30 metros, y para rastreo de vehículos suele ser lo correcto
-  /// — el histórico de un día pasa de miles de puntos a cientos sin perder
-  /// nada del recorrido.
+  /// **[positionFiltering] is the decision to think through.** The service's
+  /// default stores one position every 30 seconds even while the vehicle is
+  /// parked; [PositionFiltering.distanceBased] only stores if it moved more
+  /// than 30 meters, and for vehicle tracking it is usually the right choice
+  /// — a day's history goes from thousands of points to hundreds without
+  /// losing anything of the route.
   Future<Tracker> createTracker({
     required String trackerName,
     String? description,
@@ -455,7 +453,7 @@ class TrackingClient {
     return Tracker.fromJson(json);
   }
 
-  /// Lee los datos de un rastreador.
+  /// Reads a tracker's data.
   Future<Tracker> describeTracker(String trackerName) async {
     final json = await _transport.sendJson(
       operation: 'DescribeTracker',
@@ -466,10 +464,10 @@ class TrackingClient {
     return Tracker.fromJson(json);
   }
 
-  /// Cambia la configuración de un rastreador.
+  /// Changes a tracker's configuration.
   ///
-  /// Cambiar [positionFiltering] **no reprocesa el histórico**: se aplica solo
-  /// a lo que llegue a partir de ahora.
+  /// Changing [positionFiltering] **does not reprocess the history**: it only
+  /// applies to what arrives from now on.
   Future<Tracker> updateTracker({
     required String trackerName,
     String? description,
@@ -491,7 +489,7 @@ class TrackingClient {
     return Tracker.fromJson(json);
   }
 
-  /// Borra un rastreador **y todo su histórico**. No se puede deshacer.
+  /// Deletes a tracker **and all its history**. It cannot be undone.
   Future<void> deleteTracker(String trackerName) async {
     await _transport.sendJson(
       operation: 'DeleteTracker',
@@ -501,7 +499,7 @@ class TrackingClient {
     );
   }
 
-  /// Lista los rastreadores de la cuenta.
+  /// Lists the account's trackers.
   Future<TrackingPage<Tracker>> listTrackers({
     int? maxResults,
     String? nextToken,
@@ -525,20 +523,20 @@ class TrackingClient {
     );
   }
 
-  // ─── Consumidores: el enlace con las geovallas ────────────────────────
+  // ─── Consumers: the link to geofences ─────────────────────────────────
 
-  /// Enlaza el rastreador con una colección de geovallas.
+  /// Links the tracker to a geofence collection.
   ///
-  /// **Esto es lo que hace que todo lo demás funcione solo.** Una vez
-  /// enlazados, cada posición que entra por [batchUpdateDevicePosition] se
-  /// evalúa **automáticamente** contra las geovallas de esa colección y
-  /// dispara eventos `ENTER` y `EXIT` en Amazon EventBridge.
+  /// **This is what makes everything else work on its own.** Once linked,
+  /// every position that comes in through [batchUpdateDevicePosition] is
+  /// evaluated **automatically** against that collection's geofences and
+  /// fires `ENTER` and `EXIT` events on Amazon EventBridge.
   ///
-  /// Sin el enlace hay que llamar a `GeofencingClient.batchEvaluateGeofences`
-  /// a mano por cada lote de posiciones — el doble de peticiones y el doble de
-  /// factura para el mismo resultado.
+  /// Without the link you have to call
+  /// `GeofencingClient.batchEvaluateGeofences` by hand for every batch of
+  /// positions — twice the requests and twice the bill for the same result.
   ///
-  /// [collectionArn] es el ARN completo, no el nombre. Sale de
+  /// [collectionArn] is the full ARN, not the name. It comes from
   /// `GeofenceCollection.collectionArn`.
   Future<void> associateConsumer({
     required String trackerName,
@@ -553,10 +551,10 @@ class TrackingClient {
     );
   }
 
-  /// Deshace el enlace.
+  /// Removes the link.
   ///
-  /// A partir de ese momento las posiciones dejan de evaluarse **sin dar
-  /// ningún error**: simplemente no salta nada.
+  /// From that moment on, positions stop being evaluated **without any
+  /// error**: nothing fires, that's all.
   Future<void> disassociateConsumer({
     required String trackerName,
     required String collectionArn,
@@ -571,10 +569,10 @@ class TrackingClient {
     );
   }
 
-  /// Las colecciones de geovallas enlazadas con un rastreador.
+  /// The geofence collections linked to a tracker.
   ///
-  /// Es lo primero que hay que mirar cuando «las geovallas no disparan»: casi
-  /// siempre es que el enlace no está.
+  /// It is the first thing to check when "the geofences don't fire": it is
+  /// almost always that the link isn't there.
   Future<TrackingPage<String>> listConsumers({
     required String trackerName,
     int? maxResults,

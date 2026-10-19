@@ -1,65 +1,62 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 
-/// Datos extra que se pueden pedir por tramo de ruta.
+/// Extra data that can be requested per route leg.
 ///
-/// Cada uno engorda la respuesta. [tolls] y [summary] son los que casi siempre
-/// compensan; [travelStepInstructions] multiplica el tamaño por varias veces y
-/// solo hace falta si de verdad se va a navegar.
+/// Each one bloats the response. [tolls] and [summary] are the ones that are
+/// almost always worth it; [travelStepInstructions] multiplies the size
+/// several times over and is only needed if you are really going to navigate.
 enum RouteFeature {
-  /// Altitud a lo largo del trazado.
+  /// Elevation along the path.
   elevation('Elevation'),
 
-  /// Obras, accidentes y cortes.
+  /// Roadworks, accidents and closures.
   incidents('Incidents'),
 
-  /// Los puntos de paso por los que se pasa sin parar.
+  /// The waypoints the route passes through without stopping.
   passThroughWaypoints('PassThroughWaypoints'),
 
-  /// El resumen de distancia y duración del tramo.
+  /// The distance and duration summary of the leg.
   ///
-  /// Sin esto, `Summary.Overview` puede no venir y el tramo aparece con
-  /// distancia y duración a cero.
+  /// Without this, `Summary.Overview` may be missing and the leg shows up
+  /// with zero distance and duration.
   summary('Summary'),
 
-  /// Los sistemas de peaje por los que pasa.
-  tollSystems('TollSystems'),
-
-  /// **Los peajes con su importe.** Esto es lo que Google no da.
+  /// **Tolls with their amount.** This is what Google doesn't give you.
   tolls('Tolls'),
 
-  /// El texto de cada maniobra.
+  /// The text of each maneuver.
   travelStepInstructions('TravelStepInstructions'),
 
-  /// Los tipos de vía para camión.
+  /// The road types for trucks.
   truckRoadTypes('TruckRoadTypes'),
 
-  /// La duración típica del tramo, sin tráfico.
+  /// The typical duration of the leg, without traffic.
   ///
-  /// Comparada con la duración real da el retraso por tráfico, que es lo que
-  /// se enseña como «10 min más de lo habitual».
+  /// Compared with the actual duration it gives the traffic delay, which is
+  /// what gets shown as "10 min longer than usual".
   typicalDuration('TypicalDuration'),
 
-  /// Zonas de bajas emisiones y similares.
+  /// Low-emission zones and the like.
   zones('Zones');
 
   const RouteFeature(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Qué evitar al calcular la ruta.
+/// What to avoid when calculating the route.
 ///
-/// Ninguna de estas es una prohibición absoluta: si no hay alternativa, el
-/// servicio pasa igual y lo dice en `RouteResponse.notices`. Es lo correcto —
-/// una ruta imposible no le sirve a nadie— pero hay que leer los avisos si la
-/// evitación era obligatoria de verdad.
+/// None of these is an absolute ban: if there is no alternative, the service
+/// goes through anyway and says so in `RouteResponse.notices`. That is the
+/// right call — an impossible route is useless to everyone — but you have to
+/// read the notices if the avoidance was truly mandatory.
 @immutable
 class RouteAvoidance {
-  /// Crea el conjunto de evitaciones.
+  /// Creates the set of avoidances.
   const RouteAvoidance({
     this.tollRoads = false,
     this.tollTransponders = false,
@@ -72,35 +69,35 @@ class RouteAvoidance {
     this.tollGates = false,
   });
 
-  /// Evitar vías de peaje.
+  /// Avoid toll roads.
   final bool tollRoads;
 
-  /// Evitar vías que solo admiten transpondedor.
+  /// Avoid roads that only accept a transponder.
   final bool tollTransponders;
 
-  /// Evitar ferris. Importante en rutas costeras: un ferri añade horas de
-  /// espera que no se ven en la distancia.
+  /// Avoid ferries. Important on coastal routes: a ferry adds hours of waiting
+  /// that don't show up in the distance.
   final bool ferries;
 
-  /// Evitar túneles. Es la evitación que importa con mercancías peligrosas.
+  /// Avoid tunnels. This is the avoidance that matters with hazardous goods.
   final bool tunnels;
 
-  /// Evitar cambios de sentido.
+  /// Avoid U-turns.
   final bool uTurns;
 
-  /// Evitar caminos sin asfaltar.
+  /// Avoid unpaved roads.
   final bool dirtRoads;
 
-  /// Evitar autopistas de acceso controlado.
+  /// Avoid controlled-access highways.
   final bool controlledAccessHighways;
 
-  /// Evitar vías con cierre estacional.
+  /// Avoid roads with seasonal closures.
   final bool seasonalClosure;
 
-  /// Evitar barreras de peaje.
+  /// Avoid toll gates.
   final bool tollGates;
 
-  /// ¿No se pidió evitar nada?
+  /// Was nothing requested to be avoided?
   bool get isEmpty =>
       !tollRoads &&
       !tollTransponders &&
@@ -112,7 +109,7 @@ class RouteAvoidance {
       !seasonalClosure &&
       !tollGates;
 
-  /// Las evitaciones en la forma que espera el servicio.
+  /// The avoidances in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (tollRoads) 'TollRoads': true,
     if (tollTransponders) 'TollTransponders': true,
@@ -126,14 +123,14 @@ class RouteAvoidance {
   };
 }
 
-/// Las características del vehículo, que cambian la ruta.
+/// The vehicle's characteristics, which change the route.
 ///
-/// El caso que más se nota es el camión: sus dimensiones y su peso hacen que
-/// una ruta correcta para un coche sea imposible. Un puente con gálibo de
-/// 3,5 m no aparece como cortado en el mapa — simplemente el camión no cabe.
+/// The most noticeable case is the truck: its dimensions and weight make a
+/// route that is fine for a car impossible. A bridge with 3.5 m of clearance
+/// doesn't show up as closed on the map — the truck simply doesn't fit.
 @immutable
 class TravelModeOptions {
-  /// Opciones de camión.
+  /// Truck options.
   const TravelModeOptions.truck({
     this.grossWeightKg,
     this.heightCm,
@@ -149,7 +146,7 @@ class TravelModeOptions {
     this.licensePlateLastCharacter,
   }) : _kind = TravelMode.truck;
 
-  /// Opciones de coche.
+  /// Car options.
   const TravelModeOptions.car({
     this.engineType,
     this.occupancy,
@@ -165,7 +162,7 @@ class TravelModeOptions {
        tunnelRestrictionCode = null,
        truckType = null;
 
-  /// Opciones de moto.
+  /// Motorcycle options.
   const TravelModeOptions.scooter({
     this.engineType,
     this.licensePlateLastCharacter,
@@ -183,55 +180,56 @@ class TravelModeOptions {
 
   final TravelMode _kind;
 
-  /// Peso bruto en kilogramos.
+  /// Gross weight in kilograms.
   final int? grossWeightKg;
 
-  /// Altura en centímetros. La que decide si cabe bajo un puente.
+  /// Height in centimeters. The one that decides whether it fits under a
+  /// bridge.
   final int? heightCm;
 
-  /// Longitud en centímetros.
+  /// Length in centimeters.
   final int? lengthCm;
 
-  /// Anchura en centímetros.
+  /// Width in centimeters.
   final int? widthCm;
 
-  /// Número de ejes. Determina la tarifa de peaje.
+  /// Number of axles. Determines the toll tariff.
   final int? axleCount;
 
-  /// Número de remolques.
+  /// Number of trailers.
   final int? trailerCount;
 
-  /// Mercancías peligrosas: `Explosive`, `Gas`, `Flammable`, `Combustible`,
+  /// Hazardous goods: `Explosive`, `Gas`, `Flammable`, `Combustible`,
   /// `Organic`, `Poison`, `Radioactive`, `Corrosive`, `PoisonousInhalation`,
   /// `HarmfulToWater`, `Other`.
   final List<String> hazardousCargos;
 
-  /// Código de restricción de túneles, de `B` a `E`.
+  /// Tunnel restriction code, from `B` to `E`.
   final String? tunnelRestrictionCode;
 
-  /// Clase de camión: `StraightTruck`, `Tractor`, `Trailer`.
+  /// Truck class: `StraightTruck`, `Tractor`, `Trailer`.
   final String? truckType;
 
-  /// Motorización: `Electric`, `Diesel`, `Gasoline`. Cambia las zonas de bajas
-  /// emisiones en las que se puede entrar.
+  /// Engine type: `Electric`, `Diesel`, `Gasoline`. Changes which low-emission
+  /// zones it may enter.
   final String? engineType;
 
-  /// Ocupantes. Da acceso a los carriles de alta ocupación.
+  /// Occupants. Grants access to high-occupancy lanes.
   final int? occupancy;
 
-  /// Última cifra de la matrícula.
+  /// Last character of the license plate.
   ///
-  /// Es lo que hace falta para el «pico y placa» de Quito y las restricciones
-  /// equivalentes de otras ciudades, que dependen de esa cifra y del día de la
-  /// semana.
+  /// This is what Quito's "pico y placa" needs, along with the equivalent
+  /// restrictions in other cities, which depend on that character and on the
+  /// day of the week.
   final String? licensePlateLastCharacter;
 
-  /// Las opciones en la forma que espera el servicio para [travelMode].
+  /// The options in the shape the service expects for [travelMode].
   ///
-  /// Se anidan bajo la clave del modo (`Truck`, `Car`, `Scooter`), que es como
-  /// las quiere la API. Si el modo no coincide con el del constructor, se
-  /// devuelve un mapa vacío en vez de enviar opciones de camión bajo `Car`,
-  /// que provocaría un `400`.
+  /// They are nested under the mode's key (`Truck`, `Car`, `Scooter`), which
+  /// is how the API wants them. If the mode doesn't match the constructor's,
+  /// an empty map is returned instead of sending truck options under `Car`,
+  /// which would cause a `400`.
   Map<String, dynamic> toJson(TravelMode travelMode) {
     if (travelMode != _kind) return const <String, dynamic>{};
 
@@ -258,37 +256,38 @@ class TravelModeOptions {
   }
 }
 
-/// Los umbrales de una isócrona: por tiempo, por distancia o los dos.
+/// The thresholds of an isoline: by time, by distance, or both.
 ///
-/// **Cada umbral se cobra aparte**, y el máximo es cinco. Pedir cinco umbrales
-/// en una llamada es más cómodo que hacer cinco llamadas, pero cuesta lo
-/// mismo. Por eso [count] existe: es lo que el presupuesto va a cargar.
+/// **Each threshold is billed separately**, and the maximum is five. Asking
+/// for five thresholds in one call is more convenient than making five calls,
+/// but it costs the same. That is why [count] exists: it is what the budget
+/// is going to charge.
 @immutable
 class Thresholds {
-  /// Crea los umbrales.
+  /// Creates the thresholds.
   const Thresholds({
     this.time = const <Duration>[],
     this.distanceMeters = const <double>[],
   });
 
-  /// Umbrales por tiempo. El caso normal: «lo alcanzable en 8 minutos».
+  /// Thresholds by time. The usual case: "what is reachable in 8 minutes".
   factory Thresholds.time(List<Duration> durations) =>
       Thresholds(time: durations);
 
-  /// Umbrales por distancia recorrida **por carretera**, no en línea recta.
+  /// Thresholds by distance traveled **by road**, not in a straight line.
   factory Thresholds.distance(List<double> meters) =>
       Thresholds(distanceMeters: meters);
 
-  /// Los umbrales de tiempo.
+  /// The time thresholds.
   final List<Duration> time;
 
-  /// Los umbrales de distancia, en metros.
+  /// The distance thresholds, in meters.
   final List<double> distanceMeters;
 
-  /// Cuántos umbrales hay en total. **Es lo que se factura.**
+  /// How many thresholds there are in total. **This is what gets billed.**
   int get count => time.length + distanceMeters.length;
 
-  /// Los umbrales en la forma que espera el servicio.
+  /// The thresholds in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (time.isNotEmpty)
       'Time': time.map((d) => d.inSeconds).toList(growable: false),
@@ -300,53 +299,52 @@ class Thresholds {
   String toString() => 'Thresholds($count umbral(es))';
 }
 
-/// Cuánto detalle tiene el polígono de una isócrona.
+/// How much detail an isoline's polygon has.
 ///
-/// ## Por qué esto no es opcional en la práctica
+/// ## Why this is not optional in practice
 ///
-/// Sin límite, el polígono de una isócrona de treinta minutos trae varios
-/// miles de vértices. El mapa lo acepta, lo intenta dibujar y la interfaz deja
-/// de responder — en un móvil de gama media, varios segundos por cada
-/// repintado. No es un problema de precisión: a la escala en la que se ve la
-/// isócrona, trescientos puntos y tres mil se ven exactamente igual.
+/// Without a limit, the polygon of a thirty-minute isoline comes with several
+/// thousand vertices. The map accepts it, tries to draw it, and the UI stops
+/// responding — on a mid-range phone, several seconds per repaint. It is not
+/// a precision issue: at the scale the isoline is viewed at, three hundred
+/// points and three thousand look exactly the same.
 ///
-/// Por eso el valor por defecto de `calculateIsolines` ya trae `maxPoints`
-/// puesto, en vez de dejarlo sin poner y documentar el riesgo.
+/// That is why the default value of `calculateIsolines` already comes with
+/// `maxPoints` set, instead of leaving it unset and documenting the risk.
 @immutable
 class IsolineGranularity {
-  /// Crea la granularidad.
+  /// Creates the granularity.
   const IsolineGranularity({this.maxPoints, this.maxResolutionMeters});
 
-  /// Vértices máximos del polígono. Trescientos van bien para pintar.
+  /// Maximum vertices of the polygon. Three hundred work well for drawing.
   final int? maxPoints;
 
-  /// Resolución máxima en metros: la distancia mínima entre dos vértices.
+  /// Maximum resolution in meters: the minimum distance between two vertices.
   final int? maxResolutionMeters;
 
-  /// La granularidad en la forma que espera el servicio.
+  /// The granularity in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (maxPoints != null) 'MaxPoints': maxPoints,
     if (maxResolutionMeters != null) 'MaxResolution': maxResolutionMeters,
   };
 }
 
-/// Los descansos obligatorios del conductor, para `optimizeWaypoints`.
+/// The driver's mandatory rest breaks, for `optimizeWaypoints`.
 ///
-/// Sin esto, la optimización planifica jornadas de catorce horas seguidas.
-/// Salen preciosas en el mapa y son ilegales.
+/// Without this, the optimization plans fourteen-hour shifts in a row. They
+/// look gorgeous on the map and they are illegal.
 @immutable
 class DriverOptions {
-  /// Crea las opciones del conductor.
+  /// Creates the driver options.
   const DriverOptions({this.restProfile, this.treatServiceTimeAs});
 
-  /// El perfil normativo de descansos, p. ej. `EU` o `US`.
+  /// The regulatory rest profile, e.g. `EU` or `US`.
   final String? restProfile;
 
-  /// Si el tiempo de servicio cuenta como descanso o como trabajo:
-  /// `Rest` o `Work`.
+  /// Whether service time counts as rest or as work: `Rest` or `Work`.
   final String? treatServiceTimeAs;
 
-  /// Las opciones en la forma que espera el servicio.
+  /// The options in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (restProfile != null)
       'RestProfile': <String, dynamic>{'Profile': restProfile},

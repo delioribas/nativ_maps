@@ -2,6 +2,7 @@
 
 import 'package:nativ_maps_example/config.dart';
 import 'package:nativ_maps_example/demos/busqueda_demo.dart';
+import 'package:nativ_maps_example/demos/elegir_ubicacion_demo.dart';
 import 'package:nativ_maps_example/demos/isocronas_demo.dart';
 import 'package:nativ_maps_example/demos/mapa_basico_demo.dart';
 import 'package:nativ_maps_example/demos/matriz_demo.dart';
@@ -45,6 +46,8 @@ Widget _construyeMapaBasicoDemo(BuildContext _) => const MapaBasicoDemo();
 Widget _construyeSuperposicionesDemo(BuildContext _) =>
     const SuperposicionesDemo();
 Widget _construyeBusquedaDemo(BuildContext _) => const BusquedaDemo();
+Widget _construyeElegirUbicacionDemo(BuildContext _) =>
+    const ElegirUbicacionDemo();
 Widget _construyeRutasDemo(BuildContext _) => const RutasDemo();
 Widget _construyeIsocronasDemo(BuildContext _) => const IsocronasDemo();
 Widget _construyeMatrizDemo(BuildContext _) => const MatrizDemo();
@@ -101,6 +104,15 @@ const _demos = <_Demo>[
       'Suggest',
     ],
     constructor: _construyeBusquedaDemo,
+  ),
+  _Demo(
+    titulo: 'Elegir ubicación',
+    descripcion:
+        'El alfiler fijo en el centro: se mueve el mapa y al soltar sale la '
+        'dirección. El punto de recogida de una app de taxi.',
+    icono: Icons.location_searching,
+    operaciones: <String>['ReverseGeocode'],
+    constructor: _construyeElegirUbicacionDemo,
   ),
   _Demo(
     titulo: 'Rutas y peajes',

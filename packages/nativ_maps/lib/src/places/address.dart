@@ -1,70 +1,70 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/json.dart';
 
-/// Un país, con sus dos códigos ISO y su nombre.
+/// A country, with its two ISO codes and its name.
 @immutable
 class Country {
-  /// Crea el país.
+  /// Creates the country.
   const Country({this.code2, this.code3, this.name});
 
-  /// Lee el país de la respuesta del servicio.
+  /// Reads the country from the service response.
   factory Country.fromJson(Map<String, dynamic> json) => Country(
     code2: Json.string(json, 'Code2'),
     code3: Json.string(json, 'Code3'),
     name: Json.string(json, 'Name'),
   );
 
-  /// Código ISO 3166-1 alfa-2, p. ej. `EC`.
+  /// ISO 3166-1 alpha-2 code, e.g. `EC`.
   final String? code2;
 
-  /// Código ISO 3166-1 alfa-3, p. ej. `ECU`.
+  /// ISO 3166-1 alpha-3 code, e.g. `ECU`.
   ///
-  /// **Es el que piden los filtros** `includeCountries`. Pasar el alfa-2 donde
-  /// va el alfa-3 no da error: devuelve cero resultados, que es más difícil de
-  /// diagnosticar.
+  /// **It is the one the `includeCountries` filters expect.** Passing the
+  /// alpha-2 where the alpha-3 goes doesn't raise an error: it returns zero
+  /// results, which is harder to diagnose.
   final String? code3;
 
-  /// Nombre del país en el idioma pedido.
+  /// Name of the country in the requested language.
   final String? name;
 
   @override
   String toString() => name ?? code3 ?? code2 ?? 'Country(?)';
 }
 
-/// Una división administrativa con código y nombre: provincia, cantón,
-/// parroquia, según el nivel.
+/// An administrative division with a code and a name: province, canton,
+/// parish, depending on the level.
 @immutable
 class AdminArea {
-  /// Crea el área.
+  /// Creates the area.
   const AdminArea({this.code, this.name});
 
-  /// Lee el área de la respuesta del servicio.
+  /// Reads the area from the service response.
   factory AdminArea.fromJson(Map<String, dynamic> json) => AdminArea(
     code: Json.string(json, 'Code'),
     name: Json.string(json, 'Name'),
   );
 
-  /// Código de la división, cuando el proveedor lo da.
+  /// Code of the division, when the provider gives one.
   final String? code;
 
-  /// Nombre de la división.
+  /// Name of the division.
   final String? name;
 
   @override
   String toString() => name ?? code ?? 'AdminArea(?)';
 }
 
-/// Una pieza del nombre de una calle, ya separada.
+/// One piece of a street name, already split out.
 ///
-/// «Avenida de los Shyris» llega descompuesta en tipo (`Avenida`), separador
-/// (`de los`) y nombre base (`Shyris`). Sirve para componer la dirección con
-/// el orden y las abreviaturas de cada país sin tratar la calle como una
-/// cadena opaca.
+/// «Avenida de los Shyris» arrives broken down into type (`Avenida`),
+/// separator (`de los`) and base name (`Shyris`). It lets you compose the
+/// address with each country's order and abbreviations without treating the
+/// street as an opaque string.
 @immutable
 class StreetComponent {
-  /// Crea la pieza.
+  /// Creates the piece.
   const StreetComponent({
     this.baseName,
     this.type,
@@ -76,7 +76,7 @@ class StreetComponent {
     this.language,
   });
 
-  /// Lee la pieza de la respuesta del servicio.
+  /// Reads the piece from the service response.
   factory StreetComponent.fromJson(Map<String, dynamic> json) =>
       StreetComponent(
         baseName: Json.string(json, 'BaseName'),
@@ -89,48 +89,48 @@ class StreetComponent {
         language: Json.string(json, 'Language'),
       );
 
-  /// El nombre sin el tipo: `Shyris` de «Avenida de los Shyris».
+  /// The name without the type: `Shyris` from «Avenida de los Shyris».
   final String? baseName;
 
-  /// El tipo de vía: `Avenida`, `Calle`, `Pasaje`.
+  /// The street type: `Avenida`, `Calle`, `Pasaje`.
   final String? type;
 
-  /// Si el tipo va antes o después del nombre (`BeforeBaseName`,
-  /// `AfterBaseName`). En español va antes; en inglés, después.
+  /// Whether the type goes before or after the name (`BeforeBaseName`,
+  /// `AfterBaseName`). In Spanish it goes before; in English, after.
   final String? typePlacement;
 
-  /// Lo que separa el tipo del nombre: `de los`, `del`.
+  /// What separates the type from the name: `de los`, `del`.
   final String? typeSeparator;
 
-  /// Prefijo de la vía.
+  /// Street prefix.
   final String? prefix;
 
-  /// Sufijo de la vía.
+  /// Street suffix.
   final String? suffix;
 
-  /// Punto cardinal, como el `N` de «Av. 10 de Agosto N24».
+  /// Cardinal direction, like the `N` in «Av. 10 de Agosto N24».
   final String? direction;
 
-  /// Idioma BCP 47 de esta pieza.
+  /// BCP 47 language of this piece.
   final String? language;
 
   @override
   String toString() => baseName ?? type ?? 'StreetComponent(?)';
 }
 
-/// Una dirección postal completa, tal como la desglosa Amazon Location v2.
+/// A complete postal address, as Amazon Location v2 breaks it down.
 ///
-/// La mayoría de las apps solo necesitan [label], que es la dirección ya
-/// compuesta y lista para enseñar. El desglose está entero porque hay dos
-/// cosas que solo se pueden hacer con él: rellenar un formulario campo a campo
-/// —país, provincia, ciudad, calle, número— y componer la dirección con las
-/// convenciones de un país concreto.
+/// Most apps only need [label], which is the address already composed and
+/// ready to show. The full breakdown is there because there are two things
+/// you can only do with it: fill in a form field by field —country, province,
+/// city, street, number— and compose the address with a specific country's
+/// conventions.
 ///
-/// El cliente anterior guardaba solo `Address.Label` y descartaba el resto, lo
-/// que obligaba a pedir el lugar otra vez cada vez que hacía falta un campo.
+/// The previous client kept only `Address.Label` and threw away the rest,
+/// which forced you to fetch the place again every time a field was needed.
 @immutable
 class Address {
-  /// Crea la dirección.
+  /// Creates the address.
   const Address({
     this.label,
     this.country,
@@ -149,7 +149,7 @@ class Address {
     this.intersection = const <String>[],
   });
 
-  /// Lee la dirección de la respuesta del servicio.
+  /// Reads the address from the service response.
   factory Address.fromJson(Map<String, dynamic> json) {
     final country = Json.object(json, 'Country');
     final region = Json.object(json, 'Region');
@@ -176,63 +176,63 @@ class Address {
     );
   }
 
-  /// La dirección completa en una línea, ya compuesta por el servicio.
+  /// The complete address on one line, already composed by the service.
   ///
-  /// Es lo que hay que enseñar en pantalla. Componerla a mano desde los campos
-  /// sale mal en cuanto se cruza una frontera: el orden y los separadores
-  /// cambian por país.
+  /// This is what you show on screen. Composing it by hand from the fields
+  /// goes wrong as soon as you cross a border: the order and the separators
+  /// change by country.
   final String? label;
 
-  /// El país.
+  /// The country.
   final Country? country;
 
-  /// Primer nivel administrativo: provincia, estado, departamento.
+  /// First administrative level: province, state, department.
   final AdminArea? region;
 
-  /// Segundo nivel: cantón, condado.
+  /// Second level: canton, county.
   final AdminArea? subRegion;
 
-  /// La ciudad o población.
+  /// The city or town.
   final String? locality;
 
-  /// El barrio o distrito.
+  /// The neighborhood or district.
   final String? district;
 
-  /// Subdivisión del barrio.
+  /// Subdivision of the neighborhood.
   final String? subDistrict;
 
-  /// Código postal.
+  /// Postal code.
   final String? postalCode;
 
-  /// Manzana, donde el direccionamiento la usa (Japón, partes de Asia).
+  /// Block, where the addressing system uses it (Japan, parts of Asia).
   final String? block;
 
-  /// Submanzana.
+  /// Sub-block.
   final String? subBlock;
 
-  /// La calle ya compuesta.
+  /// The street, already composed.
   final String? street;
 
-  /// La calle desglosada en piezas.
+  /// The street broken down into pieces.
   final List<StreetComponent> streetComponents;
 
-  /// El número del portal.
+  /// The street number.
   final String? addressNumber;
 
-  /// Nombre del edificio, si lo tiene.
+  /// Name of the building, if it has one.
   final String? building;
 
-  /// Las vías que se cruzan, cuando la posición es una esquina.
+  /// The streets that cross, when the position is a corner.
   ///
-  /// Es lo que se dicta por radio cuando no hay número: «Amazonas y Naciones
-  /// Unidas».
+  /// It's what gets read out over the radio when there's no number:
+  /// «Amazonas y Naciones Unidas».
   final List<String> intersection;
 
-  /// La dirección más corta que sigue siendo útil para hablar: calle y número,
-  /// o la esquina, o la ciudad.
+  /// The shortest address that's still useful to say out loud: street and
+  /// number, or the corner, or the city.
   ///
-  /// Es lo que se lee en voz alta al despachar un aviso, donde el [label]
-  /// completo —con país y código postal— sobra.
+  /// It's what gets read aloud when dispatching a call, where the full
+  /// [label] —with country and postal code— is too much.
   String? get shortLabel {
     if (street != null) {
       return addressNumber == null ? street : '$street $addressNumber';

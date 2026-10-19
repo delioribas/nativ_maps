@@ -1,0 +1,15 @@
+{
+  "Entries": [
+    {
+      "DeviceId": "taxi-1",
+      "SampleTime": "2026-10-19T06:47:40.837Z",
+      "Position": [
+        -78.4844,
+        -0.176
+      ],
+      "Accuracy": {
+        "Horizontal": 5
+      }
+    }
+  ]
+}

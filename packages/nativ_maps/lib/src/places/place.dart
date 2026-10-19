@@ -1,71 +1,70 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/places/address.dart';
 
-/// Qué clase de sitio es un resultado.
+/// What kind of place a result is.
 ///
-/// Importa más de lo que parece: un [locality] devuelto por una búsqueda de
-/// dirección significa «no encontré el portal, te doy la ciudad», y enseñarlo
-/// como si fuera la dirección exacta es cómo un vehículo acaba «localizado» en
-/// el centro geográfico de Quito.
+/// It matters more than it seems: a [locality] returned by an address search
+/// means "I couldn't find the street number, here's the city", and showing it
+/// as if it were the exact address is how a vehicle ends up "located" at the
+/// geographic center of Quito.
 enum PlaceType {
-  /// El país entero.
+  /// The whole country.
   country('Country'),
 
-  /// Una división administrativa de primer nivel.
+  /// A first-level administrative division.
   region('Region'),
 
-  /// Una de segundo nivel.
+  /// A second-level one.
   subRegion('SubRegion'),
 
-  /// Una ciudad o población.
+  /// A city or town.
   locality('Locality'),
 
-  /// Un distrito o barrio.
+  /// A district or neighborhood.
   district('District'),
 
-  /// Un subdistrito.
+  /// A subdistrict.
   subDistrict('SubDistrict'),
 
-  /// Una zona de código postal.
+  /// A postal code area.
   postalCode('PostalCode'),
 
-  /// Una manzana.
+  /// A block.
   block('Block'),
 
-  /// Una submanzana.
+  /// A sub-block.
   subBlock('SubBlock'),
 
-  /// Una intersección de vías.
+  /// An intersection of streets.
   intersection('Intersection'),
 
-  /// Una calle entera.
+  /// A whole street.
   street('Street'),
 
-  /// Un portal concreto. Es el nivel de precisión que se quiere para una
-  /// dirección de entrega.
+  /// A specific street number. It's the level of precision you want for a
+  /// delivery address.
   pointAddress('PointAddress'),
 
-  /// Un punto interpolado sobre el tramo de calle: la posición es una
-  /// estimación entre dos portales conocidos, no un portal real.
+  /// A point interpolated along the street segment: the position is an
+  /// estimate between two known street numbers, not a real one.
   interpolatedAddress('InterpolatedAddress'),
 
-  /// Un negocio o punto de interés.
+  /// A business or point of interest.
   pointOfInterest('PointOfInterest');
 
   const PlaceType(this.wireName);
 
-  /// El literal que devuelve el servicio.
+  /// The literal the service returns.
   final String wireName;
 
-  /// ¿Es lo bastante preciso para tratarlo como una dirección concreta?
+  /// Is it precise enough to treat as a specific address?
   ///
-  /// Un [pointAddress] o un [pointOfInterest] señalan un sitio; una
-  /// [locality] señala una ciudad entera. La diferencia entre los dos son
-  /// kilómetros.
+  /// A [pointAddress] or a [pointOfInterest] points to a place; a [locality]
+  /// points to a whole city. The difference between the two is kilometers.
   bool get isPrecise =>
       this == pointAddress ||
       this == pointOfInterest ||
@@ -73,13 +72,13 @@ enum PlaceType {
       this == intersection;
 }
 
-/// Una categoría de punto de interés: «restaurante», «gasolinera», «hospital».
+/// A point-of-interest category: "restaurant", "gas station", "hospital".
 @immutable
 class PlaceCategory {
-  /// Crea la categoría.
+  /// Creates the category.
   const PlaceCategory({this.id, this.name, this.localizedName, this.primary});
 
-  /// Lee la categoría de la respuesta del servicio.
+  /// Reads the category from the service response.
   factory PlaceCategory.fromJson(Map<String, dynamic> json) => PlaceCategory(
     id: Json.string(json, 'Id'),
     name: Json.string(json, 'Name'),
@@ -87,30 +86,30 @@ class PlaceCategory {
     primary: Json.boolean(json, 'Primary'),
   );
 
-  /// Identificador estable de la categoría. Es el que hay que usar para
-  /// filtrar; el nombre cambia con el idioma.
+  /// Stable identifier of the category. It's the one to use for filtering;
+  /// the name changes with the language.
   final String? id;
 
-  /// Nombre de la categoría.
+  /// Name of the category.
   final String? name;
 
-  /// Nombre en el idioma pedido.
+  /// Name in the requested language.
   final String? localizedName;
 
-  /// ¿Es la categoría principal de este sitio? Un sitio puede tener varias.
+  /// Is this the place's main category? A place can have several.
   final bool? primary;
 
   @override
   String toString() => localizedName ?? name ?? id ?? 'PlaceCategory(?)';
 }
 
-/// Una forma de contactar: teléfono, web, correo o red social.
+/// A way to get in touch: phone, website, email or social network.
 @immutable
 class ContactDetail {
-  /// Crea el contacto.
+  /// Creates the contact.
   const ContactDetail({this.label, this.value, this.categories = const []});
 
-  /// Lee el contacto de la respuesta del servicio.
+  /// Reads the contact from the service response.
   factory ContactDetail.fromJson(Map<String, dynamic> json) => ContactDetail(
     label: Json.string(json, 'Label'),
     value: Json.string(json, 'Value'),
@@ -120,23 +119,23 @@ class ContactDetail {
     ).map(PlaceCategory.fromJson).toList(growable: false),
   );
 
-  /// Etiqueta legible del contacto.
+  /// Human-readable label of the contact.
   final String? label;
 
-  /// El valor: el número, la URL, la dirección de correo.
+  /// The value: the number, the URL, the email address.
   final String? value;
 
-  /// A qué parte del negocio corresponde, cuando tiene varias.
+  /// Which part of the business it belongs to, when it has several.
   final List<PlaceCategory> categories;
 
   @override
   String toString() => value ?? label ?? 'ContactDetail(?)';
 }
 
-/// Los contactos de un sitio, agrupados por tipo.
+/// A place's contacts, grouped by type.
 @immutable
 class Contacts {
-  /// Crea el grupo.
+  /// Creates the group.
   const Contacts({
     this.phones = const <ContactDetail>[],
     this.faxes = const <ContactDetail>[],
@@ -144,7 +143,7 @@ class Contacts {
     this.emails = const <ContactDetail>[],
   });
 
-  /// Lee los contactos de la respuesta del servicio.
+  /// Reads the contacts from the service response.
   factory Contacts.fromJson(Map<String, dynamic> json) {
     List<ContactDetail> read(String key) => Json.objects(
       json,
@@ -158,27 +157,27 @@ class Contacts {
     );
   }
 
-  /// Teléfonos.
+  /// Phone numbers.
   final List<ContactDetail> phones;
 
   /// Faxes.
   final List<ContactDetail> faxes;
 
-  /// Sitios web.
+  /// Websites.
   final List<ContactDetail> websites;
 
-  /// Direcciones de correo.
+  /// Email addresses.
   final List<ContactDetail> emails;
 
-  /// ¿Hay algún contacto de cualquier tipo?
+  /// Is there any contact of any type?
   bool get isEmpty =>
       phones.isEmpty && faxes.isEmpty && websites.isEmpty && emails.isEmpty;
 }
 
-/// El horario de un sitio, con si está abierto ahora.
+/// A place's opening hours, including whether it's open now.
 @immutable
 class OpeningHours {
-  /// Crea el horario.
+  /// Creates the opening hours.
   const OpeningHours({
     this.display = const <String>[],
     this.openNow,
@@ -186,7 +185,7 @@ class OpeningHours {
     this.categories = const <PlaceCategory>[],
   });
 
-  /// Lee el horario de la respuesta del servicio.
+  /// Reads the opening hours from the service response.
   factory OpeningHours.fromJson(Map<String, dynamic> json) => OpeningHours(
     display: Json.strings(json, 'Display'),
     openNow: Json.boolean(json, 'OpenNow'),
@@ -200,34 +199,34 @@ class OpeningHours {
     ).map(PlaceCategory.fromJson).toList(growable: false),
   );
 
-  /// El horario ya escrito para enseñar, una línea por franja.
+  /// The opening hours already written out for display, one line per slot.
   final List<String> display;
 
-  /// ¿Está abierto en el momento de la consulta?
+  /// Is it open at the time of the query?
   ///
-  /// Lo calcula el servidor en la zona horaria del sitio, que es la razón de
-  /// no calcularlo en el móvil: hacerlo bien exige saber la zona del sitio y
-  /// no la del teléfono.
+  /// The server computes it in the place's time zone, which is the reason not
+  /// to compute it on the phone: doing it right requires knowing the place's
+  /// time zone, not the phone's.
   final bool? openNow;
 
-  /// El horario en forma legible por máquina, para calcular con él.
+  /// The opening hours in machine-readable form, for computing with.
   final List<OpeningHoursComponent> components;
 
-  /// A qué parte del negocio se aplica este horario.
+  /// Which part of the business these opening hours apply to.
   final List<PlaceCategory> categories;
 }
 
-/// Una franja horaria en formato legible por máquina.
+/// A time slot in machine-readable format.
 @immutable
 class OpeningHoursComponent {
-  /// Crea la franja.
+  /// Creates the time slot.
   const OpeningHoursComponent({
     this.openTime,
     this.openDuration,
     this.recurrence,
   });
 
-  /// Lee la franja de la respuesta del servicio.
+  /// Reads the time slot from the service response.
   factory OpeningHoursComponent.fromJson(Map<String, dynamic> json) =>
       OpeningHoursComponent(
         openTime: Json.string(json, 'OpenTime'),
@@ -235,62 +234,63 @@ class OpeningHoursComponent {
         recurrence: Json.string(json, 'Recurrence'),
       );
 
-  /// Hora de apertura en formato `T` de ISO 8601, p. ej. `T080000`.
+  /// Opening time in ISO 8601 `T` format, e.g. `T080000`.
   final String? openTime;
 
-  /// Cuánto dura la apertura, en duración ISO 8601, p. ej. `PT10H30M`.
+  /// How long it stays open, as an ISO 8601 duration, e.g. `PT10H30M`.
   final String? openDuration;
 
-  /// La regla de repetición, en formato RRULE de iCalendar.
+  /// The recurrence rule, in iCalendar RRULE format.
   final String? recurrence;
 }
 
-/// Un punto por el que se entra o se sale de un sitio.
+/// A point through which you enter or leave a place.
 ///
-/// Es la diferencia entre navegar al centroide de un centro comercial y
-/// navegar a su puerta. Para una app de reparto, [AccessPoint] es lo que evita
-/// que el conductor acabe en el lado equivocado de la manzana.
+/// It's the difference between navigating to the centroid of a shopping mall
+/// and navigating to its door. For a delivery app, [AccessPoint] is what
+/// keeps the driver from ending up on the wrong side of the block.
 @immutable
 class AccessPoint {
-  /// Crea el punto de acceso.
+  /// Creates the access point.
   const AccessPoint({required this.position});
 
-  /// Lee el punto de la respuesta del servicio, o `null` si no trae posición.
+  /// Reads the point from the service response, or `null` if it has no
+  /// position.
   static AccessPoint? fromJson(Map<String, dynamic> json) {
     final position = Json.latLng(json, 'Position');
     return position == null ? null : AccessPoint(position: position);
   }
 
-  /// Dónde está la entrada.
+  /// Where the entrance is.
   final LatLng position;
 
   @override
   String toString() => 'AccessPoint($position)';
 }
 
-/// La zona horaria de un sitio.
+/// A place's time zone.
 @immutable
 class TimeZoneInfo {
-  /// Crea la zona horaria.
+  /// Creates the time zone.
   const TimeZoneInfo({this.name, this.offset, this.offsetSeconds});
 
-  /// Lee la zona de la respuesta del servicio.
+  /// Reads the time zone from the service response.
   factory TimeZoneInfo.fromJson(Map<String, dynamic> json) => TimeZoneInfo(
     name: Json.string(json, 'Name'),
     offset: Json.string(json, 'Offset'),
     offsetSeconds: Json.integer(json, 'OffsetSeconds'),
   );
 
-  /// Nombre IANA, p. ej. `America/Guayaquil`.
+  /// IANA name, e.g. `America/Guayaquil`.
   final String? name;
 
-  /// Desfase en formato `+HH:MM`.
+  /// Offset in `+HH:MM` format.
   final String? offset;
 
-  /// El mismo desfase en segundos, ya listo para sumar.
+  /// The same offset in seconds, ready to add.
   final int? offsetSeconds;
 
-  /// El desfase como [Duration], si el servicio lo dio.
+  /// The offset as a [Duration], if the service provided it.
   Duration? get offsetDuration =>
       offsetSeconds == null ? null : Duration(seconds: offsetSeconds!);
 
@@ -298,17 +298,17 @@ class TimeZoneInfo {
   String toString() => name ?? offset ?? 'TimeZoneInfo(?)';
 }
 
-/// Qué parte del texto buscado coincidió con qué parte del resultado.
+/// Which part of the search text matched which part of the result.
 ///
-/// Sirve para resaltar en negrita lo que el usuario ya escribió dentro de cada
-/// sugerencia, como hace la barra de búsqueda de Google Maps. Sin esto hay que
-/// buscar la subcadena a mano, y eso falla con acentos y mayúsculas.
+/// It's for bolding what the user already typed inside each suggestion, the
+/// way the Google Maps search bar does. Without it you have to find the
+/// substring by hand, and that breaks with accents and capital letters.
 @immutable
 class Highlight {
-  /// Crea el tramo resaltado.
+  /// Creates the highlighted span.
   const Highlight({required this.startIndex, required this.endIndex});
 
-  /// Lee el tramo de la respuesta del servicio, o `null` si viene incompleto.
+  /// Reads the span from the service response, or `null` if it's incomplete.
   static Highlight? fromJson(Map<String, dynamic> json) {
     final start = Json.integer(json, 'StartIndex');
     final end = Json.integer(json, 'EndIndex');
@@ -316,28 +316,28 @@ class Highlight {
     return Highlight(startIndex: start, endIndex: end);
   }
 
-  /// Primer carácter resaltado, contando desde cero.
+  /// First highlighted character, counting from zero.
   final int startIndex;
 
-  /// Primer carácter **después** del resaltado.
+  /// First character **after** the highlight.
   final int endIndex;
 
   @override
   String toString() => 'Highlight($startIndex..$endIndex)';
 }
 
-/// Un resultado de búsqueda o geocodificación.
+/// A search or geocoding result.
 ///
-/// Es el tipo que devuelven `searchText`, `reverseGeocode`, `geocode`,
-/// `searchNearby` y `getPlace`. Los cinco comparten forma en v2, y por eso hay
-/// **un** modelo y no cinco casi iguales.
+/// It's the type returned by `searchText`, `reverseGeocode`, `geocode`,
+/// `searchNearby` and `getPlace`. All five share a shape in v2, which is why
+/// there is **one** model and not five almost-identical ones.
 ///
-/// Cuánto trae relleno depende de la operación y de los `additionalFeatures`
-/// que se pidan: `getPlace` lo trae todo, un `autocomplete` solo trae título y
-/// dirección.
+/// How much of it is filled in depends on the operation and on the
+/// `additionalFeatures` you request: `getPlace` brings everything, an
+/// `autocomplete` only brings title and address.
 @immutable
 class Place {
-  /// Crea el lugar.
+  /// Creates the place.
   const Place({
     required this.title,
     this.placeId,
@@ -359,12 +359,11 @@ class Place {
     this.highlights = const <Highlight>[],
   });
 
-  /// Lee el lugar de la respuesta del servicio.
+  /// Reads the place from the service response.
   ///
-  /// La posición es opcional aquí y no en el constructor porque hay tipos de
-  /// resultado que legítimamente no la traen —un elemento de `autocomplete`
-  /// es solo texto—. Donde la posición es imprescindible, la comprueba quien
-  /// la usa.
+  /// The position is optional here and not in the constructor because some
+  /// result types legitimately don't include it —an `autocomplete` item is
+  /// just text—. Where the position is essential, whoever uses it checks it.
   factory Place.fromJson(Map<String, dynamic> json) {
     final address = Json.object(json, 'Address');
     final contacts = Json.object(json, 'Contacts');
@@ -425,88 +424,91 @@ class Place {
     ];
   }
 
-  /// El nombre del sitio, o la dirección si no tiene nombre. Es lo que se pone
-  /// en la lista de resultados.
+  /// The name of the place, or the address if it has no name. It's what goes
+  /// in the results list.
   final String title;
 
-  /// El identificador estable del lugar.
+  /// The place's stable identifier.
   ///
-  /// Es lo que se guarda en la base de datos para volver a pedir la ficha con
-  /// `getPlace` sin pagar otra búsqueda. **No es global**: un identificador de
-  /// una región no vale en otra.
+  /// It's what you store in the database to fetch the details again with
+  /// `getPlace` without paying for another search. **It is not global**: an
+  /// identifier from one region is not valid in another.
   final String? placeId;
 
-  /// Qué clase de sitio es. Ver [PlaceType.isPrecise].
+  /// What kind of place it is. See [PlaceType.isPrecise].
   final PlaceType? placeType;
 
-  /// La dirección desglosada.
+  /// The address, broken down.
   final Address? address;
 
-  /// Dónde está.
+  /// Where it is.
   final LatLng? position;
 
-  /// Distancia en metros desde el punto de la consulta.
+  /// Distance in meters from the query point.
   ///
-  /// Solo viene en las operaciones que tienen un punto de referencia
-  /// (`searchNearby`, `reverseGeocode`, o una búsqueda con sesgo). Es distancia
-  /// en línea recta, **no por carretera**.
+  /// It only comes in operations that have a reference point (`searchNearby`,
+  /// `reverseGeocode`, or a search with a bias). It's straight-line distance,
+  /// **not by road**.
   final double? distanceMeters;
 
-  /// El rectángulo que conviene encuadrar para ver este sitio entero.
+  /// The rectangle worth framing to see this whole place.
   ///
-  /// Para un país es el país; para un portal, la manzana. Pasárselo a
-  /// `fitBounds` da un encuadre sensato sin inventar un nivel de zoom.
+  /// For a country it's the country; for a street number, the block. Passing
+  /// it to `fitBounds` gives a sensible framing without making up a zoom
+  /// level.
   final LatLngBounds? mapView;
 
-  /// El servicio corrigió el número del portal porque el pedido no existe.
+  /// The service corrected the street number because the requested one
+  /// doesn't exist.
   ///
-  /// Es una señal de aviso, no un detalle: significa que la posición es del
-  /// número más cercano, no del que se pidió.
+  /// It's a warning sign, not a detail: it means the position is that of the
+  /// nearest number, not the one you asked for.
   final bool? addressNumberCorrected;
 
-  /// Las categorías del sitio.
+  /// The place's categories.
   final List<PlaceCategory> categories;
 
-  /// Tipos de comida, cuando es un restaurante.
+  /// Food types, when it's a restaurant.
   final List<PlaceCategory> foodTypes;
 
-  /// Las cadenas comerciales a las que pertenece.
+  /// The business chains it belongs to.
   final List<String> businessChains;
 
-  /// Las entradas al sitio.
+  /// The entrances to the place.
   final List<AccessPoint> accessPoints;
 
-  /// Los contactos, si se pidió `contact` en `additionalFeatures`.
+  /// The contacts, if `contact` was requested in `additionalFeatures`.
   final Contacts? contacts;
 
-  /// Los horarios, si se pidieron.
+  /// The opening hours, if they were requested.
   final List<OpeningHours> openingHours;
 
-  /// La zona horaria, si se pidió `timeZone` en `additionalFeatures`.
+  /// The time zone, if `timeZone` was requested in `additionalFeatures`.
   final TimeZoneInfo? timeZone;
 
-  /// El punto de vista político aplicado a este resultado.
+  /// The political view applied to this result.
   final String? politicalView;
 
-  /// Lo bien que encaja con lo que se pidió, entre 0 y 1.
+  /// How well it matches what was requested, between 0 and 1.
   ///
-  /// Solo lo devuelve `geocode`. Es lo que permite distinguir «esta es la
-  /// dirección» de «esto es lo más parecido que encontré», y por tanto decidir
-  /// si se acepta sola o se le enseña al usuario para que confirme.
+  /// Only `geocode` returns it. It's what lets you tell "this is the address"
+  /// from "this is the closest thing I found", and so decide whether to
+  /// accept it on its own or show it to the user to confirm.
   final double? matchScore;
 
-  /// Los tramos del título que coinciden con lo buscado.
+  /// The spans of the title that match what was searched for.
   final List<Highlight> highlights;
 
-  /// La posición del acceso principal si lo hay, y si no la del propio sitio.
+  /// The position of the main access point if there is one, otherwise that of
+  /// the place itself.
   ///
-  /// Es la coordenada correcta a la que **navegar**: [position] puede ser el
-  /// centroide del recinto, y la ruta hasta el centroide de un centro
-  /// comercial termina en mitad del edificio.
+  /// It's the right coordinate to **navigate** to: [position] may be the
+  /// centroid of the premises, and the route to the centroid of a shopping
+  /// mall ends in the middle of the building.
   LatLng? get navigationPosition =>
       accessPoints.isNotEmpty ? accessPoints.first.position : position;
 
-  /// La dirección en una línea, si la hay.
+  /// The address on one line, if there is one.
   String? get formattedAddress => address?.label;
 
   @override

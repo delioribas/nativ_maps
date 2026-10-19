@@ -415,6 +415,45 @@ void main() {
       expect(anillo.first.toString(), anillo.last.toString());
     });
 
+    test('un contorno en sentido horario se envía antihorario', () {
+      // Noroeste → noreste → sureste → suroeste: como lo dibujaría
+      // cualquiera. AWS lo rechaza con «must be oriented counter-clockwise».
+      final geometria = GeofenceGeometry.polygon(<List<LatLng>>[
+        <LatLng>[
+          LatLng(-0.2180, -78.5150),
+          LatLng(-0.2180, -78.5100),
+          LatLng(-0.2225, -78.5100),
+          LatLng(-0.2225, -78.5150),
+        ],
+      ]);
+      final anillo = _anillos(geometria).first;
+      expect(_areaConSigno(anillo), greaterThan(0));
+      expect(anillo, hasLength(5));
+      expect(anillo.first.toString(), anillo.last.toString());
+    });
+
+    test('un contorno ya antihorario se envía tal cual', () {
+      final geometria = GeofenceGeometry.polygon(<List<LatLng>>[
+        <LatLng>[LatLng(0, 0), LatLng(0, 1), LatLng(1, 1)],
+      ]);
+      expect(_anillos(geometria).first, <List<double>>[
+        <double>[0, 0],
+        <double>[1, 0],
+        <double>[1, 1],
+        <double>[0, 0],
+      ]);
+    });
+
+    test('los agujeros se envían en sentido horario', () {
+      final geometria = GeofenceGeometry.polygon(<List<LatLng>>[
+        <LatLng>[LatLng(0, 0), LatLng(0, 4), LatLng(4, 4), LatLng(4, 0)],
+        <LatLng>[LatLng(1, 1), LatLng(3, 1), LatLng(3, 3), LatLng(1, 3)],
+      ]);
+      final anillos = _anillos(geometria);
+      expect(_areaConSigno(anillos[0]), greaterThan(0));
+      expect(_areaConSigno(anillos[1]), lessThan(0));
+    });
+
     test('rechaza un polígono de más de 1000 vértices', () {
       expect(
         () => GeofenceGeometry.polygon(<List<LatLng>>[
@@ -478,4 +517,20 @@ void main() {
       );
     });
   });
+}
+
+List<List<dynamic>> _anillos(GeofenceGeometry geometria) => <List<dynamic>>[
+  for (final anillo in geometria.toJson()['Polygon']! as List<dynamic>)
+    anillo as List<dynamic>,
+];
+
+/// Positiva si el anillo `[lon, lat]` gira en sentido antihorario.
+double _areaConSigno(List<dynamic> anillo) {
+  var suma = 0.0;
+  for (var i = 0; i < anillo.length - 1; i++) {
+    final a = anillo[i] as List<dynamic>;
+    final b = anillo[i + 1] as List<dynamic>;
+    suma += (a[0] as num) * (b[1] as num) - (b[0] as num) * (a[1] as num);
+  }
+  return suma;
 }

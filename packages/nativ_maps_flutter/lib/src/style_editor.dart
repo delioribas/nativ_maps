@@ -1,51 +1,51 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
-// `meta` importado explícitamente, aunque en Flutter 3.44+ el linter lo marque
-// como redundante: `package:flutter/foundation.dart` **no reexporta
-// `@internal`** hasta versiones recientes, y este paquete declara suelo en
-// Flutter 3.32. Sin este import, quien lo use en 3.32 se encuentra doce
-// errores de `undefined_annotation`.
+// `meta` is imported explicitly, even though on Flutter 3.44+ the linter flags
+// it as redundant: `package:flutter/foundation.dart` **does not re-export
+// `@internal`** until recent versions, and this package declares Flutter 3.32
+// as its floor. Without this import, anyone using it on 3.32 runs into twelve
+// `undefined_annotation` errors.
 // ignore: unnecessary_import
 import 'package:meta/meta.dart';
 
-/// Qué clase de capa es, dentro de un estilo MapLibre.
+/// What kind of layer it is, within a MapLibre style.
 enum StyleLayerType {
-  /// Relleno de un área.
+  /// The fill of an area.
   fill('fill'),
 
-  /// Una línea.
+  /// A line.
   line('line'),
 
-  /// Un icono o una etiqueta.
+  /// An icon or a label.
   symbol('symbol'),
 
-  /// Un círculo de radio en píxeles.
+  /// A circle with a radius in pixels.
   circle('circle'),
 
-  /// El color de fondo del mapa.
+  /// The map's background color.
   background('background'),
 
-  /// Una capa de imagen.
+  /// An image layer.
   raster('raster'),
 
-  /// Sombreado de relieve.
+  /// Relief shading.
   hillshade('hillshade'),
 
-  /// Un mapa de calor.
+  /// A heatmap.
   heatmap('heatmap'),
 
-  /// Edificios extruidos.
+  /// Extruded buildings.
   fillExtrusion('fill-extrusion');
 
   const StyleLayerType(this.wireName);
 
-  /// El nombre en la especificación de estilo.
+  /// The name in the style specification.
   final String wireName;
 
-  /// El tipo cuyo nombre es [wireName], o `null` si no se reconoce.
+  /// The type whose name is [wireName], or `null` if it isn't recognized.
   static StyleLayerType? fromWireName(String? name) {
     if (name == null) return null;
     for (final type in values) {
@@ -54,12 +54,12 @@ enum StyleLayerType {
     return null;
   }
 
-  /// La propiedad de color principal de este tipo de capa.
+  /// The main color property of this layer type.
   ///
-  /// Es lo que evita tener que recordar que un relleno usa `fill-color`, una
-  /// línea `line-color`, una etiqueta `text-color` y el fondo
-  /// `background-color`. Equivocarse no da error: la propiedad se ignora y el
-  /// color no cambia, que es peor.
+  /// It saves you from having to remember that a fill uses `fill-color`, a
+  /// line `line-color`, a label `text-color` and the background
+  /// `background-color`. Getting it wrong raises no error: the property is
+  /// ignored and the color doesn't change, which is worse.
   String? get colorProperty => switch (this) {
     StyleLayerType.fill => 'fill-color',
     StyleLayerType.line => 'line-color',
@@ -73,61 +73,61 @@ enum StyleLayerType {
   };
 }
 
-/// Una capa del estilo, con lo que hace falta para retocarla.
+/// A style layer, with what you need to tweak it.
 @immutable
 class StyleLayer {
-  /// Crea la descripción de la capa.
+  /// Creates the layer description.
   const StyleLayer({required this.id, required this.type, this.sourceLayer});
 
-  /// El identificador de la capa dentro del estilo.
+  /// The layer's identifier within the style.
   final String id;
 
-  /// Qué clase de capa es.
+  /// What kind of layer it is.
   final StyleLayerType? type;
 
-  /// La capa de origen dentro de la fuente de teselas, si la tiene.
+  /// The source layer within the tile source, if it has one.
   final String? sourceLayer;
 
   @override
   String toString() => 'StyleLayer($id, ${type?.wireName ?? '?'})';
 }
 
-/// Retoca el estilo del mapa en caliente.
+/// Tweaks the map style at runtime.
 ///
-/// Se obtiene de `NativMapController.style`.
+/// You get it from `NativMapController.style`.
 ///
-/// ## Para qué sirve
+/// ## What it's for
 ///
-/// El estilo de Amazon Location viene hecho, y casi siempre es lo que se
-/// quiere. Esto existe para las tres cosas que casi siempre hacen falta
-/// encima:
+/// The Amazon Location style comes ready-made, and it's almost always what you
+/// want. This exists for the three things you almost always need on top:
 ///
-/// - **Apagar lo que estorba.** Un mapa que es el fondo de datos propios no
-///   necesita los puntos de interés ni las etiquetas de comercio.
-/// - **Ajustar la paleta** a la de la app, sin rehacer el estilo entero.
-/// - **Aplicar un tema que ya existe**, que es lo que hace el paquete
-///   `nativ_maps_google` traduciendo un estilo JSON de Google.
+/// - **Turning off what gets in the way.** A map that's the background for
+///   your own data doesn't need points of interest or shop labels.
+/// - **Matching the palette** to the app's, without redoing the whole style.
+/// - **Applying a theme that already exists**, which is what the
+///   `nativ_maps_google` package does when it translates a Google JSON style.
 ///
-/// ## Lo que cambia aquí no sobrevive a un cambio de estilo
+/// ## What changes here doesn't survive a style change
 ///
-/// Cambiar `styleUrl` recarga el estilo desde el servidor y deshace todo esto.
-/// Hay que volver a aplicarlo en `NativMap.onStyleLoaded`, que se llama en
-/// **cada** carga y no solo en la primera precisamente por esto.
+/// Changing `styleUrl` reloads the style from the server and undoes all of
+/// this. You have to apply it again in `NativMap.onStyleLoaded`, which is
+/// called on **every** load, and not just the first, precisely for this
+/// reason.
 class StyleEditor {
-  /// Uso interno: lo construye el controlador.
+  /// Internal use: the controller builds it.
   @internal
   StyleEditor(this._native);
 
   final ml.MapLibreMapController _native;
 
-  /// Todas las capas del estilo, en el orden en que se dibujan.
+  /// Every layer in the style, in the order they're drawn.
   ///
-  /// Es lo primero que hay que mirar para retocar un estilo: los nombres los
-  /// pone el proveedor y no hay forma de adivinarlos.
+  /// It's the first thing to look at when tweaking a style: the provider picks
+  /// the names and there's no way to guess them.
   ///
   /// ```dart
-  /// for (final capa in await controller.style.layers()) {
-  ///   debugPrint('$capa');
+  /// for (final layer in await controller.style.layers()) {
+  ///   debugPrint('$layer');
   /// }
   /// ```
   Future<List<StyleLayer>> layers() async {
@@ -147,37 +147,38 @@ class StyleEditor {
     return result;
   }
 
-  /// Solo los identificadores, sin consultar el tipo de cada una.
+  /// Just the identifiers, without looking up each one's type.
   ///
-  /// Mucho más rápido que [layers] cuando solo hace falta el nombre: un estilo
-  /// tiene fácilmente doscientas capas, y [layers] cruza el canal de
-  /// plataforma una vez por cada una.
+  /// Much faster than [layers] when you only need the name: a style easily has
+  /// two hundred layers, and [layers] crosses the platform channel once for
+  /// each one.
   Future<List<String>> layerIds() async {
     final ids = await _native.getLayerIds();
     return ids.whereType<String>().toList(growable: false);
   }
 
-  /// Enciende o apaga una capa.
+  /// Turns a layer on or off.
   ///
-  /// Apagar es preferible a borrar: la capa sigue ahí y se puede volver a
-  /// encender sin recargar el estilo.
+  /// Turning it off is better than deleting it: the layer is still there and
+  /// can be turned back on without reloading the style.
   Future<void> setVisible(String layerId, {required bool visible}) async {
     await _guard(layerId, () => _native.setLayerVisibility(layerId, visible));
   }
 
-  /// Apaga todas las capas cuyo identificador contenga [keyword].
+  /// Turns off every layer whose identifier contains [keyword].
   ///
-  /// Devuelve cuántas se apagaron. Es el atajo para lo más pedido:
+  /// Returns how many were turned off. It's the shortcut for the most common
+  /// request:
   ///
   /// ```dart
-  /// // Un mapa limpio, de fondo para datos propios.
+  /// // A clean map, as a background for your own data.
   /// await controller.style.hideMatching('poi');
   /// await controller.style.hideMatching('label');
   /// ```
   ///
-  /// Para apagar los puntos de interés hay una forma mejor y más barata:
-  /// pedir el descriptor con `poiDensity: MapPoiDensity.off`, que evita que el
-  /// servidor los mande siquiera.
+  /// To turn off the points of interest there's a better and cheaper way:
+  /// request the descriptor with `poiDensity: MapPoiDensity.off`, so the
+  /// server doesn't even send them.
   Future<int> hideMatching(String keyword) async {
     final lower = keyword.toLowerCase();
     var hidden = 0;
@@ -190,23 +191,23 @@ class StyleEditor {
     return hidden;
   }
 
-  /// Cambia el color principal de una capa.
+  /// Changes a layer's main color.
   ///
-  /// Elige sola la propiedad correcta según el tipo: `fill-color` para un
-  /// relleno, `line-color` para una línea, `text-color` para una etiqueta.
+  /// It picks the right property on its own based on the type: `fill-color`
+  /// for a fill, `line-color` for a line, `text-color` for a label.
   ///
-  /// Devuelve `false` si la capa no existe o su tipo no tiene color —una capa
-  /// de imagen, por ejemplo—, en vez de fallar en silencio.
+  /// Returns `false` if the layer doesn't exist or its type has no color —an
+  /// image layer, for example—, instead of failing silently.
   Future<bool> setColor(String layerId, Color color) async {
     final properties = await _properties(layerId);
     final type = StyleLayerType.fromWireName(properties?['type'] as String?);
     final property = type?.colorProperty;
     if (type == null || property == null) return false;
 
-    return _applyPaint(layerId, type, <String, Object?>{
+    return _applyPaint(layerId, <String, Object?>{
       property: _rgba(color),
-      // Una etiqueta sin halo sobre un mapa oscuro se vuelve ilegible en
-      // cuanto pasa por encima de una zona clara; se ajusta a juego.
+      // A label without a halo on a dark map becomes unreadable as soon as it
+      // passes over a light area; the halo is adjusted to match.
       if (type == StyleLayerType.symbol)
         'text-halo-color': color.computeLuminance() > 0.5
             ? 'rgba(0,0,0,0.75)'
@@ -214,17 +215,17 @@ class StyleEditor {
     });
   }
 
-  /// Cambia el grosor de una capa de línea.
+  /// Changes the width of a line layer.
   ///
-  /// Devuelve `false` si la capa no es de línea.
+  /// Returns `false` if the layer isn't a line layer.
   Future<bool> setLineWidth(String layerId, double width) async {
     final properties = await _properties(layerId);
     final type = StyleLayerType.fromWireName(properties?['type'] as String?);
     if (type == null || type != StyleLayerType.line) return false;
-    return _applyPaint(layerId, type, <String, Object?>{'line-width': width});
+    return _applyPaint(layerId, <String, Object?>{'line-width': width});
   }
 
-  /// Cambia la opacidad de una capa.
+  /// Changes a layer's opacity.
   Future<bool> setOpacity(String layerId, double opacity) async {
     final properties = await _properties(layerId);
     final type = StyleLayerType.fromWireName(properties?['type'] as String?);
@@ -241,15 +242,16 @@ class StyleEditor {
       StyleLayerType.fillExtrusion => 'fill-extrusion-opacity',
     };
     if (property == null) return false;
-    return _applyPaint(layerId, type, <String, Object?>{property: opacity});
+    return _applyPaint(layerId, <String, Object?>{property: opacity});
   }
 
-  /// El color principal de una capa, si se puede leer.
+  /// A layer's main color, if it can be read.
   ///
-  /// Devuelve `null` cuando el estilo define el color con una **expresión**
-  /// —que depende del zoom o de los datos— en vez de con un valor fijo. Es lo
-  /// habitual en las vías, cuyo color cambia con el zoom. Sirve para saber si
-  /// una transformación relativa —aclarar, saturar— tiene sobre qué operar.
+  /// Returns `null` when the style defines the color with an **expression**
+  /// —one that depends on the zoom or on the data— instead of a fixed value.
+  /// That's the norm for roads, whose color changes with the zoom. It tells you
+  /// whether a relative transformation —lightening, saturating— has anything
+  /// to operate on.
   Future<Color?> getColor(String layerId) async {
     final properties = await _properties(layerId);
     final type = StyleLayerType.fromWireName(properties?['type'] as String?);
@@ -260,15 +262,14 @@ class StyleEditor {
     return _parseColor(paint[property]);
   }
 
-  /// Aplica propiedades de pintura a una capa.
+  /// Applies paint properties to a layer.
   ///
-  /// Es el escape para lo que los métodos con nombre no cubren: cualquier
-  /// propiedad de la especificación de MapLibre. Las claves son las de la
-  /// especificación, con guiones: `fill-color`, `line-dasharray`,
-  /// `text-halo-width`.
+  /// It's the escape hatch for what the named methods don't cover: any
+  /// property in the MapLibre specification. The keys are the specification's,
+  /// with hyphens: `fill-color`, `line-dasharray`, `text-halo-width`.
   ///
-  /// Devuelve `false` si la capa no existe o su tipo no admite estas
-  /// propiedades.
+  /// Returns `false` if the layer doesn't exist or its type doesn't accept
+  /// these properties.
   Future<bool> setPaintProperties(
     String layerId,
     Map<String, Object?> properties,
@@ -276,10 +277,10 @@ class StyleEditor {
     final existing = await _properties(layerId);
     final type = StyleLayerType.fromWireName(existing?['type'] as String?);
     if (type == null) return false;
-    return _applyPaint(layerId, type, properties);
+    return _applyPaint(layerId, properties);
   }
 
-  // ─── Internos ─────────────────────────────────────────────────────────
+  // ─── Internals ───────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> _properties(String layerId) async {
     try {
@@ -289,42 +290,15 @@ class StyleEditor {
     }
   }
 
-  /// Construye el objeto de propiedades tipado que espera `maplibre_gl`.
-  ///
-  /// El paquete nativo no admite un mapa suelto: exige la clase concreta del
-  /// tipo de capa. Esta función es el puente, y por eso el tipo hay que
-  /// consultarlo antes.
-  Future<bool> _applyPaint(
-    String layerId,
-    StyleLayerType type,
-    Map<String, Object?> properties,
-  ) async {
-    final ml.LayerProperties layerProperties;
-    switch (type) {
-      case StyleLayerType.fill:
-        layerProperties = ml.FillLayerProperties.fromJson(properties);
-      case StyleLayerType.line:
-        layerProperties = ml.LineLayerProperties.fromJson(properties);
-      case StyleLayerType.symbol:
-        layerProperties = ml.SymbolLayerProperties.fromJson(properties);
-      case StyleLayerType.circle:
-        layerProperties = ml.CircleLayerProperties.fromJson(properties);
-      case StyleLayerType.background:
-        layerProperties = ml.BackgroundLayerProperties.fromJson(properties);
-      case StyleLayerType.raster:
-        layerProperties = ml.RasterLayerProperties.fromJson(properties);
-      case StyleLayerType.hillshade:
-        layerProperties = ml.HillshadeLayerProperties.fromJson(properties);
-      case StyleLayerType.heatmap:
-        layerProperties = ml.HeatmapLayerProperties.fromJson(properties);
-      case StyleLayerType.fillExtrusion:
-        layerProperties = ml.FillExtrusionLayerProperties.fromJson(properties);
-    }
-    return _guard(
-      layerId,
-      () => _native.setLayerProperties(layerId, layerProperties),
-    );
-  }
+  /// Applies [properties] to the layer, without touching any other property.
+  Future<bool> _applyPaint(String layerId, Map<String, Object?> properties) =>
+      _guard(
+        layerId,
+        () => _native.setLayerProperties(
+          layerId,
+          OnlyTheseProperties(properties),
+        ),
+      );
 
   Future<bool> _guard(String layerId, Future<void> Function() action) async {
     try {
@@ -346,7 +320,7 @@ class StyleEditor {
     return 'rgba($r,$g,$b,${color.a.toStringAsFixed(3)})';
   }
 
-  /// Lee un color del estilo, sea hexadecimal o `rgb()`/`rgba()`.
+  /// Reads a color from the style, whether hexadecimal or `rgb()`/`rgba()`.
   static Color? _parseColor(Object? raw) {
     if (raw is! String) return null;
     final value = raw.trim();
@@ -378,4 +352,27 @@ class StyleEditor {
     }
     return null;
   }
+}
+
+/// A layer's properties, **only the ones asked for**.
+///
+/// `maplibre_gl` sends them with `toJson(skipNulls: false)`. With its typed
+/// classes —`LineLayerProperties`, `SymbolLayerProperties`…— every property
+/// that wasn't touched travels too, set to `null`, and the native side resets
+/// them to their default value: changing a label's color erased its text, and
+/// changing a street's color, its width. This class sends the map as is.
+///
+/// The native side picks the converter by the layer's actual type, not by the
+/// Dart class; that's why implementing the interface is enough.
+@visibleForTesting
+final class OnlyTheseProperties implements ml.LayerProperties {
+  /// Wraps [properties].
+  const OnlyTheseProperties(this.properties);
+
+  /// What gets sent, and nothing else.
+  final Map<String, Object?> properties;
+
+  @override
+  Map<String, dynamic> toJson({bool skipNulls = true}) =>
+      Map<String, dynamic>.of(properties);
 }

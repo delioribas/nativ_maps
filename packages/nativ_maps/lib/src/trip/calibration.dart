@@ -1,17 +1,18 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/trip/fare.dart';
 
-/// Un precio observado en la calle, para ajustar la tarifa contra él.
+/// A price observed on the street, to fit the tariff against.
 ///
-/// Se recogen abriendo la aplicación con la que quieres competir, pidiendo el
-/// precio de un trayecto concreto y anotando los tres números.
+/// You collect them by opening the app you want to compete with, asking for
+/// the price of a specific trip and writing down the three numbers.
 @immutable
+@experimental
 class FareSample {
-  /// Crea una muestra.
+  /// Creates a sample.
   const FareSample({
     required this.distanceMeters,
     required this.duration,
@@ -19,29 +20,29 @@ class FareSample {
     this.label = '',
   });
 
-  /// La distancia del trayecto, en metros.
+  /// The trip distance, in meters.
   ///
-  /// **Tiene que salir de `calculateRoutes`, no de la otra aplicación.** Si se
-  /// mezclan las distancias de dos motores de rutas, el ajuste absorbe esa
-  /// diferencia y la tarifa resultante queda sesgada.
+  /// **It has to come from `calculateRoutes`, not from the other app.** If
+  /// you mix distances from two routing engines, the fit absorbs that
+  /// difference and the resulting tariff ends up biased.
   final double distanceMeters;
 
-  /// La duración estimada del trayecto.
+  /// The estimated trip duration.
   final Duration duration;
 
-  /// El precio que enseñó la aplicación, en unidades menores.
+  /// The price the app showed, in minor units.
   ///
-  /// **Sin peajes ni tasas de aeropuerto.** Esas van aparte y no forman parte
-  /// de la tarifa; incluirlas envenena el ajuste.
+  /// **Without tolls or airport fees.** Those go separately and are not part
+  /// of the tariff; including them poisons the fit.
   final int observedFare;
 
-  /// Una etiqueta para reconocer la muestra: «Centro → aeropuerto».
+  /// A label to recognize the sample: "Downtown → airport".
   final String label;
 
-  /// La distancia en kilómetros.
+  /// The distance in kilometers.
   double get kilometers => distanceMeters / 1000;
 
-  /// La duración en minutos.
+  /// The duration in minutes.
   double get minutes => duration.inMicroseconds / 6e7;
 
   @override
@@ -50,14 +51,15 @@ class FareSample {
       '${minutes.toStringAsFixed(0)} min → $observedFare)';
 }
 
-/// El resultado de ajustar una tarifa a precios observados.
+/// The result of fitting a tariff to observed prices.
 ///
-/// **Lee siempre [rSquared] y [distanceTimeCorrelation] antes de usar los
-/// coeficientes.** Un ajuste puede reproducir los precios muy bien y aun así
-/// tener el reparto entre kilómetro y minuto completamente inventado.
+/// **Always read [rSquared] and [distanceTimeCorrelation] before using the
+/// coefficients.** A fit can reproduce the prices very well and still have
+/// a completely made-up split between kilometer and minute.
 @immutable
+@experimental
 class TariffFit {
-  /// Crea un ajuste.
+  /// Creates a fit.
   const TariffFit({
     required this.baseFare,
     required this.perKilometer,
@@ -69,56 +71,57 @@ class TariffFit {
     required this.distanceTimeCorrelation,
   });
 
-  /// La bajada de bandera ajustada, en unidades menores.
+  /// The fitted flagfall, in minor units.
   final int baseFare;
 
-  /// El precio por kilómetro ajustado.
+  /// The fitted price per kilometer.
   final int perKilometer;
 
-  /// El precio por minuto ajustado.
+  /// The fitted price per minute.
   final int perMinute;
 
-  /// Qué parte de la variación de los precios explica el modelo, de 0 a 1.
+  /// How much of the variation in prices the model explains, from 0 to 1.
   ///
-  /// | Valor | Qué significa |
+  /// | Value | What it means |
   /// |---|---|
-  /// | > 0,95 | el modelo reproduce los precios; úsalo |
-  /// | 0,85 – 0,95 | razonable; mira [maxAbsoluteError] antes |
-  /// | < 0,85 | falta un factor: zonas, franjas horarias o demanda |
+  /// | > 0.95 | the model reproduces the prices; use it |
+  /// | 0.85 – 0.95 | reasonable; check [maxAbsoluteError] first |
+  /// | < 0.85 | a factor is missing: zones, time bands or demand |
   final double rSquared;
 
-  /// Error medio en unidades menores.
+  /// Mean error in minor units.
   final double meanAbsoluteError;
 
-  /// El peor error de todas las muestras, en unidades menores.
+  /// The worst error across all samples, in minor units.
   ///
-  /// Más informativo que la media: un error máximo grande con media pequeña
-  /// suele señalar una muestra tomada en hora punta, con la demanda dentro
-  /// del precio.
+  /// More informative than the mean: a large maximum error with a small mean
+  /// usually points to a sample taken at rush hour, with demand inside the
+  /// price.
   final double maxAbsoluteError;
 
-  /// Sobre cuántas muestras se ajustó.
+  /// How many samples the fit was based on.
   final int sampleCount;
 
-  /// Cuánto se parecen entre sí distancia y duración, de −1 a 1.
+  /// How closely distance and duration track each other, from −1 to 1.
   ///
-  /// **Es el número que más gente ignora y más ajustes arruina.** En trayectos
-  /// urbanos, kilómetros y minutos suben juntos: si la correlación pasa de
-  /// 0,95, matemáticamente **no hay forma** de saber qué parte del precio la
-  /// pone el kilómetro y qué parte el minuto. El modelo predice bien el total
-  /// y el reparto entre los dos es arbitrario.
+  /// **It's the number most people ignore and the one that ruins most
+  /// fits.** On urban trips, kilometers and minutes rise together: if the
+  /// correlation goes above 0.95, there is mathematically **no way** to tell
+  /// which part of the price comes from the kilometer and which from the
+  /// minute. The model predicts the total well and the split between the two
+  /// is arbitrary.
   ///
-  /// Se arregla metiendo muestras que rompan la relación: un trayecto corto en
-  /// atasco y uno largo por autopista a las seis de la mañana.
+  /// The fix is to add samples that break the relationship: a short trip in
+  /// a traffic jam and a long one on the highway at six in the morning.
   final double distanceTimeCorrelation;
 
-  /// ¿Se puede confiar en el reparto entre kilómetro y minuto?
+  /// Can the split between kilometer and minute be trusted?
   bool get splitIsReliable => distanceTimeCorrelation.abs() < 0.95;
 
-  /// ¿El ajuste reproduce los precios observados?
+  /// Does the fit reproduce the observed prices?
   bool get isUsable => rSquared >= 0.85 && sampleCount >= 8;
 
-  /// Construye la tarifa ajustada.
+  /// Builds the fitted tariff.
   Tariff toTariff({
     required String currency,
     int minorUnitDigits = 2,
@@ -142,14 +145,14 @@ class TariffFit {
     surcharges: surcharges,
   );
 
-  /// Lo que predice el modelo para un trayecto, en unidades menores.
+  /// What the model predicts for a trip, in minor units.
   int predict({required double distanceMeters, required Duration duration}) =>
       (baseFare +
               distanceMeters / 1000 * perKilometer +
               duration.inMicroseconds / 6e7 * perMinute)
           .round();
 
-  /// Un informe de una línea por muestra, para ver dónde falla.
+  /// A report with one line per sample, to see where it fails.
   String report(List<FareSample> samples) {
     final buffer = StringBuffer()
       ..writeln('Fit over $sampleCount samples')
@@ -188,67 +191,70 @@ class TariffFit {
       'R² ${rSquared.toStringAsFixed(3)})';
 }
 
-/// Ajusta una tarifa a los precios que ya se ven en la calle.
+/// Fits a tariff to the prices you already see on the street.
 ///
-/// ## Para qué sirve
+/// ## What it's for
 ///
-/// Las tarifas de las aplicaciones que ya operan en tu ciudad **no son
-/// públicas**, cambian entre ciudades y cambian con el tiempo. No se pueden
-/// codificar en un paquete.
+/// The tariffs of the apps already operating in your city **are not
+/// public**, they change from city to city and they change over time. They
+/// can't be hard-coded in a package.
 ///
-/// Lo que sí se puede es **medirlas**: pides veinte precios en la aplicación
-/// con la que compites, anotas distancia, duración y precio, y esto devuelve
-/// la bajada de bandera, el precio por kilómetro y el precio por minuto que
-/// reproducen esos números.
+/// What you can do is **measure them**: you ask for twenty prices in the app
+/// you compete with, write down distance, duration and price, and this
+/// returns the flagfall, the price per kilometer and the price per minute
+/// that reproduce those numbers.
 ///
 /// ```dart
-/// final ajuste = TariffCalibration.fit(<FareSample>[
+/// final fit = TariffCalibration.fit(<FareSample>[
 ///   FareSample(distanceMeters: 3200, duration: Duration(minutes: 11),
 ///       observedFare: 320, label: 'Centro → Mariscal'),
 ///   FareSample(distanceMeters: 12800, duration: Duration(minutes: 26),
 ///       observedFare: 780, label: 'Centro → aeropuerto'),
-///   // …dieciocho más
+///   // …eighteen more
 /// ]);
 ///
-/// print(ajuste.report(muestras));
-/// if (ajuste.isUsable) {
-///   final tarifa = ajuste.toTariff(currency: 'USD', minimumFare: 150);
+/// print(fit.report(samples));
+/// if (fit.isUsable) {
+///   final tariff = fit.toTariff(currency: 'USD', minimumFare: 150);
 /// }
 /// ```
 ///
-/// ## Cómo tomar las muestras
+/// ## How to take the samples
 ///
-/// | Regla | Por qué |
+/// | Rule | Why |
 /// |---|---|
-/// | Al menos **quince**, mejor treinta | tres incógnitas necesitan margen |
-/// | Distancias **muy** distintas | 2 km y 25 km, no todo entre 5 y 8 |
-/// | En horas **tranquilas** | la demanda no es parte de la tarifa |
-/// | Distancia y duración de `calculateRoutes` | mezclar motores sesga todo |
-/// | **Sin** peajes ni tasas de aeropuerto | van aparte |
-/// | Alguna que rompa la relación km↔min | un corto en atasco, un largo libre |
+/// | At least **fifteen**, ideally thirty | three unknowns need some margin |
+/// | **Very** different distances | 2 km and 25 km, not all between 5 and 8 |
+/// | At **quiet** hours | demand is not part of the tariff |
+/// | Distance, duration from `calculateRoutes` | mixing engines biases it all |
+/// | **Without** tolls or airport fees | they go separately |
+/// | Some that break the km↔min link | short in a jam, long on an open road |
 ///
-/// La última es la que casi nadie hace y la que decide si el reparto entre
-/// kilómetro y minuto significa algo. Ver [TariffFit.distanceTimeCorrelation].
+/// The last one is the one almost nobody does, and the one that decides
+/// whether the split between kilometer and minute means anything. See
+/// [TariffFit.distanceTimeCorrelation].
 ///
-/// ## Lo que este ajuste no captura
+/// ## What this fit doesn't capture
 ///
-/// La demanda, las franjas horarias y los recargos de zona. Son **capas
-/// aparte** que se configuran encima de la tarifa ajustada: `TariffBand` para
-/// las franjas, `Surcharge` para las zonas y `MarketConditions` para la
-/// demanda. Si tomas las muestras en hora punta, la demanda se cuela dentro de
-/// los coeficientes y luego se cobra dos veces.
+/// Demand, time bands and zone surcharges. They are **separate layers**
+/// configured on top of the fitted tariff: `TariffBand` for the bands,
+/// `Surcharge` for the zones and `MarketConditions` for demand. If you take
+/// the samples at rush hour, demand leaks into the coefficients and then
+/// gets charged twice.
+@experimental
 abstract final class TariffCalibration {
-  /// Ajusta por mínimos cuadrados.
+  /// Fits by least squares.
   ///
-  /// Con [includeTimeComponent] en `false` ajusta solo bandera y kilómetro,
-  /// que es lo correcto en mercados donde la tarifa no cobra por tiempo.
+  /// With [includeTimeComponent] set to `false` it fits only flagfall and
+  /// kilometer, which is right in markets where the tariff doesn't charge
+  /// for time.
   ///
-  /// Los coeficientes negativos se recortan a cero y el ajuste se repite sin
-  /// ellos: un precio por kilómetro negativo no significa nada, y sale cuando
-  /// las muestras son pocas o están muy correlacionadas.
+  /// Negative coefficients are clipped to zero and the fit is repeated
+  /// without them: a negative price per kilometer means nothing, and it
+  /// shows up when there are few samples or they are highly correlated.
   ///
-  /// Lanza [ArgumentError] con menos de tres muestras, o si todas tienen la
-  /// misma distancia y duración —no hay nada que ajustar—.
+  /// Throws [ArgumentError] with fewer than three samples, or if they all
+  /// have the same distance and duration —there is nothing to fit—.
   static TariffFit fit(
     List<FareSample> samples, {
     bool includeTimeComponent = true,
@@ -281,8 +287,8 @@ abstract final class TariffCalibration {
         ? _leastSquares(<List<double>>[km, min], y)
         : _leastSquares(<List<double>>[km], y);
 
-    // Un coeficiente negativo no tiene sentido físico. Se fija a cero y se
-    // vuelve a ajustar con el resto.
+    // A negative coefficient makes no physical sense. It is pinned to zero
+    // and the fit is run again with the rest.
     if (includeTimeComponent && coefficients.length == 3) {
       if (coefficients[2] < 0) {
         coefficients = <double>[
@@ -304,8 +310,9 @@ abstract final class TariffCalibration {
         ? math.max(0.0, coefficients[2]).round()
         : 0;
 
-    // Bondad del ajuste, medida con los coeficientes ya redondeados a enteros:
-    // es lo que va a usarse de verdad, no los flotantes intermedios.
+    // Goodness of fit, measured with the coefficients already rounded to
+    // integers: that's what will actually be used, not the intermediate
+    // floats.
     var sumErrors = 0.0;
     var worstError = 0.0;
     var sumSquares = 0.0;
@@ -333,20 +340,20 @@ abstract final class TariffCalibration {
     );
   }
 
-  /// Mínimos cuadrados con término independiente.
+  /// Least squares with an intercept.
   ///
-  /// Resuelve las ecuaciones normales `(XᵀX)·b = Xᵀy` por eliminación de
-  /// Gauss con pivoteo parcial. Con dos o tres incógnitas no compensa nada
-  /// más elaborado, y el pivoteo evita el único caso feo: una columna
-  /// constante que deja un cero en la diagonal.
+  /// Solves the normal equations `(XᵀX)·b = Xᵀy` by Gaussian elimination
+  /// with partial pivoting. With two or three unknowns nothing more
+  /// elaborate pays off, and pivoting avoids the only ugly case: a constant
+  /// column that leaves a zero on the diagonal.
   static List<double> _leastSquares(
     List<List<double>> columns,
     List<double> y,
   ) {
     final n = y.length;
-    final k = columns.length + 1; // +1 por el término independiente
+    final k = columns.length + 1; // +1 for the intercept
 
-    // X con una primera columna de unos.
+    // X with a first column of ones.
     List<double> row(int i) => <double>[
       1,
       for (final column in columns) column[i],
@@ -366,7 +373,7 @@ abstract final class TariffCalibration {
       }
     }
 
-    // Eliminación de Gauss con pivoteo parcial.
+    // Gaussian elimination with partial pivoting.
     for (var col = 0; col < k; col++) {
       var pivot = col;
       for (var r = col + 1; r < k; r++) {
@@ -389,10 +396,10 @@ abstract final class TariffCalibration {
 
     final solution = List<double>.filled(k, 0);
     for (var r = 0; r < k; r++) {
-      // Una diagonal nula significa una columna que no aporta información
-      // —por ejemplo, todas las muestras con la misma duración—. Su
-      // coeficiente se deja en cero en vez de dividir por casi nada y sacar
-      // un número enorme sin sentido.
+      // A zero diagonal means a column that carries no information —for
+      // example, every sample with the same duration—. Its coefficient is
+      // left at zero instead of dividing by almost nothing and getting a
+      // huge, meaningless number.
       if (a[r][r].abs() >= 1e-12) solution[r] = a[r][k] / a[r][r];
     }
     return solution;

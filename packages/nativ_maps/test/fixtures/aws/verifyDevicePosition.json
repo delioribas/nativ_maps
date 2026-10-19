@@ -1,0 +1,17 @@
+{
+  "DeviceId": "taxi-1",
+  "DistanceUnit": "Kilometers",
+  "InferredState": {
+    "Position": [
+      -78.5211,
+      -0.2309
+    ],
+    "Accuracy": {
+      "Horizontal": 20000
+    },
+    "DeviationDistance": 7.352,
+    "ProxyDetected": false
+  },
+  "ReceivedTime": "2026-10-19T06:49:41.988Z",
+  "SampleTime": "2026-10-19T06:49:41.823Z"
+}

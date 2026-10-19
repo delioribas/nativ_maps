@@ -1,10 +1,10 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
-/// Amazon Location Service v2 en Dart puro, con la forma de Google Maps.
+/// Amazon Location Service v2 in pure Dart, shaped like Google Maps.
 ///
-/// Las **44 operaciones** —Places, Routes, Maps, geovallas y rastreo— detrás
-/// de un cliente tipado, con tope de gasto, reintentos y sin ninguna
-/// dependencia de Flutter.
+/// All **44 operations** —Places, Routes, Maps, geofencing and tracking—
+/// behind a typed client, with a spending cap, retries and no Flutter
+/// dependency at all.
 ///
 /// ```dart
 /// import 'package:nativ_maps/nativ_maps.dart';
@@ -15,57 +15,57 @@
 ///   language: 'es',
 /// );
 ///
-/// final resultados = await maps.places.searchText(queryText: 'gasolinera');
+/// final results = await maps.places.searchText(queryText: 'gasolinera');
 /// ```
 ///
-/// ## La tesis
+/// ## The thesis
 ///
-/// El `LatLng` que devuelve una búsqueda es el mismo que acepta un marcador.
-/// Una ruta calculada se pinta pasándola directamente a una polilínea. Sin
-/// conversiones, sin dos claves y sin dos sistemas de tipos.
+/// The `LatLng` a search returns is the same one a marker accepts. A
+/// calculated route is drawn by passing it straight to a polyline. No
+/// conversions, no two keys and no two type systems.
 ///
-/// ## Para pintar mapas
+/// ## To draw maps
 ///
-/// Este paquete **no dibuja**. El widget está en `nativ_maps_flutter`, que
-/// reexporta todo lo de aquí: instalando solo ese ya se tienen las diecisiete
-/// operaciones más el mapa.
+/// This package **does not draw**. The widget lives in `nativ_maps_flutter`,
+/// which re-exports everything from here: installing just that one gets you
+/// the 44 operations plus the map.
 ///
-/// Vive aparte para poder probarse sin emulador y para servir en una
-/// herramienta de línea de órdenes o un servidor Dart.
+/// It lives apart so it can be tested without an emulator and used in a
+/// command-line tool or a Dart server.
 ///
-/// ## Mapa de la biblioteca
+/// ## Library map
 ///
-/// | Quiero… | Miro en… |
+/// | I want to… | Look at… |
 /// |---|---|
-/// | empezar | `NativMaps` |
-/// | buscar, geocodificar | `PlacesClient` |
-/// | rutas, isócronas, snap a carretera | `RoutesClient` |
-/// | zonas y avisos anticipados | `GeofencingClient` |
-/// | histórico de dispositivos | `TrackingClient` |
-/// | el estilo del mapa | `MapsClient` |
-/// | autenticar | `Credentials` |
-/// | no llevarme un susto en la factura | `Budget` |
+/// | get started | `NativMaps` |
+/// | search, geocode | `PlacesClient` |
+/// | routes, isolines, snap to roads | `RoutesClient` |
+/// | zones and early warnings | `GeofencingClient` |
+/// | device history | `TrackingClient` |
+/// | the map style | `MapsClient` |
+/// | authenticate | `Credentials` |
+/// | avoid a nasty surprise on the bill | `Budget` |
 ///
-/// ## Capa de cálculo, sin red y sin coste
+/// ## Calculation layer, no network and no cost
 ///
-/// | Quiero… | Miro en… |
+/// | I want to… | Look at… |
 /// |---|---|
-/// | medir un viaje sin que el ruido del GPS lo infle | `TripRecorder` |
-/// | descartar lecturas malas | `PositionFilter` |
-/// | cobrar una carrera, con desglose | `Tariff` |
-/// | saber cuánto falta y si se salió de la ruta | `RouteTracker` |
-/// | subastar una carrera al estilo inDrive | `RideAuction` |
-/// | decidir si una oferta le compensa al conductor | `BidAdvisor` |
-/// | sugerirle un precio al pasajero, con el porqué | `PriceAdvisor` |
-/// | ajustar la tarifa a los precios de tu ciudad | `TariffCalibration` |
-/// | elegir el conductor más cercano de verdad | `DispatchPlanner` |
-/// | puntuar cómo se conduce | `TelemetryAnalyzer` |
-/// | geometría de caminos, recortar históricos | `simplifyPath` |
+/// | measure a trip without GPS noise inflating it | `TripRecorder` |
+/// | discard bad readings | `PositionFilter` |
+/// | charge for a ride, with a breakdown | `Tariff` |
+/// | know how much is left and whether it left the route | `RouteTracker` |
+/// | auction a ride, inDrive-style | `RideAuction` |
+/// | decide whether an offer is worth it for the driver | `BidAdvisor` |
+/// | suggest a price to the passenger, with the reasons | `PriceAdvisor` |
+/// | fit the tariff to the prices in your city | `TariffCalibration` |
+/// | pick the driver who is actually closest | `DispatchPlanner` |
+/// | score how someone drives | `TelemetryAnalyzer` |
+/// | path geometry, trimming histories | `simplifyPath` |
 library;
 
-// Los `export` van en un solo bloque y en orden alfabético porque es lo que
-// exige `directives_ordering`. La agrupación por servicio, que sería más
-// legible, se documenta arriba en la tabla en su lugar.
+// The `export`s go in a single block, in alphabetical order, because that is
+// what `directives_ordering` demands. The grouping by service, which would be
+// more readable, is documented in the table above instead.
 export 'src/auth/api_key.dart'
     show ApiKeyCredentials, HeaderCredentials, ProxyCredentials;
 export 'src/auth/credentials.dart' show Credentials, DirectCredentials;
@@ -163,12 +163,6 @@ export 'src/trip/auction.dart'
         BidRanking,
         DriverBid,
         DriverEconomics,
-        // Obsoletos y exportados a propósito hasta la 1.0. El analizador de
-        // Dart 3.8 —el suelo— avisa de exportarlos; el de 3.9+ ya no.
-        // ignore: deprecated_member_use_from_same_package
-        FareAdvisor,
-        // ignore: deprecated_member_use_from_same_package
-        FareSuggestion,
         RideAuction,
         RideRequest;
 export 'src/trip/calibration.dart'

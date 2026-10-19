@@ -1,34 +1,33 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/enums.dart';
 
-/// Raíz de todo lo que este paquete lanza a propósito.
+/// Root of everything this package throws on purpose.
 ///
-/// Capturar este tipo atrapa cualquier fallo del framework sin atrapar los
-/// errores de programación de la app que lo usa, que es justo la distinción
-/// que un `catch (e)` genérico borra.
+/// Catching this type catches any framework failure without catching the
+/// programming errors of the app using it, which is exactly the distinction a
+/// generic `catch (e)` erases.
 @immutable
 sealed class NativMapsException implements Exception {
-  /// Crea la excepción con el mensaje legible que la describe.
+  /// Creates the exception with the readable message that describes it.
   const NativMapsException(this.message);
 
-  /// Descripción en lenguaje llano de lo que ocurrió.
+  /// Plain-language description of what happened.
   final String message;
 
   @override
   String toString() => '$runtimeType: $message';
 }
 
-/// El servicio respondió, pero con un error.
+/// The service responded, but with an error.
 ///
-/// Nunca lleva la URL dentro. En el camino de clave de API la clave viaja en
-/// la cadena de consulta, y una URL en un mensaje de error acaba, tarde o
-/// temprano, en un informe de fallos, en un log de servidor o en una captura
-/// de pantalla pegada en un chat.
+/// It never carries the URL inside. On the API key path the key travels in
+/// the query string, and a URL in an error message ends up, sooner or later,
+/// in a crash report, in a server log or in a screenshot pasted into a chat.
 @immutable
 final class AlsApiException extends NativMapsException {
-  /// Crea la excepción a partir de la respuesta del servicio.
+  /// Creates the exception from the service response.
   const AlsApiException({
     required this.operation,
     required this.service,
@@ -38,41 +37,41 @@ final class AlsApiException extends NativMapsException {
     this.requestId,
   }) : super(message);
 
-  /// La operación que falló, p. ej. `SearchText`.
+  /// The operation that failed, e.g. `SearchText`.
   final String operation;
 
-  /// El servicio al que iba dirigida.
+  /// The service it was addressed to.
   final AlsService service;
 
-  /// Código HTTP de la respuesta.
+  /// HTTP status code of the response.
   final int statusCode;
 
-  /// El código de error de AWS, si la respuesta lo traía
-  /// (p. ej. `ValidationException`, `ThrottlingException`).
+  /// The AWS error code, if the response included one
+  /// (e.g. `ValidationException`, `ThrottlingException`).
   final String? awsErrorCode;
 
-  /// El `x-amzn-RequestId` de la respuesta. Es lo primero que pide el soporte
-  /// de AWS, y sin guardarlo aquí se pierde.
+  /// The response's `x-amzn-RequestId`. It is the first thing AWS support
+  /// asks for, and without keeping it here it gets lost.
   final String? requestId;
 
-  /// ¿Es un problema de configuración y no de red?
+  /// Is it a configuration problem and not a network one?
   ///
-  /// Distinguirlo importa porque cambia qué hacer: un 429 o un 503 se arreglan
-  /// reintentando, y un 400 o un 403 no — reintentar un parámetro mal escrito
-  /// es gastar cuota para obtener el mismo error tres veces.
+  /// Telling them apart matters because it changes what to do: a 429 or a 503
+  /// is fixed by retrying, and a 400 or a 403 is not — retrying a misspelled
+  /// parameter is spending quota to get the same error three times.
   bool get isConfigurationError => statusCode == 400 || statusCode == 403;
 
-  /// ¿Nos está limitando el servicio?
+  /// Is the service throttling us?
   bool get isThrottled => statusCode == 429;
 
-  /// ¿Merece la pena reintentar?
+  /// Is it worth retrying?
   bool get isRetryable => statusCode == 429 || statusCode >= 500;
 
-  /// Pista concreta cuando el error es de configuración.
+  /// A specific hint when the error is a configuration one.
   ///
-  /// El `403` de una clave inválida y el de firmar con el nombre de servicio
-  /// equivocado son **idénticos**, y esa ambigüedad es la que hace perder una
-  /// tarde. Aquí queda escrita.
+  /// The `403` from an invalid key and the one from signing with the wrong
+  /// service name are **identical**, and that ambiguity is what costs you an
+  /// afternoon. Here it is written down.
   String? get hint => switch (statusCode) {
     403 =>
       'Un 403 aquí significa una de tres cosas, y las tres dan la '
@@ -103,15 +102,15 @@ final class AlsApiException extends NativMapsException {
   }
 }
 
-/// No se pudo hablar con el servicio: sin red, DNS caído, TLS rechazado o se
-/// agotó el tiempo en todos los intentos.
+/// The service could not be reached: no network, DNS down, TLS rejected or
+/// every attempt timed out.
 ///
-/// Es distinto de [AlsApiException] a propósito: aquí el servicio no llegó a
-/// contestar, así que **no se ha facturado nada** y reintentar más tarde es
-/// razonable.
+/// It is different from [AlsApiException] on purpose: here the service never
+/// got to answer, so **nothing has been billed** and retrying later is
+/// reasonable.
 @immutable
 final class AlsTransportException extends NativMapsException {
-  /// Crea la excepción indicando cuántos intentos se hicieron.
+  /// Creates the exception stating how many attempts were made.
   const AlsTransportException({
     required this.operation,
     required String message,
@@ -119,13 +118,13 @@ final class AlsTransportException extends NativMapsException {
     this.cause,
   }) : super(message);
 
-  /// La operación que no llegó a completarse.
+  /// The operation that never completed.
   final String operation;
 
-  /// Cuántos intentos se hicieron antes de rendirse.
+  /// How many attempts were made before giving up.
   final int attempts;
 
-  /// El error original de la capa de red, si lo hubo.
+  /// The original error from the network layer, if there was one.
   final Object? cause;
 
   @override
@@ -134,24 +133,24 @@ final class AlsTransportException extends NativMapsException {
       '${cause == null ? '' : '\n  Causa: $cause'}';
 }
 
-/// La respuesta llegó con un 200 pero no se pudo interpretar.
+/// The response arrived with a 200 but could not be interpreted.
 ///
-/// Casi siempre significa que el servicio cambió una forma bajo los pies. Se
-/// distingue de [AlsApiException] porque la acción es otra: aquí no hay nada
-/// que reintentar, hay que mirar el cuerpo real.
+/// It almost always means the service changed a shape under your feet. It is
+/// kept apart from [AlsApiException] because the action is different: here
+/// there is nothing to retry, you have to look at the actual body.
 @immutable
 final class AlsParseException extends NativMapsException {
-  /// Crea la excepción indicando qué campo no se pudo leer.
+  /// Creates the exception stating which field could not be read.
   const AlsParseException({
     required this.operation,
     required String message,
     this.field,
   }) : super(message);
 
-  /// La operación cuya respuesta no se pudo leer.
+  /// The operation whose response could not be read.
   final String operation;
 
-  /// El campo concreto que falló, si se sabe.
+  /// The specific field that failed, if known.
   final String? field;
 
   @override
@@ -160,25 +159,25 @@ final class AlsParseException extends NativMapsException {
       '${field == null ? '' : ', campo "$field"'}): $message';
 }
 
-/// Falta configuración para poder llamar al servicio.
+/// Configuration is missing to be able to call the service.
 ///
-/// Se lanza **antes** de enviar nada, para que el fallo salga en el sitio
-/// donde se puede corregir.
+/// It is thrown **before** sending anything, so the failure surfaces in the
+/// place where it can be fixed.
 @immutable
 final class NativMapsConfigurationException extends NativMapsException {
-  /// Crea la excepción con la explicación de qué falta.
+  /// Creates the exception with the explanation of what is missing.
   const NativMapsConfigurationException(super.message);
 }
 
-/// Se alcanzó el tope de gasto configurado en `Budget`.
+/// The spending cap configured in `Budget` was reached.
 ///
-/// El nombre de la excepción es literal: no es un error del servicio, es el
-/// framework negándose a seguir gastando. Que exista un tipo propio permite
-/// distinguir «se acabó el presupuesto» de «falló la red» en la pantalla, que
-/// son dos mensajes muy distintos para el usuario.
+/// The exception's name is literal: it is not a service error, it is the
+/// framework refusing to keep spending. Having its own type lets the screen
+/// tell "the budget ran out" apart from "the network failed", which are two
+/// very different messages for the user.
 @immutable
 final class BudgetExhaustedException extends NativMapsException {
-  /// Crea la excepción con el estado del presupuesto en el momento del corte.
+  /// Creates the exception with the budget state at the moment of the cutoff.
   const BudgetExhaustedException({
     required this.operation,
     required this.requestedUnits,
@@ -188,25 +187,25 @@ final class BudgetExhaustedException extends NativMapsException {
     required this.resetsAt,
   }) : super('presupuesto agotado');
 
-  /// La operación que se rechazó.
+  /// The operation that was rejected.
   final String operation;
 
-  /// Cuántas unidades facturables pedía esa operación.
+  /// How many billing units that operation requested.
   ///
-  /// No siempre es 1: una isócrona con tres umbrales pide 3, y una matriz de
-  /// 10×10 pide 100.
+  /// It is not always 1: an isoline with three thresholds requests 3, and a
+  /// 10×10 matrix requests 100.
   final int requestedUnits;
 
-  /// Cuántas se llevan gastadas en la ventana actual.
+  /// How many have been spent in the current window.
   final int usedUnits;
 
-  /// El tope configurado.
+  /// The configured cap.
   final int maxUnits;
 
-  /// La duración de la ventana.
+  /// The window duration.
   final Duration window;
 
-  /// Cuándo vuelve a haber presupuesto.
+  /// When budget becomes available again.
   final DateTime resetsAt;
 
   @override

@@ -763,7 +763,9 @@ y lo dice en `respuesta.notices`.
 final ruta = (await maps.routes.calculateRoutes(
   origin: aqui,
   destination: alli,
-  travelStepType: TravelStepType.turnByTurn,
+  // Las instrucciones escritas solo existen con los pasos `standard`: con
+  // `turnByTurn`, el paquete lanza antes de enviar (AWS respondería 400).
+  travelStepType: TravelStepType.standard,
   legAdditionalFeatures: const [RouteFeature.travelStepInstructions],
 )).best!;
 
@@ -776,8 +778,9 @@ for (final paso in ruta.steps) {
 }
 ```
 
-Con `TravelStepType.none` la respuesta pesa mucho menos, y es lo que se quiere
-si solo vas a pintar la línea.
+`TravelStepType.turnByTurn` —el valor por defecto— da los pasos con el detalle
+de cada maniobra (ángulo, intensidad, salida) pero sin texto: es el que se
+quiere para dibujar la maniobra en vez de leerla.
 
 ---
 
@@ -1672,12 +1675,17 @@ predijo el servicio, no el que ocurrió.
 
 ```dart
 // El pasajero propone precio, con una referencia para no pedir un imposible.
-const asesor = FareAdvisor(tariff: tarifa);
+final asesor = PriceAdvisor(
+  tariff: tarifa,
+  economics: const DriverEconomics(costPerKilometer: 20, commissionRate: 0.20),
+);
 final sugerido = asesor.suggest(
   distanceMeters: ruta.distanceMeters,
   duration: ruta.duration,
-  demandFactor: demandaDeLaZona,      // 1.0 normal, 1.6 punta con lluvia
-);
+  market: MarketConditions(
+    signals: <DemandSignal>[if (llueve) DemandSignal.rain],
+  ),
+);   // sugerido.minimum · .recommended · .fast
 
 final peticion = RideRequest(
   id: uuid,

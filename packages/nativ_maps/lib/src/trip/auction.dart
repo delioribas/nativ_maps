@@ -1,19 +1,17 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
-
-import 'dart:math' as math;
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
-import 'package:nativ_maps/src/trip/fare.dart';
 
-/// La petición de un pasajero, con el precio que propone.
+/// A passenger's request, with the price they propose.
 ///
-/// Es el modelo de las aplicaciones de puja —inDrive y las que la copian—,
-/// donde el pasajero nombra un precio y los conductores lo aceptan o
-/// contraofertan, en vez de que la plataforma imponga la tarifa.
+/// It is the model of bidding apps —inDrive and the ones that copy it—, where
+/// the passenger names a price and drivers accept it or counter-offer, instead
+/// of the platform imposing the fare.
 @immutable
+@experimental
 class RideRequest {
-  /// Crea una petición.
+  /// Creates a request.
   const RideRequest({
     required this.id,
     required this.pickup,
@@ -28,47 +26,48 @@ class RideRequest {
     this.tags = const <String>{},
   });
 
-  /// El identificador de la petición.
+  /// The request identifier.
   final String id;
 
-  /// Dónde recoge.
+  /// Where the pickup is.
   final LatLng pickup;
 
-  /// Dónde deja.
+  /// Where the drop-off is.
   final LatLng dropoff;
 
-  /// Lo que ofrece el pasajero, en unidades menores.
+  /// What the passenger offers, in minor units.
   final int proposedFare;
 
-  /// El código ISO 4217 de la moneda.
+  /// The ISO 4217 currency code.
   final String currency;
 
-  /// Cuándo se creó.
+  /// When it was created.
   final DateTime createdAt;
 
-  /// La distancia estimada del trayecto, si ya se calculó la ruta.
+  /// The estimated trip distance, if the route has already been calculated.
   final double? estimatedDistanceMeters;
 
-  /// La duración estimada del trayecto.
+  /// The estimated trip duration.
   final Duration? estimatedDuration;
 
-  /// Cuántas personas viajan.
+  /// How many people are traveling.
   final int passengerCount;
 
-  /// Una nota libre del pasajero.
+  /// A free-form note from the passenger.
   final String note;
 
-  /// Etiquetas de requisitos: equipaje, mascota, silla infantil.
+  /// Requirement tags: luggage, pet, child seat.
   final Set<String> tags;
 
   @override
   String toString() => 'RideRequest($id, $proposedFare $currency)';
 }
 
-/// La oferta de un conductor sobre una petición.
+/// A driver's bid on a request.
 @immutable
+@experimental
 class DriverBid {
-  /// Crea una oferta.
+  /// Creates a bid.
   const DriverBid({
     required this.driverId,
     required this.requestId,
@@ -81,43 +80,43 @@ class DriverBid {
     this.vehicleLabel = '',
   });
 
-  /// Quién ofrece.
+  /// Who is bidding.
   final String driverId;
 
-  /// Sobre qué petición.
+  /// On which request.
   final String requestId;
 
-  /// Cuánto pide, en unidades menores.
+  /// How much they ask for, in minor units.
   ///
-  /// Puede ser igual a lo que ofreció el pasajero —aceptación directa— o
-  /// distinto, que es la contraoferta.
+  /// It can be equal to what the passenger offered —a straight acceptance— or
+  /// different, which is the counter-offer.
   final int amount;
 
-  /// Cuánto tardaría en llegar a recoger.
+  /// How long it would take to get to the pickup.
   final Duration etaToPickup;
 
-  /// Cuándo se emitió.
+  /// When it was issued.
   final DateTime createdAt;
 
-  /// Cuánto tiempo se mantiene en pie.
+  /// How long it stands.
   ///
-  /// Una oferta sin caducidad es una trampa: el conductor sigue conduciendo, y
-  /// dos minutos después su tiempo de llegada ya no es el que ofreció.
+  /// A bid with no expiry is a trap: the driver keeps driving, and two minutes
+  /// later their arrival time is no longer the one they offered.
   final Duration validFor;
 
-  /// La valoración del conductor, normalmente de 0 a 5.
+  /// The driver's rating, usually from 0 to 5.
   final double? driverRating;
 
-  /// Cuántos viajes lleva completados.
+  /// How many trips they have completed.
   final int? completedTrips;
 
-  /// Una descripción corta del vehículo.
+  /// A short description of the vehicle.
   final String vehicleLabel;
 
-  /// Cuándo caduca.
+  /// When it expires.
   DateTime get expiresAt => createdAt.add(validFor);
 
-  /// ¿Ha caducado ya?
+  /// Has it expired already?
   bool isExpired(DateTime now) => !now.isBefore(expiresAt);
 
   @override
@@ -125,163 +124,13 @@ class DriverBid {
       'DriverBid($driverId, $amount, arrives in ${etaToPickup.inMinutes} min)';
 }
 
-/// El rango de precio que se le sugiere al pasajero.
+/// The real costs of driving, to decide whether a ride is worth it.
 ///
-/// El pasajero pone el precio, pero necesita una referencia o pedirá dos euros
-/// por un trayecto de veinte kilómetros y nadie le contestará.
-@Deprecated(
-  'The result type of the deprecated FareAdvisor. Use SuggestedPrice.',
-)
+/// All amounts are in minor units of the tariff's currency.
 @immutable
-class FareSuggestion {
-  /// Crea una sugerencia.
-  const FareSuggestion({
-    required this.currency,
-    required this.minorUnitDigits,
-    required this.reference,
-    required this.recommended,
-    required this.minimum,
-    required this.maximum,
-    required this.demandFactor,
-  });
-
-  /// El código ISO 4217 de la moneda.
-  final String currency;
-
-  /// Cuántos decimales tiene la moneda.
-  final int minorUnitDigits;
-
-  /// El precio que saldría con la tarifa de referencia, sin demanda.
-  final int reference;
-
-  /// El precio sugerido, ya con la demanda aplicada.
-  final int recommended;
-
-  /// El suelo por debajo del cual casi nadie va a contestar.
-  final int minimum;
-
-  /// El techo por encima del cual el pasajero está pagando de más.
-  final int maximum;
-
-  /// El multiplicador de demanda que se aplicó.
-  final double demandFactor;
-
-  @override
-  String toString() =>
-      'FareSuggestion($minimum – $recommended – $maximum $currency)';
-}
-
-/// Sugiere precios y estima cuántos conductores contestarían.
-///
-/// ## Sobre el modelo de aceptación
-///
-/// [acceptanceProbability] no es una medición: es una **curva logística con
-/// dos parámetros**, y los valores por defecto son una forma razonable, no un
-/// dato. Sirven para arrancar; en cuanto la aplicación tenga historial hay que
-/// ajustar [midpointRatio] y [steepness] con las ofertas reales y cuántas se
-/// aceptaron.
-///
-/// Se documenta así de claro a propósito: un número inventado con dos decimales
-/// enseñado en pantalla como «87 % de probabilidad» es peor que no enseñar
-/// nada, porque nadie vuelve a cuestionarlo.
-@Deprecated(
-  'Use PriceAdvisor: it computes each nearby driver\'s real reservation '
-  'price instead of guessing it with a curve, and reports why. '
-  'FareAdvisor will be removed in 1.0.0.',
-)
-@immutable
-class FareAdvisor {
-  /// Crea un asesor de precios.
-  const FareAdvisor({
-    required this.tariff,
-    this.minimumRatio = 0.80,
-    this.maximumRatio = 1.40,
-    this.midpointRatio = 0.95,
-    this.steepness = 9.0,
-  });
-
-  /// La tarifa de referencia con la que se calcula el precio justo.
-  final Tariff tariff;
-
-  /// Qué fracción de la referencia marca el suelo sugerido.
-  final double minimumRatio;
-
-  /// Qué múltiplo de la referencia marca el techo sugerido.
-  final double maximumRatio;
-
-  /// La proporción sobre la referencia a la que aceptaría la mitad.
-  ///
-  /// Por debajo de 1 porque un conductor sin carrera prefiere una barata a
-  /// ninguna: el punto de indiferencia real está algo por debajo del precio
-  /// teórico.
-  final double midpointRatio;
-
-  /// Cuán abrupta es la curva alrededor de [midpointRatio].
-  ///
-  /// Más alto, más se parece a un interruptor: por debajo del punto medio no
-  /// contesta nadie y por encima contestan todos.
-  final double steepness;
-
-  /// Calcula el rango sugerido para un trayecto.
-  ///
-  /// [demandFactor] es la presión de la demanda en esa zona y ese momento:
-  /// `1.0` es normal, `1.6` es hora punta con lluvia.
-  FareSuggestion suggest({
-    required double distanceMeters,
-    required Duration duration,
-    DateTime? departure,
-    double demandFactor = 1.0,
-    int tolls = 0,
-  }) {
-    if (demandFactor <= 0) {
-      throw ArgumentError.value(
-        demandFactor,
-        'demandFactor',
-        'Must be greater than zero',
-      );
-    }
-
-    final reference = tariff
-        .estimate(
-          distanceMeters: distanceMeters,
-          duration: duration,
-          departure: departure,
-          tolls: tolls,
-        )
-        .total;
-    final recommendedPrice = (reference * demandFactor).round();
-
-    return FareSuggestion(
-      currency: tariff.currency,
-      minorUnitDigits: tariff.minorUnitDigits,
-      reference: reference,
-      recommended: recommendedPrice,
-      minimum: (reference * minimumRatio * demandFactor).round(),
-      maximum: (reference * maximumRatio * demandFactor).round(),
-      demandFactor: demandFactor,
-    );
-  }
-
-  /// Qué proporción de conductores aceptaría ese importe, entre 0 y 1.
-  ///
-  /// Ver la nota de la clase: es una curva calibrable, no una medición.
-  double acceptanceProbability({
-    required int offered,
-    required int reference,
-    double demandFactor = 1.0,
-  }) {
-    if (reference <= 0) return 0;
-    final ratio = offered / (reference * demandFactor);
-    return 1 / (1 + math.exp(-steepness * (ratio - midpointRatio)));
-  }
-}
-
-/// Los costes reales de conducir, para decidir si una carrera compensa.
-///
-/// Todos los importes van en unidades menores de la moneda de la tarifa.
-@immutable
+@experimental
 class DriverEconomics {
-  /// Crea un modelo de costes.
+  /// Creates a cost model.
   const DriverEconomics({
     required this.costPerKilometer,
     this.commissionRate = 0,
@@ -289,25 +138,25 @@ class DriverEconomics {
     this.returnFactor = 0.0,
   });
 
-  /// Lo que cuesta cada kilómetro: combustible, neumáticos, mantenimiento.
+  /// What each kilometer costs: fuel, tires, maintenance.
   ///
-  /// **No es solo la gasolina.** Un coche de gasolina en 2026 gasta unos 8
-  /// céntimos de combustible por kilómetro, pero el desgaste real ronda los
-  /// 15–20. Un conductor que solo cuenta el combustible cree que gana un
-  /// tercio más de lo que gana.
+  /// **It isn't just the gas.** A gasoline car in 2026 burns about 8 cents of
+  /// fuel per kilometer, but the real wear and tear is around 15–20. A driver
+  /// who only counts fuel thinks they earn a third more than they do.
   final int costPerKilometer;
 
-  /// La comisión de la plataforma, entre 0 y 1.
+  /// The platform's commission, between 0 and 1.
   final double commissionRate;
 
-  /// Lo mínimo que el conductor quiere ganar por hora, ya neto.
+  /// The minimum the driver wants to earn per hour, already net.
   final int minimumNetPerHour;
 
-  /// Qué fracción del trayecto muerto se repite al volver.
+  /// What fraction of the deadhead is repeated on the way back.
   ///
-  /// Una carrera que acaba en las afueras a menudo obliga a volver de vacío.
-  /// Con `0.5` se cuenta la mitad de esa vuelta como coste. Con `0` se supone
-  /// que siempre habrá otra carrera esperando donde te deje esta.
+  /// A ride that ends in the outskirts often forces the driver to come back
+  /// empty. With `0.5` half of that return counts as a cost. With `0` it is
+  /// assumed that there will always be another ride waiting wherever this one
+  /// drops you off.
   final double returnFactor;
 
   @override
@@ -315,10 +164,11 @@ class DriverEconomics {
       'DriverEconomics($costPerKilometer/km, commission $commissionRate)';
 }
 
-/// El análisis de si una carrera le conviene al conductor.
+/// The analysis of whether a ride is good for the driver.
 @immutable
+@experimental
 class BidEvaluation {
-  /// Crea una evaluación.
+  /// Creates an evaluation.
   const BidEvaluation({
     required this.currency,
     required this.minorUnitDigits,
@@ -333,46 +183,47 @@ class BidEvaluation {
     required this.tripMeters,
   });
 
-  /// El código ISO 4217 de la moneda.
+  /// The ISO 4217 currency code.
   final String currency;
 
-  /// Cuántos decimales tiene la moneda.
+  /// How many decimal places the currency has.
   final int minorUnitDigits;
 
-  /// Lo que paga el pasajero.
+  /// What the passenger pays.
   final int gross;
 
-  /// Lo que se lleva la plataforma.
+  /// What the platform takes.
   final int commission;
 
-  /// Lo que cuesta conducir todos esos kilómetros.
+  /// What it costs to drive all those kilometers.
   final int drivingCost;
 
-  /// Lo que queda de verdad.
+  /// What is really left.
   final int net;
 
-  /// Cuánto tiempo queda ocupado: ir a recoger, más el trayecto.
+  /// How long the driver stays busy: getting to the pickup, plus the trip.
   final Duration engagedDuration;
 
-  /// El neto llevado a euros por hora.
+  /// The net converted to euros per hour.
   ///
-  /// **Es el único número que permite comparar dos carreras.** Ocho euros a
-  /// doce minutos de distancia son peores que cinco a dos minutos, y el
-  /// importe suelto no lo dice.
+  /// **It is the only number that lets you compare two rides.** Eight euros
+  /// twelve minutes away are worse than five two minutes away, and the amount
+  /// on its own doesn't tell you that.
   final int netPerHour;
 
-  /// ¿Llega al mínimo por hora que pide el conductor?
+  /// Does it reach the minimum per hour the driver asks for?
   final bool worthIt;
 
-  /// Los metros hasta el punto de recogida, que no paga nadie.
+  /// The meters to the pickup point, which nobody pays for.
   final double deadheadMeters;
 
-  /// Los metros del trayecto con pasajero.
+  /// The meters of the trip with the passenger.
   final double tripMeters;
 
-  /// Qué proporción del recorrido total va sin pasajero, entre 0 y 1.
+  /// What share of the total distance is driven without a passenger, between
+  /// 0 and 1.
   ///
-  /// Por encima de 0,4 la carrera casi nunca compensa.
+  /// Above 0.4 the ride is almost never worth it.
   double get deadheadShare {
     final total = deadheadMeters + tripMeters;
     return total <= 0 ? 0 : deadheadMeters / total;
@@ -384,50 +235,50 @@ class BidEvaluation {
       '${worthIt ? 'compensa' : 'NO compensa'})';
 }
 
-/// Decide si una oferta le conviene al conductor.
+/// Decides whether a bid is good for the driver.
 ///
-/// ## El error que arruina a los conductores
+/// ## The mistake that ruins drivers
 ///
-/// Una carrera de 8 € parece mejor que una de 5 €. Pero si la primera está a
-/// 12 minutos de distancia y la segunda a 2, y las dos duran 10 minutos de
-/// trayecto:
+/// An €8 ride looks better than a €5 one. But if the first is 12 minutes away
+/// and the second 2, and both take 10 minutes of trip:
 ///
-/// | | Carrera A | Carrera B |
+/// | | Ride A | Ride B |
 /// |---|---|---|
-/// | Importe | 8,00 € | 5,00 € |
-/// | Ir a recoger | 5,0 km · 12 min | 0,8 km · 2 min |
-/// | Trayecto | 6,0 km · 10 min | 4,2 km · 10 min |
-/// | Kilómetros totales | 11,0 | 5,0 |
-/// | Coste a 0,20 €/km | 2,20 € | 1,00 € |
-/// | Neto | 5,80 € | 4,00 € |
-/// | Tiempo ocupado | 22 min | 12 min |
-/// | **Neto por hora** | **15,82 €/h** | **20,00 €/h** |
+/// | Amount | €8.00 | €5.00 |
+/// | Getting to the pickup | 5.0 km · 12 min | 0.8 km · 2 min |
+/// | Trip | 6.0 km · 10 min | 4.2 km · 10 min |
+/// | Total kilometers | 11.0 | 5.0 |
+/// | Cost at €0.20/km | €2.20 | €1.00 |
+/// | Net | €5.80 | €4.00 |
+/// | Time busy | 22 min | 12 min |
+/// | **Net per hour** | **€15.82/h** | **€20.00/h** |
 ///
-/// La carrera que paga menos deja un 26 % más por hora. Esta clase hace esa
-/// cuenta, y esos números son exactamente los que comprueba la suite.
+/// The ride that pays less leaves 26 % more per hour. This class does that
+/// math, and those numbers are exactly the ones the test suite checks.
 @immutable
+@experimental
 class BidAdvisor {
-  /// Crea un asesor para el conductor.
+  /// Creates an advisor for the driver.
   const BidAdvisor({
     required this.economics,
     required this.minorUnitDigits,
     required this.currency,
   });
 
-  /// El modelo de costes del conductor.
+  /// The driver's cost model.
   final DriverEconomics economics;
 
-  /// Cuántos decimales tiene la moneda.
+  /// How many decimal places the currency has.
   final int minorUnitDigits;
 
-  /// El código ISO 4217 de la moneda.
+  /// The ISO 4217 currency code.
   final String currency;
 
-  /// Evalúa una carrera concreta.
+  /// Evaluates a specific ride.
   ///
-  /// [deadheadMeters] y [deadheadDuration] son el trayecto **hasta recoger**,
-  /// que no paga nadie. Salen de una llamada a la matriz de rutas o, en su
-  /// defecto, de la distancia en línea recta con un factor de corrección.
+  /// [deadheadMeters] and [deadheadDuration] are the leg **to the pickup**,
+  /// which nobody pays for. They come from a call to the route matrix or,
+  /// failing that, from the straight-line distance with a correction factor.
   BidEvaluation evaluate({
     required int fare,
     required double deadheadMeters,
@@ -460,10 +311,10 @@ class BidAdvisor {
     );
   }
 
-  /// El importe mínimo al que esta carrera alcanza el objetivo por hora.
+  /// The minimum amount at which this ride reaches the hourly target.
   ///
-  /// Es lo que hay que contraofertar. Devuelve el importe bruto, ya contando
-  /// que la comisión se lleva su parte.
+  /// It is what to counter-offer. It returns the gross amount, already
+  /// accounting for the commission taking its share.
   int breakEvenFare({
     required double deadheadMeters,
     required Duration deadheadDuration,
@@ -476,42 +327,43 @@ class BidAdvisor {
     final hours = (deadheadDuration + tripDuration).inMicroseconds / 3.6e9;
     final target = economics.minimumNetPerHour * hours;
     final gross = (target + cost) / (1 - economics.commissionRate);
-    // Redondeo hacia arriba, pero sin castigar el ruido de la coma flotante:
-    // `1200 × 0.28 + 140` da 476.00000000000006, y un `ceil()` a secas
-    // devolvería 477. Un céntimo no arruina a nadie, pero hace que la misma
-    // carrera dé dos números distintos según cómo se escriba la duración.
+    // Round up, but without punishing floating-point noise:
+    // `1200 × 0.28 + 140` gives 476.00000000000006, and a bare `ceil()` would
+    // return 477. One cent ruins nobody, but it makes the same ride give two
+    // different numbers depending on how the duration is written.
     const epsilon = 1e-6;
     return (gross - epsilon).ceil();
   }
 }
 
-/// Cómo se ordenan las ofertas que ve el pasajero.
+/// How the bids the passenger sees are sorted.
 ///
-/// Los pesos suman lo que sea; se normalizan solos. Poner
-/// `priceWeight: 1, etaWeight: 0` ordena solo por precio.
+/// The weights can add up to anything; they normalize themselves. Setting
+/// `priceWeight: 1, etaWeight: 0` sorts by price only.
 @immutable
+@experimental
 class BidRanking {
-  /// Crea un criterio de ordenación.
+  /// Creates a sorting criterion.
   const BidRanking({
     this.priceWeight = 1.0,
     this.etaWeight = 1.0,
     this.ratingWeight = 0.5,
   });
 
-  /// Cuánto pesa que sea barata.
+  /// How much being cheap weighs.
   final double priceWeight;
 
-  /// Cuánto pesa que llegue pronto.
+  /// How much arriving soon weighs.
   final double etaWeight;
 
-  /// Cuánto pesa la valoración del conductor.
+  /// How much the driver's rating weighs.
   final double ratingWeight;
 
-  /// Ordena las ofertas de mejor a peor.
+  /// Sorts the bids from best to worst.
   ///
-  /// Cada dimensión se normaliza al rango observado antes de pesarla: si no,
-  /// una diferencia de dos euros y una de dos minutos no serían comparables.
-  /// Las ofertas caducadas se quitan.
+  /// Each dimension is normalized to the observed range before weighting it:
+  /// otherwise, a two-euro difference and a two-minute difference wouldn't be
+  /// comparable. Expired bids are removed.
   List<DriverBid> sort(List<DriverBid> bids, {DateTime? now}) {
     final moment = now ?? DateTime.now();
     final live = <DriverBid>[
@@ -527,7 +379,7 @@ class BidRanking {
     final scored = <(double, DriverBid)>[
       for (final offer in live)
         (
-          // El precio y la espera son «menos es mejor», así que se invierten.
+          // Price and waiting are "less is better", so they are inverted.
           priceWeight * (1 - _normalise(offer.amount.toDouble(), prices)) +
               etaWeight *
                   (1 -
@@ -556,67 +408,70 @@ class BidRanking {
   }
 }
 
-/// En qué estado está una subasta.
+/// What state an auction is in.
+@experimental
 enum AuctionState {
-  /// Admite ofertas.
+  /// Accepting bids.
   open,
 
-  /// El pasajero ya eligió.
+  /// The passenger has already chosen.
   accepted,
 
-  /// Se agotó el tiempo sin que nadie ofreciera o sin elegir.
+  /// Time ran out with nobody bidding or no choice made.
   expired,
 
-  /// El pasajero la retiró.
+  /// The passenger withdrew it.
   cancelled,
 }
 
-/// La subasta de una carrera: recoge ofertas y deja elegir una.
+/// The auction for a ride: collects bids and lets one be chosen.
 ///
-/// Es una máquina de estados en memoria, sin red y sin persistencia: sirve
-/// igual en el cliente que en un servidor Dart, y se guarda donde haga falta.
+/// It is an in-memory state machine, with no network and no persistence: it
+/// works the same on the client as on a Dart server, and it gets stored
+/// wherever needed.
+@experimental
 class RideAuction {
-  /// Abre una subasta.
+  /// Opens an auction.
   RideAuction({
     required this.request,
     this.duration = const Duration(minutes: 5),
   });
 
-  /// La petición que se subasta.
+  /// The request being auctioned.
   final RideRequest request;
 
-  /// Cuánto tiempo admite ofertas.
+  /// How long it accepts bids.
   final Duration duration;
 
   final Map<String, DriverBid> _bids = <String, DriverBid>{};
   AuctionState _state = AuctionState.open;
   DriverBid? _winner;
 
-  /// Cuándo se cierra.
+  /// When it closes.
   DateTime get closesAt => request.createdAt.add(duration);
 
-  /// El estado actual, ya teniendo en cuenta la caducidad.
+  /// The current state, already taking expiry into account.
   AuctionState stateAt(DateTime now) {
     if (_state != AuctionState.open) return _state;
     return now.isBefore(closesAt) ? AuctionState.open : AuctionState.expired;
   }
 
-  /// La oferta ganadora, si ya se eligió.
+  /// The winning bid, if one has already been chosen.
   DriverBid? get winner => _winner;
 
-  /// Las ofertas vivas en ese instante.
+  /// The bids that are live at that instant.
   List<DriverBid> liveBids(DateTime now) => <DriverBid>[
     for (final offer in _bids.values)
       if (!offer.isExpired(now)) offer,
   ];
 
-  /// Registra una oferta.
+  /// Records a bid.
   ///
-  /// Un conductor solo tiene una oferta viva: volver a ofertar **sustituye** a
-  /// la anterior, que es lo que hace falta para poder bajar el precio.
+  /// A driver only has one live bid: bidding again **replaces** the previous
+  /// one, which is what is needed to be able to lower the price.
   ///
-  /// Lanza [StateError] si la subasta ya no admite ofertas, y [ArgumentError]
-  /// si la oferta es de otra petición.
+  /// Throws [StateError] if the auction no longer accepts bids, and
+  /// [ArgumentError] if the bid belongs to another request.
   void bid(DriverBid offer, {DateTime? now}) {
     final moment = now ?? DateTime.now();
     if (stateAt(moment) != AuctionState.open) {
@@ -635,16 +490,16 @@ class RideAuction {
     _bids[offer.driverId] = offer;
   }
 
-  /// Retira la oferta de un conductor.
+  /// Withdraws a driver's bid.
   ///
-  /// Devuelve `true` si había alguna que retirar.
+  /// Returns `true` if there was one to withdraw.
   bool withdraw(String driverId) => _bids.remove(driverId) != null;
 
-  /// Acepta la oferta de un conductor y cierra la subasta.
+  /// Accepts a driver's bid and closes the auction.
   ///
-  /// Lanza [StateError] si la subasta ya está cerrada o si esa oferta caducó
-  /// —aceptar una oferta caducada es prometerle al pasajero un tiempo de
-  /// llegada que el conductor ya no puede cumplir.
+  /// Throws [StateError] if the auction is already closed or if that bid has
+  /// expired —accepting an expired bid is promising the passenger an arrival
+  /// time the driver can no longer meet.
   DriverBid accept(String driverId, {DateTime? now}) {
     final moment = now ?? DateTime.now();
     if (stateAt(moment) != AuctionState.open) {
@@ -662,7 +517,7 @@ class RideAuction {
     return offer;
   }
 
-  /// Cancela la subasta.
+  /// Cancels the auction.
   void cancel() {
     if (_state == AuctionState.open) _state = AuctionState.cancelled;
   }

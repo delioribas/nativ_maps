@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -7,46 +7,48 @@ import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/trip/position_filter.dart';
 import 'package:nativ_maps/src/trip/trip_recorder.dart';
 
-/// Cómo se redondea el importe final.
+/// How the final amount is rounded.
 ///
-/// En muchos mercados el redondeo está regulado y no es opcional.
+/// In many markets rounding is regulated and not optional.
+@experimental
 enum FareRounding {
-  /// Se deja el importe exacto.
+  /// The amount is left exact.
   none,
 
-  /// Al múltiplo de 5 unidades menores más cercano.
+  /// To the nearest multiple of 5 minor units.
   nearest5,
 
-  /// Al múltiplo de 10 más cercano.
+  /// To the nearest multiple of 10.
   nearest10,
 
-  /// Al múltiplo de 50 más cercano.
+  /// To the nearest multiple of 50.
   nearest50,
 
-  /// A la unidad mayor más cercana: al euro, al dólar.
+  /// To the nearest major unit: the euro, the dollar.
   nearestMajor,
 
-  /// Siempre hacia arriba, a la unidad mayor.
+  /// Always up, to the major unit.
   upToMajor,
 }
 
-/// Una franja horaria con su propio recargo.
+/// A time band with its own surcharge.
 ///
-/// Sirve para la tarifa nocturna, la de fin de semana y la de festivos, que
-/// son la norma en cualquier mercado regulado.
+/// It covers the night tariff, the weekend tariff and the holiday tariff,
+/// which are the norm in any regulated market.
 ///
 /// ```dart
-/// // Nocturna: de 22:00 a 06:00, todos los días, un 25 % más cara.
-/// const nocturna = TariffBand(
-///   name: 'Nocturna',
+/// // Night: from 22:00 to 06:00, every day, 25 % more expensive.
+/// const night = TariffBand(
+///   name: 'Night',
 ///   startOfDay: Duration(hours: 22),
 ///   endOfDay: Duration(hours: 6),
 ///   multiplier: 1.25,
 /// );
 /// ```
 @immutable
+@experimental
 class TariffBand {
-  /// Crea una franja.
+  /// Creates a band.
   const TariffBand({
     required this.name,
     required this.startOfDay,
@@ -55,28 +57,29 @@ class TariffBand {
     this.weekdays = const <int>{1, 2, 3, 4, 5, 6, 7},
   });
 
-  /// El nombre que sale en el desglose.
+  /// The name shown in the breakdown.
   final String name;
 
-  /// A qué hora del día empieza, contada desde medianoche.
+  /// The time of day it starts, counted from midnight.
   final Duration startOfDay;
 
-  /// A qué hora del día acaba.
+  /// The time of day it ends.
   ///
-  /// Si es **anterior** a [startOfDay], la franja cruza la medianoche. Es el
-  /// caso normal de la nocturna: `22:00` a `06:00`.
+  /// If it is **earlier** than [startOfDay], the band crosses midnight. That
+  /// is the usual case for the night band: `22:00` to `06:00`.
   final Duration endOfDay;
 
-  /// Por cuánto se multiplican la bajada de bandera, el kilómetro y el minuto.
+  /// What the flagfall, the per-kilometer and the per-minute rates are
+  /// multiplied by.
   final double multiplier;
 
-  /// Los días de la semana en los que se aplica.
+  /// The days of the week on which it applies.
   ///
-  /// Se usan las constantes de `DateTime`: `DateTime.monday` es 1 y
-  /// `DateTime.sunday` es 7.
+  /// It uses the `DateTime` constants: `DateTime.monday` is 1 and
+  /// `DateTime.sunday` is 7.
   final Set<int> weekdays;
 
-  /// ¿Está activa esta franja en ese instante?
+  /// Is this band active at that moment?
   bool appliesAt(DateTime moment) {
     final sinceMidnight = Duration(
       hours: moment.hour,
@@ -85,10 +88,10 @@ class TariffBand {
     );
     final wrapsMidnight = endOfDay <= startOfDay;
 
-    // Cuando la franja cruza la medianoche, el tramo que cae después de las
-    // 00:00 pertenece al día anterior. Una nocturna de viernes que se
-    // configuró solo para viernes tiene que seguir activa a la 01:00 del
-    // sábado, o el pasajero paga tarifa diurna a esa hora.
+    // When the band crosses midnight, the stretch that falls after 00:00
+    // belongs to the previous day. A Friday night band configured only for
+    // Fridays must still be active at 01:00 on Saturday, or the passenger
+    // pays the day tariff at that hour.
     if (wrapsMidnight) {
       if (sinceMidnight >= startOfDay) {
         return weekdays.contains(moment.weekday);
@@ -111,52 +114,54 @@ class TariffBand {
   String toString() => 'TariffBand($name, ×$multiplier)';
 }
 
-/// Un cargo fijo que se suma al viaje.
+/// A fixed charge added to the trip.
 ///
-/// Aeropuerto, maletas, reserva anticipada, peaje urbano, limpieza.
+/// Airport, luggage, advance booking, urban toll, cleaning.
 @immutable
+@experimental
 class Surcharge {
-  /// Crea un cargo.
+  /// Creates a charge.
   const Surcharge({
     required this.name,
     required this.amount,
     this.surgeable = false,
   });
 
-  /// El nombre que sale en el desglose.
+  /// The name shown in the breakdown.
   final String name;
 
-  /// El importe, en unidades menores.
+  /// The amount, in minor units.
   final int amount;
 
-  /// ¿Lo multiplica la demanda?
+  /// Does demand multiply it?
   ///
-  /// Por defecto **no**, que es lo correcto casi siempre: un recargo de
-  /// aeropuerto de tres euros no pasa a costar cinco porque llueva. Los que
-  /// van a `true` se suman a la base **antes** de aplicar la demanda y antes
-  /// de comprobar el mínimo.
+  /// By default **no**, which is almost always right: a three-euro airport
+  /// surcharge doesn't start costing five because it's raining. Those set to
+  /// `true` are added to the base **before** demand is applied and before the
+  /// minimum is checked.
   final bool surgeable;
 
   @override
   String toString() => 'Surcharge($name, $amount)';
 }
 
-/// Una línea del desglose de la tarifa.
+/// One line of the fare breakdown.
 ///
-/// Cada importe cobrado tiene la suya, con la cuenta que lo produjo escrita
-/// en [detail]. Es lo que se enseña cuando alguien reclama.
+/// Every amount charged has its own, with the calculation that produced it
+/// written in [detail]. It's what you show when someone files a complaint.
 @immutable
+@experimental
 class FareLine {
-  /// Crea una línea.
+  /// Creates a line.
   const FareLine({required this.label, required this.amount, this.detail = ''});
 
-  /// Qué concepto es.
+  /// What the item is.
   final String label;
 
-  /// El importe, en unidades menores.
+  /// The amount, in minor units.
   final int amount;
 
-  /// La cuenta que produjo el importe, por ejemplo `12,4 km × 85`.
+  /// The calculation that produced the amount, for example `12.4 km × 85`.
   final String detail;
 
   @override
@@ -164,14 +169,15 @@ class FareLine {
       detail.isEmpty ? '$label: $amount' : '$label: $amount  ($detail)';
 }
 
-/// El importe de un viaje, desglosado.
+/// The fare of a trip, broken down.
 ///
-/// **Nunca se devuelve solo un total.** Un número suelto no se puede
-/// justificar, no se puede auditar y no se puede reproducir seis meses
-/// después cuando llega la reclamación.
+/// **A bare total is never returned.** A lone number can't be justified,
+/// can't be audited and can't be reproduced six months later when the
+/// complaint arrives.
 @immutable
+@experimental
 class FareBreakdown {
-  /// Crea un desglose.
+  /// Creates a breakdown.
   const FareBreakdown({
     required this.currency,
     required this.minorUnitDigits,
@@ -179,31 +185,31 @@ class FareBreakdown {
     required this.total,
   });
 
-  /// El código ISO 4217 de la moneda, por ejemplo `EUR`.
+  /// The ISO 4217 currency code, for example `EUR`.
   final String currency;
 
-  /// Cuántos decimales tiene la moneda.
+  /// How many decimal places the currency has.
   ///
-  /// Dos para el euro y el dólar, cero para el peso chileno y el yen.
+  /// Two for the euro and the dollar, zero for the Chilean peso and the yen.
   final int minorUnitDigits;
 
-  /// Todas las líneas, en el orden en que se aplicaron.
+  /// All the lines, in the order they were applied.
   final List<FareLine> lines;
 
-  /// El total a cobrar, en unidades menores.
+  /// The total to charge, in minor units.
   final int total;
 
-  /// El total como número decimal.
+  /// The total as a decimal number.
   ///
-  /// **Solo para enseñarlo.** Nunca se hacen cuentas con este valor: la coma
-  /// flotante binaria no representa exactamente los céntimos, y sumar mil
-  /// carreras así produce un descuadre con la contabilidad.
+  /// **For display only.** Never do arithmetic with this value: binary
+  /// floating point can't represent cents exactly, and adding up a thousand
+  /// rides this way leaves the books out of balance.
   double get totalAsDecimal => total / math.pow(10, minorUnitDigits);
 
-  /// El total formateado, por ejemplo `12,45`.
+  /// The formatted total, for example `12,45`.
   String get formattedTotal => formatAmount(total);
 
-  /// Da formato a un importe en unidades menores.
+  /// Formats an amount given in minor units.
   String formatAmount(int minorUnits) {
     if (minorUnitDigits == 0) return '$minorUnits';
     final divisor = math.pow(10, minorUnitDigits).toInt();
@@ -212,7 +218,7 @@ class FareBreakdown {
     return '$whole,${remainder.toString().padLeft(minorUnitDigits, '0')}';
   }
 
-  /// El desglose completo en texto, listo para un recibo o un registro.
+  /// The full breakdown as text, ready for a receipt or a log.
   String toReceipt() {
     final buffer = StringBuffer();
     for (final line in lines) {
@@ -235,33 +241,34 @@ class FareBreakdown {
       '${lines.length} line(s))';
 }
 
-/// La tarifa de un taxi o un VTC, y el motor que la aplica.
+/// A taxi or private-hire tariff, and the engine that applies it.
 ///
 /// ```dart
-/// const tarifa = Tariff(
+/// const tariff = Tariff(
 ///   currency: 'EUR',
-///   baseFare: 250,        // 2,50 € de bajada de bandera
-///   perKilometer: 110,    // 1,10 € el kilómetro
-///   perMinute: 35,        // 0,35 € el minuto en marcha
-///   waitingPerMinute: 30, // 0,30 € el minuto parado
-///   minimumFare: 500,     // 5,00 € mínimo
+///   baseFare: 250,        // €2.50 flagfall
+///   perKilometer: 110,    // €1.10 per kilometer
+///   perMinute: 35,        // €0.35 per minute while moving
+///   waitingPerMinute: 30, // €0.30 per minute stopped
+///   minimumFare: 500,     // €5.00 minimum
 ///   rounding: FareRounding.nearest5,
 /// );
 ///
-/// final importe = tarifa.quote(viaje);
-/// print(importe.toReceipt());
+/// final fare = tariff.quote(trip);
+/// print(fare.toReceipt());
 /// ```
 ///
-/// ## Todo en unidades menores, y enteras
+/// ## Everything in minor units, as integers
 ///
-/// Los importes son **céntimos**, no euros, y son `int`, no `double`. Un
-/// `double` no puede representar 0,10 exactamente; sumar diez carreras de
-/// 1,10 € da 11,000000000000002 y la caja no cuadra a final de mes. Con
-/// enteros no hay ese problema, y el redondeo ocurre **una sola vez**, al
-/// final, donde la ley dice que ocurra.
+/// Amounts are **cents**, not euros, and they are `int`, not `double`. A
+/// `double` can't represent 0.10 exactly; adding up ten €1.10 rides gives
+/// 11.000000000000002 and the till doesn't balance at the end of the month.
+/// Integers don't have that problem, and rounding happens **only once**, at
+/// the end, where the law says it should.
 @immutable
+@experimental
 class Tariff {
-  /// Crea una tarifa.
+  /// Creates a tariff.
   const Tariff({
     required this.currency,
     required this.baseFare,
@@ -276,78 +283,80 @@ class Tariff {
     this.surcharges = const <Surcharge>[],
   });
 
-  /// El código ISO 4217 de la moneda.
+  /// The ISO 4217 currency code.
   final String currency;
 
-  /// Cuántos decimales tiene la moneda.
+  /// How many decimal places the currency has.
   final int minorUnitDigits;
 
-  /// La bajada de bandera, en unidades menores.
+  /// The flagfall, in minor units.
   final int baseFare;
 
-  /// Lo que cuesta cada kilómetro.
+  /// What each kilometer costs.
   final int perKilometer;
 
-  /// Lo que cuesta cada minuto **en marcha**.
+  /// What each minute **while moving** costs.
   ///
-  /// Las tarifas mixtas cobran distancia y tiempo a la vez; las de solo
-  /// distancia dejan esto a cero.
+  /// Mixed tariffs charge distance and time together; distance-only tariffs
+  /// leave this at zero.
   final int perMinute;
 
-  /// Lo que cuesta cada minuto **detenido**.
+  /// What each minute **stopped** costs.
   final int waitingPerMinute;
 
-  /// Cuánta espera es gratis antes de empezar a cobrarla.
+  /// How much waiting is free before it starts being charged.
   ///
-  /// Se descuenta del conjunto del viaje, no de cada parada: si no, veinte
-  /// semáforos de un minuto con un minuto de cortesía cada uno salen gratis.
+  /// It is deducted from the trip as a whole, not from each stop: otherwise
+  /// twenty one-minute traffic lights, each with its own minute of grace,
+  /// come out free.
   final Duration waitingGrace;
 
-  /// El importe mínimo de una carrera.
+  /// The minimum fare for a ride.
   final int minimumFare;
 
-  /// Cómo se redondea el total.
+  /// How the total is rounded.
   final FareRounding rounding;
 
-  /// Las franjas horarias, en orden de prioridad.
+  /// The time bands, in order of priority.
   ///
-  /// Se aplica **la primera que coincida**, así que las más específicas van
-  /// antes: la de festivos delante de la de fin de semana.
+  /// **The first one that matches** applies, so the more specific ones go
+  /// first: the holiday band ahead of the weekend band.
   ///
-  /// > **Las horas de las franjas se leen en la misma zona que las marcas de
-  /// > tiempo del viaje.** Una nocturna que empieza a las 22:00 solo empieza a
-  /// > las 22:00 de la ciudad si el viaje llega con marcas locales. Si el
-  /// > servidor guarda en UTC —que es lo correcto—, convierte a la zona de la
-  /// > ciudad antes de tarificar, o define las franjas en UTC. Mezclar las dos
-  /// > cosas desplaza la tarifa nocturna varias horas.
+  /// > **Band times are read in the same time zone as the trip's
+  /// > timestamps.** A night band that starts at 22:00 only starts at 22:00
+  /// > city time if the trip comes with local timestamps. If the server
+  /// > stores UTC —which is the right thing to do—, convert to the city's
+  /// > time zone before pricing, or define the bands in UTC. Mixing the two
+  /// > shifts the night tariff by several hours.
   final List<TariffBand> bands;
 
-  /// Cargos fijos que se aplican siempre.
+  /// Fixed charges that always apply.
   final List<Surcharge> surcharges;
 
-  /// Calcula el importe de un viaje.
+  /// Calculates the fare of a trip.
   ///
-  /// ## Cómo se reparte cuando el viaje cruza una franja
+  /// ## How it's split when the trip crosses a band
   ///
-  /// Un trayecto que empieza a las 21:50 y acaba a las 22:10 tiene diez
-  /// minutos de tarifa diurna y diez de nocturna. Cobrarlo entero a la tarifa
-  /// de salida —lo que hace casi todo el software— es incorrecto, y en un
-  /// mercado regulado es sancionable.
+  /// A trip that starts at 21:50 and ends at 22:10 has ten minutes of day
+  /// tariff and ten of night tariff. Charging all of it at the starting
+  /// tariff —what almost all software does— is wrong, and in a regulated
+  /// market it can get you fined.
   ///
-  /// Aquí el viaje se **parte por los límites de las franjas**:
+  /// Here the trip is **split at the band boundaries**:
   ///
-  /// - El **tiempo** se reparte de forma exacta, porque las paradas tienen
-  ///   hora de inicio y de fin.
-  /// - La **distancia** se reparte en proporción al tiempo en marcha de cada
-  ///   tramo. Es una aproximación: un trayecto que hace autopista antes de las
-  ///   22:00 y ciudad después le asigna a la nocturna más kilómetros de los
-  ///   que realmente recorrió. El error queda acotado por lo que se mueva la
-  ///   velocidad media entre tramos, y en un recorrido urbano es pequeño.
+  /// - **Time** is split exactly, because stops have a start and an end
+  ///   time.
+  /// - **Distance** is split in proportion to each segment's moving time.
+  ///   It's an approximation: a trip that runs on the highway before 22:00
+  ///   and through the city afterwards assigns the night band more
+  ///   kilometers than it actually covered. The error is bounded by how much
+  ///   the average speed changes between segments, and on an urban route it
+  ///   is small.
   ///
-  /// [surgeMultiplier] multiplica la parte variable —bandera, distancia y
-  /// tiempo— pero **no** los cargos con `taxable: false` ni los peajes.
+  /// [surgeMultiplier] multiplies the variable part —flagfall, distance and
+  /// time— but **not** the charges with `surgeable: false` nor the tolls.
   ///
-  /// [tolls] son los peajes en unidades menores; salen de
+  /// [tolls] are the tolls in minor units; they come from
   /// `Route.tollCostByCurrency`.
   FareBreakdown quote(
     TripSummary trip, {
@@ -366,7 +375,7 @@ class Tariff {
     final lines = <FareLine>[];
     final segments = _splitByBands(trip);
 
-    // ── Bajada de bandera, con el multiplicador de la franja de salida
+    // ── Flagfall, with the multiplier of the starting band
     final startBand = _bandAt(trip.start);
     final startMultiplier = startBand?.multiplier ?? 1.0;
     final flagfall = (baseFare * startMultiplier).round();
@@ -382,7 +391,7 @@ class Tariff {
       );
     }
 
-    // ── Espera gratuita, descontada del total y no de cada parada
+    // ── Free waiting, deducted from the total and not from each stop
     var graceLeft = waitingGrace;
 
     for (final segment in segments) {
@@ -439,7 +448,7 @@ class Tariff {
       }
     }
 
-    // ── Cargos que sí multiplica la demanda, antes de aplicarla
+    // ── Charges that demand does multiply, before applying it
     final allSurcharges = <Surcharge>[...surcharges, ...extraSurcharges];
     for (final surcharge in allSurcharges) {
       if (surcharge.surgeable && surcharge.amount != 0) {
@@ -449,7 +458,7 @@ class Tariff {
 
     var variable = lines.fold<int>(0, (sum, l) => sum + l.amount);
 
-    // ── Demanda
+    // ── Demand
     if (surgeMultiplier != 1.0) {
       final increase = (variable * (surgeMultiplier - 1)).round();
       lines.add(
@@ -462,7 +471,7 @@ class Tariff {
       variable += increase;
     }
 
-    // ── Mínimo, antes de sumar lo que no debe verse afectado por él
+    // ── Minimum, before adding what must not be affected by it
     if (minimumFare > 0 && variable < minimumFare) {
       final fit = minimumFare - variable;
       lines.add(
@@ -475,7 +484,7 @@ class Tariff {
       variable = minimumFare;
     }
 
-    // ── Cargos fijos que no multiplica la demanda, y peajes
+    // ── Fixed charges that demand doesn't multiply, and tolls
     var total = variable;
     for (final surcharge in allSurcharges) {
       if (surcharge.surgeable || surcharge.amount == 0) continue;
@@ -487,7 +496,7 @@ class Tariff {
       total += tolls;
     }
 
-    // ── Redondeo, una sola vez y al final
+    // ── Rounding, only once and at the end
     final rounded = applyRounding(total);
     if (rounded != total) {
       lines.add(
@@ -507,7 +516,7 @@ class Tariff {
     );
   }
 
-  /// Da formato a un importe en unidades menores de esta moneda.
+  /// Formats an amount in this currency's minor units.
   String formatMinor(int minorUnits) {
     if (minorUnitDigits == 0) return '$minorUnits';
     final divisor = math.pow(10, minorUnitDigits).toInt();
@@ -516,11 +525,11 @@ class Tariff {
         '${remainder.toString().padLeft(minorUnitDigits, '0')}';
   }
 
-  /// Una estimación **antes** de empezar, a partir de una ruta calculada.
+  /// An estimate **before** starting, from a calculated route.
   ///
-  /// Sirve para enseñar «unos 12 €» al pedir el coche. No sustituye a
-  /// [quote]: no hay paradas todavía, así que la espera no entra, y el tiempo
-  /// es el que predijo el servicio, no el que ocurrió.
+  /// It's for showing "about €12" when the car is requested. It doesn't
+  /// replace [quote]: there are no stops yet, so waiting isn't included, and
+  /// the time is the one the service predicted, not the one that happened.
   FareBreakdown estimate({
     required double distanceMeters,
     required Duration duration,
@@ -554,13 +563,12 @@ class Tariff {
     return null;
   }
 
-  /// Redondea [amount], en unidades menores, con la regla [rounding] de esta
-  /// tarifa.
+  /// Rounds [amount], in minor units, with this tariff's [rounding] rule.
   ///
-  /// Es la misma que aplica [quote] al total. Cualquier importe que se le
-  /// enseñe al pasajero junto a una cifra de esta tarifa —un mínimo de puja,
-  /// un precio sugerido— tiene que pasar por aquí, o saldrán `1,28` al lado
-  /// de un `1,50`.
+  /// It's the same rule [quote] applies to the total. Any amount shown to
+  /// the passenger next to a figure from this tariff —a minimum bid, a
+  /// suggested price— has to go through here, or a `1,28` will show up next
+  /// to a `1,50`.
   int applyRounding(int amount) {
     final majorUnit = math.pow(10, minorUnitDigits).toInt();
     return switch (rounding) {
@@ -573,18 +581,19 @@ class Tariff {
     };
   }
 
-  /// Parte el viaje por los límites de las franjas horarias.
+  /// Splits the trip at the time band boundaries.
   List<_Segment> _splitByBands(TripSummary trip) {
     final boundaries = <DateTime>{trip.start, trip.end};
 
     if (bands.isNotEmpty) {
-      // Los límites candidatos son las horas de inicio y fin de cada franja,
-      // en cada día que toca el viaje. Un viaje dura minutos u horas, así que
-      // son un puñado de fechas, no un barrido.
-      // Se conserva la zona del viaje. Construir aquí un `DateTime` local
-      // cuando las marcas vienen en UTC pondría el corte de la nocturna a las
-      // 22:00 de la máquina, no a las 22:00 del viaje: en un servidor en otro
-      // huso la tarifa cambiaría de hora sin que nadie tocase nada.
+      // The candidate boundaries are the start and end times of each band,
+      // on each day the trip touches. A trip lasts minutes or hours, so they
+      // are a handful of dates, not a sweep.
+      // The trip's time zone is preserved. Building a local `DateTime` here
+      // when the timestamps come in UTC would put the night band cutoff at
+      // 22:00 on the machine, not at 22:00 on the trip: on a server in
+      // another time zone the tariff would change hour without anyone
+      // touching anything.
       var day = _midnight(trip.start);
       final lastDay = _midnight(trip.end).add(const Duration(days: 1));
       while (!day.isAfter(lastDay)) {
@@ -623,7 +632,7 @@ class Tariff {
     var moving = duration - stopped;
     if (moving < Duration.zero) moving = Duration.zero;
 
-    // La distancia se reparte en proporción al tiempo en marcha.
+    // Distance is split in proportion to moving time.
     final distance = totalMoving <= 0
         ? 0.0
         : trip.distanceMeters * moving.inMicroseconds / totalMoving;

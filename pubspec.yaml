@@ -79,6 +79,15 @@ melos:
       packageFilters:
         scope: nativ_maps
 
+    test:live:iam:
+      description: >-
+        Las 27 operaciones de geovallas y rastreo contra AWS de verdad, con
+        SigV4. Exige AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY; crea una
+        colección y un rastreador y los borra al terminar.
+      exec: dart test -P live
+      packageFilters:
+        scope: nativ_maps_sigv4
+
     coverage:
       description: Cobertura del núcleo, que es donde vive la lógica.
       exec: dart test --coverage=coverage && dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib

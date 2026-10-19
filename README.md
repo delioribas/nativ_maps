@@ -39,7 +39,7 @@ await controlador.addPolyline(
 
 ```yaml
 dependencies:
-  nativ_maps_flutter: ^0.5.3
+  nativ_maps_flutter: ^0.9.0
 ```
 
 ```dart
@@ -302,11 +302,16 @@ carrera en vez de ochocientas.
 
 ### Lo que no es una medición
 
-`FareAdvisor.acceptanceProbability` devuelve una **curva logística de dos
-parámetros**, no un dato observado. Sirve para arrancar; hay que calibrarla con
+La probabilidad de aceptación de `PriceAdvisor.forecast` sale de una **curva
+logística sin calibrar** cuando no hay conductores cerca con tiempos reales, y
+entonces lo dice: `estimated: true`. Sirve para arrancar; hay que calibrarla con
 el historial propio. Se dice así de claro a propósito: un porcentaje inventado
 enseñado en pantalla con dos decimales es peor que no enseñar nada, porque
 nadie vuelve a cuestionarlo.
+
+Por eso **toda la capa de cálculo es `@experimental`**: queda fuera de la
+promesa de estabilidad de la 1.0 y puede cambiar en una versión menor, hasta
+que se haya usado cobrando carreras de verdad.
 
 ## Lo que Google no te daba
 
@@ -466,33 +471,49 @@ caza el compilador.
 `GoogleStyleReport` que **dice qué reglas no se aplicaron**. Ver
 [doc/MIGRACION.md](doc/MIGRACION.md).
 
+Para que el mapa **se parezca al de Google** sin traer un tema propio,
+`applyGoogleLook()` repinta el estilo estándar con la paleta del Google Maps
+actual. La tipografía, los iconos y los datos siguen siendo los de Amazon
+Location.
+
 ---
 
 ## Estado del proyecto
 
 | | |
 |---|---|
-| Operaciones | **44 de 44** de Amazon Location |
-| Capa de cálculo | **9 módulos** de Dart puro, sin red |
-| Análisis estático | **limpio en los 4 paquetes y en el ejemplo**, con `--fatal-infos` y `public_member_api_docs: error` |
-| Pub points del núcleo | **160/160**, medido con `pana` |
-| Pruebas | **335 verdes** (106 de la capa de cálculo) |
-| Firma SigV4 | verificada contra el **vector oficial `get-vanilla` de AWS** |
-| Polilínea de HERE | verificada contra el **vector oficial de `heremaps/flexible-polyline`** |
-| Android | **APK compilado** |
-| iOS | **`Runner.app` compilado** |
-| Ensayo de publicación | **0 avisos** en los dos paquetes públicos |
-| Peticiones al servicio real | **ninguna todavía** ← ver «Antes de producción» |
+| Versión | **0.9.0**, candidata a 1.0.0 |
+| Operaciones | **44 de 44**, todas ejecutadas contra Amazon Location de verdad: 17 con clave de API y 27 con IAM firmadas con SigV4 |
+| Enums | todos los valores que viajan en una petición, comprobados contra el servicio: **111 comprobaciones** |
+| Pruebas | **428 verdes** sin red, y aparte las de AWS real (`-P live`) |
+| Suelo | probado con **Flutter 3.32** —el mínimo declarado— y con la última |
+| Pub points | **160/160** en los dos paquetes publicados, medido con `pana` |
+| App de ejemplo | los nueve demos recorridos en un **emulador Android** y en el **simulador de iOS**, con toques y arrastres reales |
+| Proyectos reales | **ryvell** (taxi) y **xyntar** (rastreo GPS) compilan y pasan sus pruebas con esta versión |
 
-### Antes de producción
+### Antes de la 1.0.0
 
-Los clientes están contrastados campo a campo contra la referencia viva de AWS,
-pero **no se ha enviado ninguna petición al servicio real**. Antes de confiar en
-esto en producción, hay que ejecutar el `example/` con una clave de verdad y
-recorrer las ocho pantallas. Es media tarde y es la única forma de cerrar la
-distancia entre «coincide con la documentación» y «funciona».
+Falta una pasada en un **móvil físico** y el **CI** en GitHub corriendo en cada
+commit. La capa de cálculo seguirá siendo `@experimental` después de la 1.0.
 
----
+## Versiones y estabilidad
+
+El proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
+
+- **Hasta la 1.0.0**, una versión menor puede romper la API; el CHANGELOG lo
+  dice en «Breaking changes».
+- **Desde la 1.0.0**, solo una versión mayor puede romperla.
+- **Nada desaparece sin aviso.** Lo que se vaya a quitar se marca
+  `@Deprecated` —con el reemplazo en el mensaje— durante al menos una versión
+  menor y tres meses, y se quita en la siguiente mayor.
+- **Lo marcado `@experimental` queda fuera de la promesa**: puede cambiar en
+  una versión menor, y el CHANGELOG lo dirá. Hoy lo es la capa de cálculo
+  entera.
+- **Subir el suelo** —Flutter 3.32, Dart 3.8— es una versión menor, anunciada
+  en el CHANGELOG.
+- **Si AWS cambia o retira algo**, el paquete sigue a AWS: un valor que el
+  servicio deja de aceptar no se puede seguir prometiendo. Las pruebas en vivo
+  existen para enterarse antes que quien usa el paquete.
 
 ## Desarrollo
 

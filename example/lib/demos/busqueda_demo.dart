@@ -125,29 +125,34 @@ class _BusquedaDemoState extends State<BusquedaDemo> {
     });
   }
 
-  Widget _listaDeSugerencias() => Container(
-    constraints: const BoxConstraints(maxHeight: 180),
+  // `Material` y no un `Container` con color: los `ListTile` pintan el fondo
+  // y la onda del toque en el `Material` más cercano, y un color en medio los
+  // tapa. Flutter lo avisa con una aserción en cada pulsación.
+  Widget _listaDeSugerencias() => Material(
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
-    child: ListView.builder(
-      shrinkWrap: true,
-      itemCount: _sugerencias.length,
-      itemBuilder: (context, index) {
-        final sugerencia = _sugerencias[index];
-        return ListTile(
-          dense: true,
-          leading: const Icon(Icons.place_outlined, size: 18),
-          title: Text(sugerencia.title),
-          subtitle: sugerencia.address == null
-              ? null
-              : Text(
-                  sugerencia.address!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-          // Paso 2: solo AQUÍ se paga la segunda petición.
-          onTap: () => unawaited(_abrirSugerencia(sugerencia)),
-        );
-      },
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 180),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _sugerencias.length,
+        itemBuilder: (context, index) {
+          final sugerencia = _sugerencias[index];
+          return ListTile(
+            dense: true,
+            leading: const Icon(Icons.place_outlined, size: 18),
+            title: Text(sugerencia.title),
+            subtitle: sugerencia.address == null
+                ? null
+                : Text(
+                    sugerencia.address!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+            // Paso 2: solo AQUÍ se paga la segunda petición.
+            onTap: () => unawaited(_abrirSugerencia(sugerencia)),
+          );
+        },
+      ),
     ),
   );
 

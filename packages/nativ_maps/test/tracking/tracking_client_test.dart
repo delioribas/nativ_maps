@@ -251,10 +251,11 @@ void main() {
 
       await maps.tracking.listDevicePositions(
         trackerName: 'flota',
+        // En sentido horario, a propósito.
         filterGeometry: <LatLng>[
           LatLng(-0.2, -78.5),
-          LatLng(-0.2, -78.4),
           LatLng(-0.1, -78.4),
+          LatLng(-0.2, -78.4),
         ],
       );
 
@@ -267,6 +268,16 @@ void main() {
       // Cerrado: cuatro puntos para un triángulo.
       expect(anillo, hasLength(4));
       expect(anillo.first.toString(), anillo.last.toString());
+      // Y en sentido antihorario, aunque llegara horario: si no, AWS
+      // responde «'FilterGeometry.Polygon' must be oriented
+      // counter-clockwise».
+      var area = 0.0;
+      for (var i = 0; i < anillo.length - 1; i++) {
+        final a = anillo[i] as List<dynamic>;
+        final b = anillo[i + 1] as List<dynamic>;
+        area += (a[0] as num) * (b[1] as num) - (b[0] as num) * (a[1] as num);
+      }
+      expect(area, greaterThan(0));
     });
 
     test('un polígono de menos de 3 puntos lanza', () async {

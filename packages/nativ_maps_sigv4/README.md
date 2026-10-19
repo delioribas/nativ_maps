@@ -1,9 +1,9 @@
 # nativ_maps_sigv4
 
-**Firma AWS Signature Version 4 para `nativ_maps`.**
+**AWS Signature Version 4 signing for `nativ_maps`.**
 
-Firmar **en el propio dispositivo**, sin backend y sin una clave permanente
-dentro del APK.
+Signing **on the device itself**, with no backend and no permanent key inside
+the APK.
 
 ```dart
 import 'package:nativ_maps_sigv4/nativ_maps_sigv4.dart';
@@ -11,51 +11,51 @@ import 'package:nativ_maps_sigv4/nativ_maps_sigv4.dart';
 final maps = NativMaps(
   region: 'us-east-1',
   credentials: SigV4Credentials(
-    provider: () => miPoolDeCognito.obtenerCredenciales(),
+    provider: () => myCognitoPool.fetchCredentials(),
   ),
 );
 ```
 
-## Por qué vive en su propio paquete
+## Why it lives in its own package
 
-Va aparte **a propósito**. El paquete oficial `aws_signature_v4` arrastra
-dieciséis dependencias transitivas, y quien solo usa una clave de API no tiene
-por qué pagarlas.
+It is separate **on purpose**. The official `aws_signature_v4` package drags in
+sixteen transitive dependencies, and someone who only uses an API key has no
+reason to pay for them.
 
-Esta implementación depende de `crypto` y nada más.
+This implementation depends on `crypto` and nothing else.
 
-## Verificado contra los vectores oficiales de AWS
+## Verified against AWS's official vectors
 
-Un fallo de firma no produce un error legible: produce un `403` **idéntico** al
-de una clave inválida. Por eso la firma se comprueba contra el valor exacto del
-vector `get-vanilla` de la suite de pruebas de SigV4 de AWS, no solo contra su
-forma.
+A signing bug doesn't produce a readable error: it produces a `403`
+**identical** to that of an invalid key. That is why the signature is checked
+against the exact value of the `get-vanilla` vector from AWS's SigV4 test
+suite, not just against its shape.
 
-## Los tres nombres de firma
+## The three signing names
 
-**Los tres servicios de Amazon Location firman con nombres distintos:**
-`geo-places`, `geo-routes`, `geo-maps`. No es `geo`, ni el nombre del host.
+**The three Amazon Location services sign with different names:**
+`geo-places`, `geo-routes`, `geo-maps`. Not `geo`, nor the host name.
 
-Aquí no se puede equivocar: el nombre lo pone el enum `AlsService`, no quien
-llama.
+You can't get it wrong here: the name is set by the `AlsService` enum, not by
+the caller.
 
-## Las teselas del mapa también
+## The map tiles too
 
 ```dart
 NativMap(
   styleUrl: url,
-  customHeaders: await credenciales.mapHeaders(
+  customHeaders: await credentials.mapHeaders(
     styleUrl: url,
     region: 'us-east-1',
   ),
 );
 ```
 
-> ⚠️ **Estas cabeceras caducan.** Un mapa abierto durante horas dejará de cargar
-> teselas nuevas; hay que renovarlas con `controller.setCustomHeaders(...)`. Un
-> proxy que firme no tiene este problema, y por eso sigue siendo el camino
-> recomendado para producción.
+> ⚠️ **These headers expire.** A map left open for hours will stop loading new
+> tiles; you have to refresh them with `controller.setCustomHeaders(...)`. A
+> signing proxy doesn't have this problem, and that is why it is still the
+> recommended path for production.
 
-## Licencia
+## License
 
 MIT

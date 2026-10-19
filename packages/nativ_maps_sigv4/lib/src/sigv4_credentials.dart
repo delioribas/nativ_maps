@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:async';
 
@@ -6,54 +6,54 @@ import 'package:http/http.dart' as http;
 import 'package:nativ_maps/nativ_maps.dart';
 import 'package:nativ_maps_sigv4/src/signer.dart';
 
-/// De dónde salen las credenciales de AWS.
+/// Where the AWS credentials come from.
 ///
-/// Se consulta antes de cada petición, así que puede devolver credenciales
-/// distintas cada vez: es lo que permite renovarlas cuando caducan sin que
-/// nada más se entere.
+/// It is queried before every request, so it can return different credentials
+/// each time: that is what lets them be refreshed when they expire without
+/// anything else noticing.
 typedef AwsCredentialsProvider = Future<AwsCredentials> Function();
 
-/// Autenticación con **SigV4 firmando en el propio dispositivo**.
+/// Authentication with **SigV4, signing on the device itself**.
 ///
-/// Es el camino C del diseño: sin backend y sin clave permanente dentro del
-/// APK. A cambio hay que configurar un pool de identidades de Cognito y su
-/// política de IAM.
+/// It is path C of the design: no backend and no permanent key inside the
+/// APK. In exchange you have to set up a Cognito identity pool and its IAM
+/// policy.
 ///
 /// ```dart
 /// final maps = NativMaps(
 ///   region: 'us-east-1',
 ///   credentials: SigV4Credentials(
-///     provider: () => miPoolDeCognito.obtenerCredenciales(),
+///     provider: () => myCognitoPool.fetchCredentials(),
 ///   ),
 /// );
 /// ```
 ///
-/// ## Por qué esto es mejor que una clave de API
+/// ## Why this is better than an API key
 ///
-/// Las credenciales de un pool de identidades **caducan** —típicamente en una
-/// hora— y se emiten por dispositivo. Una extraída del binario deja de servir
-/// sola; una clave de API sirve hasta que alguien la revoca a mano, y para
-/// entonces ya se ha gastado.
+/// Identity pool credentials **expire** —typically in an hour— and are issued
+/// per device. One extracted from the binary stops working on its own; an API
+/// key works until someone revokes it by hand, and by then it has already been
+/// spent.
 ///
-/// ## ⚠️ El error que cuesta una tarde
+/// ## ⚠️ The mistake that costs an afternoon
 ///
-/// **Los tres servicios firman con nombres distintos**: `geo-places`,
-/// `geo-routes`, `geo-maps`. Firmar con el equivocado da un `403` **idéntico**
-/// al de una clave inválida.
+/// **The three services sign with different names**: `geo-places`,
+/// `geo-routes`, `geo-maps`. Signing with the wrong one gives a `403`
+/// **identical** to that of an invalid key.
 ///
-/// Aquí no se puede equivocar: el nombre lo pone [AlsService.signingName], y
-/// el servicio lo pasa el propio cliente al firmar.
+/// You can't get it wrong here: the name is set by [AlsService.signingName],
+/// and the client itself passes the service when signing.
 ///
-/// ## Las teselas del mapa también
+/// ## The map tiles too
 ///
-/// Este objeto firma las llamadas a Places, Routes y Maps. Para que **las
-/// teselas** vayan firmadas hay que pasarle al widget las cabeceras que
-/// produce [mapHeaders]:
+/// This object signs the calls to Places, Routes and Maps. For **the tiles**
+/// to be signed as well, you have to pass the widget the headers produced by
+/// [mapHeaders]:
 ///
 /// ```dart
 /// NativMap(
 ///   styleUrl: url,
-///   customHeaders: await credenciales.mapHeaders(
+///   customHeaders: await credentials.mapHeaders(
 ///     styleUrl: url,
 ///     region: 'us-east-1',
 ///   ),
@@ -61,11 +61,11 @@ typedef AwsCredentialsProvider = Future<AwsCredentials> Function();
 /// )
 /// ```
 ///
-/// Es el motivo por el que este paquete eligió `maplibre_gl` como motor: es el
-/// único que admite cabeceras HTTP propias, sin las cuales las teselas solo se
-/// pueden autenticar con la clave en la URL.
+/// That is why this package chose `maplibre_gl` as its engine: it is the only
+/// one that accepts custom HTTP headers, without which the tiles can only be
+/// authenticated with the key in the URL.
 class SigV4Credentials implements Credentials {
-  /// Crea las credenciales a partir de un proveedor.
+  /// Creates the credentials from a provider.
   SigV4Credentials({
     required AwsCredentialsProvider provider,
     Duration cacheFor = const Duration(minutes: 50),
@@ -74,11 +74,11 @@ class SigV4Credentials implements Credentials {
        _cacheFor = cacheFor,
        _signer = signer;
 
-  /// Crea las credenciales con unas fijas, sin renovación.
+  /// Creates the credentials from fixed ones, with no refreshing.
   ///
-  /// Para pruebas y para un servidor Dart con credenciales de un rol. **No en
-  /// una app móvil**: una clave secreta permanente dentro del binario es peor
-  /// que una clave de API, porque da acceso a toda la cuenta y no solo a
+  /// For tests and for a Dart server with a role's credentials. **Not in a
+  /// mobile app**: a permanent secret key inside the binary is worse than an
+  /// API key, because it grants access to the whole account and not just to
   /// Location.
   factory SigV4Credentials.fixed(AwsCredentials credentials) =>
       SigV4Credentials(provider: () async => credentials);
@@ -94,7 +94,7 @@ class SigV4Credentials implements Credentials {
   @override
   bool get isConfigured => true;
 
-  /// `null`: este camino autentica con cabeceras, no con la clave en la URL.
+  /// `null`: this path authenticates with headers, not with the key in the URL.
   @override
   String? get apiKeyForUrl => null;
 
@@ -114,7 +114,7 @@ class SigV4Credentials implements Credentials {
     final headers = _signer.sign(
       method: request.method,
       uri: request.url,
-      // Aquí está la pieza que evita el 403 imposible de diagnosticar.
+      // This is the piece that prevents the impossible-to-diagnose 403.
       service: service.signingName,
       region: region,
       credentials: credentials,
@@ -124,22 +124,22 @@ class SigV4Credentials implements Credentials {
     return request;
   }
 
-  /// Las cabeceras firmadas para que **MapLibre** pida el estilo y las teselas.
+  /// The signed headers so that **MapLibre** can request the style and tiles.
   ///
-  /// Se le pasan al widget en `customHeaders`.
+  /// They are passed to the widget in `customHeaders`.
   ///
-  /// ## ⚠️ Estas cabeceras caducan
+  /// ## ⚠️ These headers expire
   ///
-  /// Una firma de SigV4 vale unos minutos, y las credenciales temporales, una
-  /// hora. Un mapa abierto durante horas dejará de cargar teselas nuevas.
+  /// A SigV4 signature is valid for a few minutes, and temporary credentials
+  /// for an hour. A map left open for hours will stop loading new tiles.
   ///
-  /// El apaño correcto es volver a llamar a esto periódicamente y a
-  /// `controller.setCustomHeaders(...)` con el resultado. Por eso este método
-  /// devuelve las cabeceras y no las instala: quien las instala tiene que
-  /// saber que hay que repetirlo.
+  /// The right fix is to call this again periodically and then
+  /// `controller.setCustomHeaders(...)` with the result. That is why this
+  /// method returns the headers and doesn't install them: whoever installs
+  /// them has to know it must be repeated.
   ///
-  /// La alternativa —un proxy que firme— no tiene este problema, y es la razón
-  /// por la que sigue siendo el camino recomendado para producción.
+  /// The alternative —a signing proxy— doesn't have this problem, and it is the
+  /// reason it is still the recommended path for production.
   Future<Map<String, String>> mapHeaders({
     required String styleUrl,
     required String region,
@@ -154,11 +154,11 @@ class SigV4Credentials implements Credentials {
     );
   }
 
-  /// Las credenciales vigentes, renovándolas si hace falta.
+  /// The current credentials, refreshing them if needed.
   ///
-  /// Dos llamadas simultáneas comparten una sola renovación: sin eso, arrancar
-  /// una pantalla que lanza cinco peticiones a la vez pediría cinco veces
-  /// credenciales al pool.
+  /// Two simultaneous calls share a single refresh: without that, opening a
+  /// screen that fires five requests at once would ask the pool for
+  /// credentials five times.
   Future<AwsCredentials> _credentials() {
     final cached = _cached;
     final cachedAt = _cachedAt;
@@ -182,10 +182,10 @@ class SigV4Credentials implements Credentials {
         });
   }
 
-  /// Olvida las credenciales guardadas y obliga a pedirlas de nuevo.
+  /// Forgets the stored credentials and forces them to be requested again.
   ///
-  /// Hay que llamarlo al cerrar sesión: las del usuario anterior siguen
-  /// siendo válidas hasta que caducan.
+  /// Call it on sign-out: the previous user's credentials remain valid until
+  /// they expire.
   void invalidate() {
     _cached = null;
     _cachedAt = null;

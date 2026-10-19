@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -9,33 +9,34 @@ import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/core/polyline.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Una regla que gobierna todo este archivo
+//  One rule governs this entire file
 //
-//  **Distancias en metros y duraciones en segundos. Siempre.** La API v2 no
-//  tiene parámetro de unidad, y enviarlo —como hacía la generación v0 con
-//  `DistanceUnit`— provoca un 400. Como no hay conversión posible, tampoco hay
-//  ninguna que se pueda olvidar.
+//  **Distances in meters and durations in seconds. Always.** The v2 API has
+//  no unit parameter, and sending one —as the v0 generation did with
+//  `DistanceUnit`— causes a 400. Since no conversion is possible, there is
+//  none to forget either.
 //
-//  Las duraciones se exponen además como `Duration` de Dart, que es lo que
-//  espera el resto del lenguaje.
+//  Durations are also exposed as Dart `Duration`, which is what the rest of
+//  the language expects.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// La geometría de un tramo, venga como lista de puntos o como polilínea.
+/// The geometry of a leg, whether it comes as a list of points or as a
+/// polyline.
 ///
-/// Amazon Location devuelve una cosa u otra según `LegGeometryFormat`, y este
-/// tipo absorbe la diferencia: [points] siempre tiene los puntos, se haya
-/// pedido el formato que se haya pedido.
+/// Amazon Location returns one or the other depending on `LegGeometryFormat`,
+/// and this type absorbs the difference: [points] always has the points,
+/// whatever format was requested.
 @immutable
 class RouteGeometry {
-  /// Crea la geometría a partir de los puntos.
+  /// Creates the geometry from the points.
   const RouteGeometry(this.points, {this.encoded});
 
-  /// Lee la geometría de la respuesta, decodificando si hace falta.
+  /// Reads the geometry from the response, decoding it if needed.
   ///
-  /// Una polilínea ilegible devuelve una geometría **vacía** en vez de lanzar:
-  /// una ruta sin línea sigue siendo utilizable —distancia y duración están en
-  /// otro sitio— y tumbar la pantalla por no poder pintarla es peor. El fallo
-  /// queda visible porque [points] sale vacío.
+  /// An unreadable polyline returns an **empty** geometry instead of throwing:
+  /// a route without a line is still usable —distance and duration live
+  /// elsewhere— and bringing down the screen because it can't be drawn is
+  /// worse. The failure stays visible because [points] comes out empty.
   factory RouteGeometry.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const RouteGeometry(<LatLng>[]);
 
@@ -53,21 +54,21 @@ class RouteGeometry {
     return const RouteGeometry(<LatLng>[]);
   }
 
-  /// Los puntos de la línea, ya decodificados.
+  /// The points of the line, already decoded.
   final List<LatLng> points;
 
-  /// La cadena original, si vino comprimida.
+  /// The original string, if it came compressed.
   ///
-  /// Guardarla permite persistir la ruta sin volver a codificarla y sin perder
-  /// precisión en el viaje de ida y vuelta.
+  /// Keeping it lets you persist the route without re-encoding it and without
+  /// losing precision on the round trip.
   final String? encoded;
 
-  /// ¿Se pudo leer la geometría?
+  /// Could the geometry be read?
   bool get isEmpty => points.isEmpty;
 
-  /// El rectángulo que encierra la línea, o `null` si está vacía.
+  /// The rectangle enclosing the line, or `null` if it is empty.
   ///
-  /// Es lo que se le pasa a `fitBounds` para encuadrar la ruta entera.
+  /// It is what you pass to `fitBounds` to frame the whole route.
   LatLngBounds? get bounds =>
       points.isEmpty ? null : LatLngBounds.fromPoints(points);
 
@@ -75,10 +76,10 @@ class RouteGeometry {
   String toString() => 'RouteGeometry(${points.length} puntos)';
 }
 
-/// Una indicación de navegación.
+/// A navigation step.
 @immutable
 class TravelStep {
-  /// Crea la indicación.
+  /// Creates the step.
   const TravelStep({
     required this.distanceMeters,
     required this.duration,
@@ -92,12 +93,12 @@ class TravelStep {
     this.exitNumber,
   });
 
-  /// Lee la indicación de la respuesta del servicio.
+  /// Reads the step from the service response.
   ///
-  /// El ángulo y la intensidad **no están en la raíz del paso**: cada tipo
-  /// de maniobra los trae bajo su propia clave —`TurnStepDetails`,
-  /// `KeepStepDetails`, `UTurnStepDetails`…—. Leídos de la raíz salían
-  /// siempre `null`, sin ningún error.
+  /// The angle and the intensity **are not at the root of the step**: each
+  /// maneuver type brings them under its own key —`TurnStepDetails`,
+  /// `KeepStepDetails`, `UTurnStepDetails`…—. Read from the root they always
+  /// came out `null`, without any error.
   factory TravelStep.fromJson(Map<String, dynamic> json) {
     final maneuver = _maneuverDetails(json);
     return TravelStep(
@@ -110,8 +111,8 @@ class TravelStep {
       currentRoad: _roadName(Json.object(json, 'CurrentRoad')),
       turnAngle: Json.number(maneuver, 'TurnAngle'),
       turnIntensity: Json.string(maneuver, 'TurnIntensity'),
-      // `ExitNumber` es el rótulo de la salida en una autopista, como texto
-      // localizado; en una rotonda no viene y la salida es `RelativeExit`.
+      // `ExitNumber` is the exit sign on a highway, as localized text; on a
+      // roundabout it is missing and the exit is `RelativeExit`.
       exitNumber:
           Json.objects(json, 'ExitNumber')
               .map((e) => Json.string(e, 'Value'))
@@ -121,7 +122,7 @@ class TravelStep {
     );
   }
 
-  /// Los detalles de la maniobra, vengan bajo la clave que vengan.
+  /// The maneuver details, whatever key they come under.
   static Map<String, dynamic>? _maneuverDetails(Map<String, dynamic> json) {
     for (final entry in json.entries) {
       final value = entry.value;
@@ -142,37 +143,40 @@ class TravelStep {
     return null;
   }
 
-  /// Cuántos metros dura esta indicación.
+  /// How many meters this step lasts.
   final double distanceMeters;
 
-  /// Cuánto se tarda en recorrerla.
+  /// How long it takes to cover it.
   final Duration duration;
 
-  /// La clase de maniobra: `Turn`, `Continue`, `Roundabout`, `Arrive`…
+  /// The kind of maneuver: `Turn`, `Continue`, `Roundabout`, `Arrive`…
   final String? type;
 
-  /// El texto ya escrito, si se pidió con `instructionsMeasurementSystem`.
+  /// The ready-made text, in the request's language.
+  ///
+  /// Only with `RouteFeature.travelStepInstructions` and
+  /// `TravelStepType.standard`.
   final String? instruction;
 
-  /// En qué punto de [RouteGeometry.points] empieza esta indicación.
+  /// At which point of [RouteGeometry.points] this step starts.
   ///
-  /// Es lo que permite resaltar en el mapa el tramo de la maniobra en curso
-  /// sin volver a calcular nada.
+  /// It is what lets you highlight the stretch of the current maneuver on the
+  /// map without recalculating anything.
   final int? geometryOffset;
 
-  /// El nombre de la vía a la que se sale.
+  /// The name of the road being turned onto.
   final String? nextRoad;
 
-  /// El nombre de la vía en la que se está.
+  /// The name of the current road.
   final String? currentRoad;
 
-  /// El ángulo del giro en grados.
+  /// The turn angle in degrees.
   final double? turnAngle;
 
-  /// Lo cerrado que es el giro: `Slight`, `Typical`, `Sharp`.
+  /// How tight the turn is: `Slight`, `Typical`, `Sharp`.
   final String? turnIntensity;
 
-  /// El número de la salida, en rotondas y enlaces.
+  /// The exit number, on roundabouts and interchanges.
   final String? exitNumber;
 
   @override
@@ -180,13 +184,13 @@ class TravelStep {
       'TravelStep(${type ?? '?'}, ${distanceMeters.round()} m)';
 }
 
-/// Un peaje de la ruta.
+/// A toll on the route.
 ///
-/// **Google no da esto.** Es una de las cosas que solo existen aquí, y para
-/// una app de reparto cambia el cálculo del coste por viaje.
+/// **Google doesn't give you this.** It is one of the things that only exist
+/// here, and for a delivery app it changes the cost-per-trip calculation.
 @immutable
 class Toll {
-  /// Crea el peaje.
+  /// Creates the toll.
   const Toll({
     this.systemRef,
     this.country,
@@ -196,16 +200,16 @@ class Toll {
     this.transponders = const <String>[],
   });
 
-  /// Lee el peaje de la respuesta del servicio.
+  /// Reads the toll from the service response.
   ///
-  /// El importe vive dentro de `PaymentSites[].Rates[].ConvertedPrice`, no en
-  /// la raíz del peaje: un peaje tiene varias tarifas —por eje, por hora, por
-  /// método de pago— y aquí se toma la primera, que es la que aplica al
-  /// vehículo consultado.
+  /// The amount lives inside `PaymentSites[].Rates[].ConvertedPrice`, not at
+  /// the root of the toll: a toll has several rates —per axle, per time of
+  /// day, per payment method— and here the first one is taken, which is the
+  /// one that applies to the vehicle queried.
   ///
-  /// El peaje no trae el nombre de su sistema, sino su **posición** en la
-  /// lista `TollSystems` del tramo. [systemNames] es esa lista; sin ella,
-  /// [systemRef] queda en `null`.
+  /// The toll doesn't bring the name of its system, but its **position** in
+  /// the leg's `TollSystems` list. [systemNames] is that list; without it,
+  /// [systemRef] stays `null`.
   factory Toll.fromJson(
     Map<String, dynamic> json, {
     List<String?> systemNames = const <String?>[],
@@ -235,24 +239,25 @@ class Toll {
     );
   }
 
-  /// El nombre del sistema de peaje al que pertenece.
+  /// The name of the toll system it belongs to.
   ///
-  /// Solo viene si la ruta se pidió con `RouteFeature.tollSystems`.
+  /// It comes with `RouteFeature.tolls`: AWS returns the leg's toll systems
+  /// along with the tolls, and there is no separate feature to request them.
   final String? systemRef;
 
-  /// El país en el que se cobra.
+  /// The country where it is charged.
   final String? country;
 
-  /// Cómo se puede pagar: `Cash`, `CreditCard`, `Transponder`…
+  /// How it can be paid: `Cash`, `CreditCard`, `Transponder`…
   final List<String> paymentMethods;
 
-  /// La moneda del importe, en ISO 4217.
+  /// The currency of the amount, in ISO 4217.
   final String? currency;
 
-  /// Cuánto cuesta.
+  /// How much it costs.
   final double? amount;
 
-  /// Los transpondedores aceptados, si los hay.
+  /// The accepted transponders, if any.
   final List<String> transponders;
 
   @override
@@ -261,10 +266,10 @@ class Toll {
       : 'Toll($amount ${currency ?? ''})';
 }
 
-/// Una incidencia en la ruta: obras, accidente, corte.
+/// An incident on the route: roadworks, accident, closure.
 @immutable
 class RouteIncident {
-  /// Crea la incidencia.
+  /// Creates the incident.
   const RouteIncident({
     this.type,
     this.severity,
@@ -273,7 +278,7 @@ class RouteIncident {
     this.endTime,
   });
 
-  /// Lee la incidencia de la respuesta del servicio.
+  /// Reads the incident from the service response.
   factory RouteIncident.fromJson(Map<String, dynamic> json) => RouteIncident(
     type: Json.string(json, 'Type'),
     severity: Json.string(json, 'Severity'),
@@ -282,29 +287,29 @@ class RouteIncident {
     endTime: Json.dateTime(json, 'EndTime'),
   );
 
-  /// Qué clase de incidencia es.
+  /// What kind of incident it is.
   final String? type;
 
-  /// Lo grave que es: `Critical`, `High`, `Medium`, `Low`.
+  /// How severe it is: `Critical`, `High`, `Medium`, `Low`.
   final String? severity;
 
-  /// La descripción legible.
+  /// The human-readable description.
   final String? description;
 
-  /// Cuándo empezó.
+  /// When it started.
   final DateTime? startTime;
 
-  /// Cuándo se espera que acabe.
+  /// When it is expected to end.
   final DateTime? endTime;
 
   @override
   String toString() => 'RouteIncident(${type ?? '?'}, ${severity ?? '?'})';
 }
 
-/// Un tramo de la ruta: el trozo entre dos paradas consecutivas.
+/// A leg of the route: the stretch between two consecutive stops.
 @immutable
 class RouteLeg {
-  /// Crea el tramo.
+  /// Creates the leg.
   const RouteLeg({
     required this.distanceMeters,
     required this.duration,
@@ -321,17 +326,17 @@ class RouteLeg {
     this.arrivalPosition,
   });
 
-  /// Lee el tramo de la respuesta del servicio.
+  /// Reads the leg from the service response.
   ///
-  /// ## Dónde viven la distancia y la duración
+  /// ## Where distance and duration live
   ///
-  /// **No en el tramo.** En v2 están dentro del bloque de detalle que
-  /// corresponde al modo de viaje —`VehicleLegDetails`, `PedestrianLegDetails`
-  /// o `FerryLegDetails`—, en `Summary.Overview`.
+  /// **Not in the leg.** In v2 they are inside the detail block that matches
+  /// the travel mode —`VehicleLegDetails`, `PedestrianLegDetails` or
+  /// `FerryLegDetails`—, in `Summary.Overview`.
   ///
-  /// Leerlas de `leg['Distance']`, que es donde estaban en v0, no da error:
-  /// devuelve **ceros**. Una ruta de 12 km que dice durar 0 segundos pasa
-  /// desapercibida en el código y salta a la vista en la pantalla.
+  /// Reading them from `leg['Distance']`, which is where they were in v0,
+  /// doesn't raise an error: it returns **zeros**. A 12 km route that claims
+  /// to take 0 seconds goes unnoticed in the code and jumps out on screen.
   factory RouteLeg.fromJson(Map<String, dynamic> json) {
     final details =
         Json.object(json, 'VehicleLegDetails') ??
@@ -382,52 +387,52 @@ class RouteLeg {
     );
   }
 
-  /// Longitud del tramo en metros.
+  /// Length of the leg in meters.
   final double distanceMeters;
 
-  /// Cuánto se tarda, paradas incluidas.
+  /// How long it takes, stops included.
   final Duration duration;
 
-  /// Cuánto se tarda solo conduciendo, sin esperas ni paradas.
+  /// How long it takes just driving, without waits or stops.
   ///
-  /// La diferencia con [duration] es el tiempo perdido en ferris, aduanas o
-  /// descansos obligatorios de conductor.
+  /// The difference from [duration] is the time lost on ferries, customs or
+  /// the driver's mandatory rest breaks.
   final Duration? travelOnlyDuration;
 
-  /// La línea que dibuja el tramo.
+  /// The line that draws the leg.
   final RouteGeometry geometry;
 
-  /// Cómo se recorre.
+  /// How it is traveled.
   final TravelMode? travelMode;
 
-  /// La clase de tramo: `Vehicle`, `Pedestrian`, `Ferry`.
+  /// The kind of leg: `Vehicle`, `Pedestrian`, `Ferry`.
   final String? type;
 
-  /// Las indicaciones paso a paso, si se pidieron.
+  /// The turn-by-turn steps, if requested.
   final List<TravelStep> steps;
 
-  /// Los peajes del tramo.
+  /// The leg's tolls.
   final List<Toll> tolls;
 
-  /// Las incidencias, si se pidieron.
+  /// The incidents, if requested.
   final List<RouteIncident> incidents;
 
-  /// Cuándo se sale.
+  /// When it departs.
   final DateTime? departureTime;
 
-  /// Cuándo se llega.
+  /// When it arrives.
   final DateTime? arrivalTime;
 
-  /// Desde dónde se sale.
+  /// Where it departs from.
   final LatLng? departurePosition;
 
-  /// Adónde se llega.
+  /// Where it arrives.
   final LatLng? arrivalPosition;
 
-  /// El coste total de los peajes del tramo, por moneda.
+  /// The total cost of the leg's tolls, by currency.
   ///
-  /// Devuelve un mapa y no un número porque una ruta internacional cruza
-  /// monedas, y sumarlas daría un número sin significado.
+  /// It returns a map and not a number because an international route crosses
+  /// currencies, and adding them up would give a meaningless number.
   Map<String, double> get tollCostByCurrency {
     final totals = <String, double>{};
     for (final toll in tolls) {
@@ -445,10 +450,10 @@ class RouteLeg {
       '${duration.inMinutes} min)';
 }
 
-/// Una ruta completa entre un origen y un destino.
+/// A complete route between an origin and a destination.
 @immutable
 class Route {
-  /// Crea la ruta.
+  /// Creates the route.
   const Route({
     required this.distanceMeters,
     required this.duration,
@@ -456,7 +461,7 @@ class Route {
     this.majorRoadLabels = const <String>[],
   });
 
-  /// Lee la ruta de la respuesta del servicio.
+  /// Reads the route from the service response.
   factory Route.fromJson(Map<String, dynamic> json) {
     final summary = Json.object(json, 'Summary');
     final legs = Json.objects(
@@ -464,8 +469,8 @@ class Route {
       'Legs',
     ).map(RouteLeg.fromJson).toList(growable: false);
 
-    // Si el resumen no vino, se compone sumando los tramos. Es preferible a
-    // devolver cero: la suma es exacta, solo cuesta recorrer la lista.
+    // If the summary is missing, it is built by adding up the legs. Better
+    // than returning zero: the sum is exact, it only costs walking the list.
     final distance =
         Json.number(summary, 'Distance') ??
         legs.fold<double>(0, (sum, leg) => sum + leg.distanceMeters);
@@ -484,28 +489,28 @@ class Route {
     );
   }
 
-  /// Longitud total en metros.
+  /// Total length in meters.
   final double distanceMeters;
 
-  /// Duración total.
+  /// Total duration.
   final Duration duration;
 
-  /// Los tramos, en orden.
+  /// The legs, in order.
   final List<RouteLeg> legs;
 
-  /// Las vías principales por las que pasa.
+  /// The major roads it goes along.
   ///
-  /// Es lo que distingue dos alternativas para quien mira: «por la
-  /// Panamericana» contra «por la Simón Bolívar» dice mucho más que «43 min»
-  /// contra «45 min».
+  /// It is what tells two alternatives apart for whoever is looking: "via the
+  /// Panamericana" versus "via the Simón Bolívar" says much more than
+  /// "43 min" versus "45 min".
   final List<String> majorRoadLabels;
 
-  /// Todos los puntos de la ruta, de todos los tramos, en un solo trazo.
+  /// All the points of the route, from every leg, in a single stroke.
   ///
-  /// Es lo que se le pasa a una `Polyline` para pintarla de una vez. Se quita
-  /// el primer punto de cada tramo salvo el primero, porque coincide con el
-  /// último del anterior y duplicarlo deja un artefacto visible en los
-  /// extremos de línea redondeados.
+  /// It is what you pass to a `Polyline` to draw it in one go. The first point
+  /// of every leg except the first is dropped, because it matches the last
+  /// point of the previous one and duplicating it leaves a visible artifact
+  /// on rounded line caps.
   List<LatLng> get points {
     final all = <LatLng>[];
     for (final leg in legs) {
@@ -516,21 +521,22 @@ class Route {
     return all;
   }
 
-  /// El rectángulo que encierra la ruta entera, o `null` si no hay geometría.
+  /// The rectangle enclosing the whole route, or `null` if there is no
+  /// geometry.
   LatLngBounds? get bounds {
     final all = points;
     return all.isEmpty ? null : LatLngBounds.fromPoints(all);
   }
 
-  /// Todas las indicaciones, de todos los tramos, en orden.
+  /// All the steps, from every leg, in order.
   List<TravelStep> get steps => <TravelStep>[
     for (final leg in legs) ...leg.steps,
   ];
 
-  /// Todos los peajes de la ruta.
+  /// All the tolls on the route.
   List<Toll> get tolls => <Toll>[for (final leg in legs) ...leg.tolls];
 
-  /// El coste total de peajes, por moneda.
+  /// The total toll cost, by currency.
   Map<String, double> get tollCostByCurrency {
     final totals = <String, double>{};
     for (final leg in legs) {
@@ -541,19 +547,18 @@ class Route {
     return totals;
   }
 
-  /// Los peajes en [currency], en **unidades menores**: centavos con los
-  /// dos decimales por defecto, o lo que diga [minorUnitDigits] (0 para CLP
-  /// o JPY).
+  /// The tolls in [currency], in **minor units**: cents with the default two
+  /// decimals, or whatever [minorUnitDigits] says (0 for CLP or JPY).
   ///
-  /// Es la unidad que esperan `Tariff`, `PriceAdvisor` y `BidAdvisor`.
-  /// [tollCostByCurrency] da unidades mayores —`0.4` dólares—, y redondear
-  /// ese valor tal cual, que es el error fácil, convierte un peaje de 0,40 en
-  /// cero.
+  /// It is the unit that `Tariff`, `PriceAdvisor` and `BidAdvisor` expect.
+  /// [tollCostByCurrency] gives major units —`0.4` dollars—, and rounding
+  /// that value as is, which is the easy mistake, turns a 0.40 toll into
+  /// zero.
   int tollCostInMinorUnits(String currency, {int minorUnitDigits = 2}) =>
       ((tollCostByCurrency[currency] ?? 0) * math.pow(10, minorUnitDigits))
           .round();
 
-  /// La distancia en kilómetros, redondeada a un decimal.
+  /// The distance in kilometers, rounded to one decimal.
   double get distanceKm => distanceMeters / 1000.0;
 
   @override
@@ -562,17 +567,17 @@ class Route {
       '${legs.length} tramo(s))';
 }
 
-/// La respuesta de `calculateRoutes`.
+/// The response of `calculateRoutes`.
 @immutable
 class RouteResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const RouteResponse({
     required this.routes,
     this.notices = const <String>[],
     this.pricingBucket,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory RouteResponse.fromJson(Map<String, dynamic> json) => RouteResponse(
     routes: Json.objects(
       json,
@@ -585,64 +590,64 @@ class RouteResponse {
     pricingBucket: Json.string(json, 'PricingBucket'),
   );
 
-  /// Las rutas, con la preferida primero.
+  /// The routes, with the preferred one first.
   final List<Route> routes;
 
-  /// Avisos del servicio: violaciones de restricciones, tramos estimados.
+  /// Service notices: restriction violations, estimated legs.
   ///
-  /// Un aviso no impide usar la ruta, pero sí explica por qué es rara. El más
-  /// habitual es que la ruta cruza una vía prohibida para las dimensiones del
-  /// camión porque no había alternativa.
+  /// A notice doesn't prevent using the route, but it does explain why it is
+  /// odd. The most common one is that the route crosses a road forbidden for
+  /// the truck's dimensions because there was no alternative.
   final List<String> notices;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
-  /// La ruta preferida, o `null` si el servicio no encontró ninguna.
+  /// The preferred route, or `null` if the service didn't find any.
   Route? get best => routes.isEmpty ? null : routes.first;
 
-  /// ¿Hubo alguna ruta?
+  /// Was there any route?
   bool get isEmpty => routes.isEmpty;
 
   @override
   String toString() => 'RouteResponse(${routes.length} ruta(s))';
 }
 
-/// Una celda de la matriz origen-destino.
+/// A cell of the origin-destination matrix.
 ///
-/// Antes esto era un `double` suelto con la distancia. La API v2 devuelve
-/// además la duración y un posible error **por celda**, y descartarlos obliga
-/// a pedir la matriz otra vez para saber cuánto se tarda — a precio de matriz
-/// entera.
+/// This used to be a bare `double` with the distance. The v2 API also returns
+/// the duration and a possible error **per cell**, and discarding them forces
+/// you to request the matrix again to know how long it takes — at the price
+/// of a whole matrix.
 @immutable
 class MatrixCell {
-  /// Crea la celda.
+  /// Creates the cell.
   const MatrixCell({
     required this.distanceMeters,
     required this.duration,
     this.error,
   });
 
-  /// Lee la celda de la respuesta del servicio.
+  /// Reads the cell from the service response.
   factory MatrixCell.fromJson(Map<String, dynamic> json) => MatrixCell(
     distanceMeters: Json.numberOrZero(json, 'Distance'),
     duration: Duration(seconds: Json.integer(json, 'Duration') ?? 0),
     error: Json.string(json, 'Error'),
   );
 
-  /// Distancia por carretera en metros.
+  /// Road distance in meters.
   final double distanceMeters;
 
-  /// Tiempo de conducción.
+  /// Driving time.
   final Duration duration;
 
-  /// Por qué no se pudo calcular este par, si no se pudo.
+  /// Why this pair couldn't be calculated, if it couldn't.
   final String? error;
 
-  /// ¿Se calculó bien?
+  /// Was it calculated correctly?
   ///
-  /// Hay que comprobarlo antes de usar los números: una celda con error trae
-  /// ceros, y un cero es un valor perfectamente creíble para «el más cercano».
+  /// Check it before using the numbers: a cell with an error holds zeros, and
+  /// a zero is a perfectly believable value for "the closest one".
   bool get isValid => error == null;
 
   @override
@@ -651,17 +656,17 @@ class MatrixCell {
       : 'MatrixCell(error: $error)';
 }
 
-/// La respuesta de `calculateRouteMatrix`.
+/// The response of `calculateRouteMatrix`.
 @immutable
 class RouteMatrix {
-  /// Crea la matriz.
+  /// Creates the matrix.
   const RouteMatrix({
     required this.cells,
     this.errorCount = 0,
     this.pricingBucket,
   });
 
-  /// Lee la matriz de la respuesta del servicio.
+  /// Reads the matrix from the service response.
   factory RouteMatrix.fromJson(Map<String, dynamic> json) {
     final raw = json['RouteMatrix'];
     final rows = <List<MatrixCell>>[];
@@ -683,29 +688,29 @@ class RouteMatrix {
     );
   }
 
-  /// Las celdas: `cells[origen][destino]`.
+  /// The cells: `cells[origin][destination]`.
   final List<List<MatrixCell>> cells;
 
-  /// Cuántas celdas no se pudieron calcular.
+  /// How many cells couldn't be calculated.
   final int errorCount;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
-  /// Cuántos orígenes tiene.
+  /// How many origins it has.
   int get originCount => cells.length;
 
-  /// Cuántos destinos tiene.
+  /// How many destinations it has.
   int get destinationCount => cells.isEmpty ? 0 : cells.first.length;
 
-  /// La celda del par indicado.
+  /// The cell for the given pair.
   MatrixCell cell(int origin, int destination) => cells[origin][destination];
 
-  /// El índice del destino más cercano a [origin] **por carretera**.
+  /// The index of the destination closest to [origin] **by road**.
   ///
-  /// Esta es la razón de ser de la matriz: la unidad más cercana en línea
-  /// recta puede estar al otro lado de un río sin puente. Devuelve `null` si
-  /// ninguna celda de esa fila se pudo calcular.
+  /// This is the matrix's reason to exist: the closest unit in a straight line
+  /// may be on the other side of a river with no bridge. Returns `null` if no
+  /// cell in that row could be calculated.
   int? nearestDestination(int origin, {bool byDuration = true}) {
     var bestIndex = -1;
     var bestValue = double.infinity;
@@ -730,25 +735,25 @@ class RouteMatrix {
       '${errorCount > 0 ? ', $errorCount con error' : ''})';
 }
 
-/// Una isócrona: el polígono de lo alcanzable dentro de un umbral.
+/// An isoline: the polygon of what is reachable within a threshold.
 ///
-/// **Google no tiene esto.** Es la operación que responde «¿hasta dónde pudo
-/// llegar en ocho minutos?» sin calcular mil rutas.
+/// **Google doesn't have this.** It is the operation that answers "how far
+/// could it get in eight minutes?" without calculating a thousand routes.
 @immutable
 class Isoline {
-  /// Crea la isócrona.
+  /// Creates the isoline.
   const Isoline({
     required this.polygons,
     this.distanceThresholdMeters,
     this.timeThreshold,
   });
 
-  /// Lee la isócrona de la respuesta del servicio.
+  /// Reads the isoline from the service response.
   ///
-  /// Una isócrona puede traer **varios polígonos**: en una ciudad con un río
-  /// sin puentes cerca, lo alcanzable son dos manchas separadas. Aplanar eso a
-  /// un solo polígono uniría las dos orillas con una línea recta sobre el
-  /// agua, dibujando como alcanzable justo lo que no lo es.
+  /// An isoline can bring **several polygons**: in a city with a river and no
+  /// bridges nearby, what is reachable is two separate patches. Flattening
+  /// that into a single polygon would join both banks with a straight line
+  /// across the water, drawing as reachable exactly what isn't.
   factory Isoline.fromJson(Map<String, dynamic> json) {
     final polygons = <List<List<LatLng>>>[];
 
@@ -798,26 +803,26 @@ class Isoline {
     );
   }
 
-  /// Los polígonos. Cada uno es una lista de anillos: el primero es el
-  /// contorno y los siguientes, los agujeros.
+  /// The polygons. Each one is a list of rings: the first is the outline and
+  /// the rest are the holes.
   final List<List<List<LatLng>>> polygons;
 
-  /// El umbral de distancia de esta isócrona, si se pidió por distancia.
+  /// This isoline's distance threshold, if requested by distance.
   final double? distanceThresholdMeters;
 
-  /// El umbral de tiempo, si se pidió por tiempo.
+  /// The time threshold, if requested by time.
   final Duration? timeThreshold;
 
-  /// El contorno del polígono principal, que es lo que se pinta casi siempre.
+  /// The outline of the main polygon, which is what gets drawn almost always.
   List<LatLng> get outerRing => polygons.isEmpty || polygons.first.isEmpty
       ? const <LatLng>[]
       : polygons.first.first;
 
-  /// Cuántos puntos tiene en total.
+  /// How many points it has in total.
   ///
-  /// Sirve para comprobar que `granularity` está haciendo su trabajo: una
-  /// isócrona de treinta minutos sin límite de puntos trae varios miles y
-  /// ahoga el mapa.
+  /// Useful to check that `granularity` is doing its job: a thirty-minute
+  /// isoline without a point limit comes with several thousand and chokes the
+  /// map.
   int get pointCount => polygons.fold(
     0,
     (sum, polygon) => sum + polygon.fold<int>(0, (s, ring) => s + ring.length),
@@ -829,10 +834,10 @@ class Isoline {
       '$pointCount puntos, ${timeThreshold ?? distanceThresholdMeters})';
 }
 
-/// La respuesta de `calculateIsolines`.
+/// The response of `calculateIsolines`.
 @immutable
 class IsolineResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const IsolineResponse({
     required this.isolines,
     this.snappedOrigin,
@@ -842,7 +847,7 @@ class IsolineResponse {
     this.pricingBucket,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory IsolineResponse.fromJson(Map<String, dynamic> json) =>
       IsolineResponse(
         isolines: Json.objects(
@@ -856,40 +861,40 @@ class IsolineResponse {
         pricingBucket: Json.string(json, 'PricingBucket'),
       );
 
-  /// Las isócronas, una por umbral pedido.
+  /// The isolines, one per requested threshold.
   final List<Isoline> isolines;
 
-  /// El origen pegado a la carretera más cercana.
+  /// The origin snapped to the nearest road.
   ///
-  /// Si está lejos del que se pidió, la posición de partida caía fuera de la
-  /// red vial y todo el cálculo parte de otro sitio.
+  /// If it is far from the one requested, the starting position fell outside
+  /// the road network and the whole calculation starts from somewhere else.
   final LatLng? snappedOrigin;
 
-  /// El destino pegado a la carretera, en el modo de llegada.
+  /// The destination snapped to the road, in arrival mode.
   final LatLng? snappedDestination;
 
-  /// La hora de salida usada en el cálculo.
+  /// The departure time used in the calculation.
   final DateTime? departureTime;
 
-  /// La hora de llegada usada, en el modo inverso.
+  /// The arrival time used, in reverse mode.
   final DateTime? arrivalTime;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
   @override
   String toString() => 'IsolineResponse(${isolines.length} isócrona(s))';
 }
 
-/// Un punto de un rastro GPS, tal como se envía a `snapToRoads`.
+/// A point of a GPS trace, as sent to `snapToRoads`.
 ///
-/// El GT06 y la mayoría de los localizadores mandan rumbo, velocidad y hora
-/// junto a la posición. **Darle solo la posición desperdicia la mitad de la
-/// precisión** de la operación: con la velocidad y el rumbo, el servicio sabe
-/// distinguir el carril de servicio de la autopista paralela.
+/// The GT06 and most tracking devices send heading, speed and time along with
+/// the position. **Giving it only the position wastes half the accuracy** of
+/// the operation: with speed and heading, the service can tell the frontage
+/// road apart from the parallel highway.
 @immutable
 class TracePoint {
-  /// Crea el punto de rastro.
+  /// Creates the trace point.
   const TracePoint({
     required this.position,
     this.headingDegrees,
@@ -897,22 +902,22 @@ class TracePoint {
     this.timestamp,
   });
 
-  /// Dónde dijo el GPS que estaba.
+  /// Where the GPS said it was.
   final LatLng position;
 
-  /// El rumbo en grados, 0 = norte.
+  /// The heading in degrees, 0 = north.
   final double? headingDegrees;
 
-  /// La velocidad **en kilómetros por hora**.
+  /// The speed **in kilometers per hour**.
   ///
-  /// Es la única magnitud de todo el paquete que no está en unidades del SI, y
-  /// no por decisión propia: la API la pide así.
+  /// It is the only quantity in the whole package that is not in SI units,
+  /// and not by choice: the API asks for it that way.
   final double? speedKmh;
 
-  /// Cuándo se registró.
+  /// When it was recorded.
   final DateTime? timestamp;
 
-  /// El punto en la forma que espera el servicio.
+  /// The point in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'Position': position.toLonLat(),
     if (headingDegrees != null) 'Heading': headingDegrees,
@@ -924,17 +929,18 @@ class TracePoint {
   String toString() => 'TracePoint($position)';
 }
 
-/// Un punto de rastro ya pegado a la calle.
+/// A trace point already snapped to the street.
 @immutable
 class SnappedTracePoint {
-  /// Crea el punto pegado.
+  /// Creates the snapped point.
   const SnappedTracePoint({
     required this.snappedPosition,
     this.originalPosition,
     this.confidence,
   });
 
-  /// Lee el punto de la respuesta del servicio, o `null` si no trae posición.
+  /// Reads the point from the service response, or `null` if it has no
+  /// position.
   static SnappedTracePoint? fromJson(Map<String, dynamic> json) {
     final snapped = Json.latLng(json, 'SnappedPosition');
     if (snapped == null) return null;
@@ -945,23 +951,23 @@ class SnappedTracePoint {
     );
   }
 
-  /// La posición sobre la calle.
+  /// The position on the street.
   final LatLng snappedPosition;
 
-  /// La posición cruda que mandó el GPS.
+  /// The raw position the GPS sent.
   final LatLng? originalPosition;
 
-  /// Lo seguro que está el servicio de este punto, entre 0 y 1.
+  /// How sure the service is about this point, between 0 and 1.
   ///
-  /// Es lo que permite **descartar lo dudoso** en lugar de dibujar una calle
-  /// inventada. Con cobertura mala, un punto de confianza 0,2 pegado a una
-  /// avenida paralela produce un rastro que parece correcto y no lo es.
+  /// It is what lets you **discard the doubtful ones** instead of drawing a
+  /// made-up street. With poor coverage, a point with 0.2 confidence snapped
+  /// to a parallel avenue produces a trace that looks right and isn't.
   final double? confidence;
 
-  /// Cuánto se movió el punto al pegarlo, en metros.
+  /// How far the point moved when snapped, in meters.
   ///
-  /// Un desplazamiento grande con confianza baja es la señal clara de que
-  /// `snapRadius` se quedó corto o de que ahí no había calle.
+  /// A large displacement with low confidence is the clear sign that
+  /// `snapRadius` fell short or that there was no street there.
   double? get displacementMeters =>
       originalPosition?.distanceTo(snappedPosition);
 
@@ -971,10 +977,10 @@ class SnappedTracePoint {
       '${confidence == null ? '' : ', conf. $confidence'})';
 }
 
-/// La respuesta de `snapToRoads`.
+/// The response of `snapToRoads`.
 @immutable
 class SnapToRoadsResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const SnapToRoadsResponse({
     required this.geometry,
     this.snappedPoints = const <SnappedTracePoint>[],
@@ -983,7 +989,7 @@ class SnapToRoadsResponse {
     this.pricingBucket,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory SnapToRoadsResponse.fromJson(Map<String, dynamic> json) =>
       SnapToRoadsResponse(
         geometry: RouteGeometry.fromJson(Json.object(json, 'SnappedGeometry')),
@@ -998,28 +1004,28 @@ class SnapToRoadsResponse {
         pricingBucket: Json.string(json, 'PricingBucket'),
       );
 
-  /// La línea pegada a la calle, lista para pintar.
+  /// The line snapped to the street, ready to draw.
   final RouteGeometry geometry;
 
-  /// Los puntos, uno por cada uno de los que se enviaron.
+  /// The points, one for each of those sent.
   final List<SnappedTracePoint> snappedPoints;
 
-  /// Avisos del servicio.
+  /// Service notices.
   final List<String> notices;
 
-  /// En cuántas peticiones se troceó el rastro.
+  /// How many requests the trace was chunked into.
   ///
-  /// Es lo que de verdad se facturó: un histórico de 12 000 puntos son tres
-  /// peticiones, aunque quien llamó escribiera una línea.
+  /// It is what was really billed: a 12,000-point history is three requests,
+  /// even though the caller wrote a single line.
   final int chunkCount;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
-  /// Los puntos cuya confianza llega a [minimum].
+  /// The points whose confidence reaches [minimum].
   ///
-  /// El complemento de esta lista no se debe pintar como recorrido: son
-  /// puntos que el servicio pegó a una calle sin estar seguro.
+  /// The rest of the points should not be drawn as the route: they are points
+  /// the service snapped to a street without being sure.
   List<SnappedTracePoint> confidentPoints({double minimum = 0.5}) =>
       snappedPoints
           .where((p) => (p.confidence ?? 1.0) >= minimum)
@@ -1031,10 +1037,10 @@ class SnapToRoadsResponse {
       '$chunkCount petición(es))';
 }
 
-/// Una parada que hay que visitar, para `optimizeWaypoints`.
+/// A stop to visit, for `optimizeWaypoints`.
 @immutable
 class OptimizationWaypoint {
-  /// Crea la parada.
+  /// Creates the stop.
   const OptimizationWaypoint({
     required this.id,
     required this.position,
@@ -1045,36 +1051,38 @@ class OptimizationWaypoint {
     this.sideOfStreet,
   });
 
-  /// El identificador con el que vuelve en el resultado.
+  /// The identifier it comes back with in the result.
   ///
-  /// Es cómo se recupera el pedido, el cliente o la orden de trabajo que hay
-  /// detrás: la respuesta trae los identificadores reordenados, no los objetos.
+  /// It is how you recover the order, the customer or the work order behind
+  /// it: the response brings the reordered identifiers, not the objects.
   final String id;
 
-  /// Dónde está.
+  /// Where it is.
   final LatLng position;
 
-  /// Cuánto se tarda en atenderla.
+  /// How long it takes to service it.
   ///
-  /// Sin esto, la optimización planifica como si descargar fuera instantáneo, y
-  /// una ruta de veinte entregas sale con dos horas menos de las que dura.
+  /// Without this, the optimization plans as if unloading were instantaneous,
+  /// and a twenty-delivery route comes out two hours shorter than it really
+  /// takes.
   final Duration? serviceDuration;
 
-  /// La hora a la que hay una cita concertada.
+  /// The time of a scheduled appointment.
   final DateTime? appointmentTime;
 
-  /// Identificadores de paradas que tienen que visitarse **después** de esta.
+  /// Identifiers of stops that must be visited **after** this one.
   ///
-  /// Es cómo se expresa «recoger antes de entregar» sin fijar el orden entero.
+  /// It is how you express "pick up before delivering" without fixing the
+  /// whole order.
   final List<String> before;
 
-  /// El rumbo con el que se llega, si importa.
+  /// The heading to arrive with, if it matters.
   final double? headingDegrees;
 
-  /// De qué lado de la calle está: `Left`, `Right`, `Any`.
+  /// Which side of the street it is on: `Left`, `Right`, `Any`.
   final String? sideOfStreet;
 
-  /// La parada en la forma que espera el servicio.
+  /// The stop in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'Id': id,
     'Position': position.toLonLat(),
@@ -1088,10 +1096,10 @@ class OptimizationWaypoint {
   };
 }
 
-/// Una parada ya colocada en su sitio dentro del recorrido óptimo.
+/// A stop already placed in its slot within the optimal route.
 @immutable
 class OptimizedWaypoint {
-  /// Crea la parada optimizada.
+  /// Creates the optimized stop.
   const OptimizedWaypoint({
     required this.id,
     this.position,
@@ -1099,7 +1107,7 @@ class OptimizedWaypoint {
     this.departureTime,
   });
 
-  /// Lee la parada de la respuesta del servicio.
+  /// Reads the stop from the service response.
   factory OptimizedWaypoint.fromJson(Map<String, dynamic> json) =>
       OptimizedWaypoint(
         id: Json.string(json, 'Id') ?? '',
@@ -1108,26 +1116,26 @@ class OptimizedWaypoint {
         departureTime: Json.dateTime(json, 'DepartureTime'),
       );
 
-  /// El identificador que se dio al enviarla.
+  /// The identifier given when it was sent.
   final String id;
 
-  /// Dónde está.
+  /// Where it is.
   final LatLng? position;
 
-  /// A qué hora se llega.
+  /// What time it arrives.
   final DateTime? arrivalTime;
 
-  /// A qué hora se sale.
+  /// What time it departs.
   final DateTime? departureTime;
 
   @override
   String toString() => 'OptimizedWaypoint($id)';
 }
 
-/// El enlace entre dos paradas consecutivas del recorrido óptimo.
+/// The connection between two consecutive stops of the optimal route.
 @immutable
 class WaypointConnection {
-  /// Crea el enlace.
+  /// Creates the connection.
   const WaypointConnection({
     required this.fromId,
     required this.toId,
@@ -1137,49 +1145,49 @@ class WaypointConnection {
     this.waitDuration,
   });
 
-  /// Lee el enlace de la respuesta del servicio.
+  /// Reads the connection from the service response.
   factory WaypointConnection.fromJson(
     Map<String, dynamic> json,
   ) => WaypointConnection(
     fromId: Json.string(json, 'From') ?? '',
     toId: Json.string(json, 'To') ?? '',
     distanceMeters: Json.numberOrZero(json, 'Distance'),
-    // Se llama `TravelDuration`, no `Duration` como en la raíz de la
-    // respuesta. Leída como `Duration` salía siempre cero.
+    // It is called `TravelDuration`, not `Duration` as at the root of the
+    // response. Read as `Duration` it always came out zero.
     duration: Duration(seconds: Json.integer(json, 'TravelDuration') ?? 0),
     restDuration: Duration(seconds: Json.integer(json, 'RestDuration') ?? 0),
     waitDuration: Duration(seconds: Json.integer(json, 'WaitDuration') ?? 0),
   );
 
-  /// De qué parada sale.
+  /// Which stop it leaves from.
   final String fromId;
 
-  /// A qué parada llega.
+  /// Which stop it arrives at.
   final String toId;
 
-  /// Cuántos metros hay.
+  /// How many meters there are.
   final double distanceMeters;
 
-  /// Cuánto se tarda conduciendo.
+  /// How long it takes driving.
   final Duration duration;
 
-  /// Descanso obligatorio del conductor en este trayecto.
+  /// The driver's mandatory rest break on this stretch.
   final Duration? restDuration;
 
-  /// Espera hasta que abra la ventana horaria del destino.
+  /// Wait until the destination's time window opens.
   ///
-  /// Una espera larga es la señal de que las citas están mal repartidas: el
-  /// conductor llega antes de tiempo y se queda parado.
+  /// A long wait is the sign that the appointments are badly spread: the
+  /// driver arrives early and sits idle.
   final Duration? waitDuration;
 
   @override
   String toString() => 'WaypointConnection($fromId → $toId)';
 }
 
-/// La respuesta de `optimizeWaypoints`.
+/// The response of `optimizeWaypoints`.
 @immutable
 class WaypointOptimizationResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const WaypointOptimizationResponse({
     required this.waypoints,
     required this.distanceMeters,
@@ -1189,7 +1197,7 @@ class WaypointOptimizationResponse {
     this.pricingBucket,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory WaypointOptimizationResponse.fromJson(Map<String, dynamic> json) =>
       WaypointOptimizationResponse(
         waypoints: Json.objects(
@@ -1209,39 +1217,40 @@ class WaypointOptimizationResponse {
         pricingBucket: Json.string(json, 'PricingBucket'),
       );
 
-  /// Las paradas **en el orden en que hay que visitarlas**.
+  /// The stops **in the order they must be visited**.
   final List<OptimizedWaypoint> waypoints;
 
-  /// Distancia total del recorrido.
+  /// Total distance of the route.
   final double distanceMeters;
 
-  /// Duración total, esperas y servicios incluidos.
+  /// Total duration, waits and service times included.
   final Duration duration;
 
-  /// Los enlaces entre paradas consecutivas.
+  /// The connections between consecutive stops.
   final List<WaypointConnection> connections;
 
-  /// Las paradas que el servicio no pudo encajar.
+  /// The stops the service couldn't fit in.
   ///
-  /// Normalmente son las que tienen una cita imposible de cumplir. Vienen
-  /// separadas y no mezcladas en el orden porque hay que enseñárselas a
-  /// alguien: son las que hay que reprogramar.
+  /// Usually they are the ones with an appointment that is impossible to
+  /// keep. They come separately and not mixed into the order because someone
+  /// has to be shown them: they are the ones to reschedule.
   final List<String> impedingWaypointIds;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
-  /// El orden de **tus** paradas, listo para reordenar tu propia lista.
+  /// The order of **your** stops, ready to reorder your own list.
   ///
-  /// [waypoints] incluye también el origen y el destino, con los
-  /// identificadores `Origin` y `Destination` y sus horas de salida y
-  /// llegada. Aquí no están: no son tuyos, y buscarlos en tu lista fallaría.
+  /// [waypoints] also includes the origin and the destination, with the
+  /// identifiers `Origin` and `Destination` and their departure and arrival
+  /// times. They are not here: they are not yours, and looking them up in
+  /// your list would fail.
   List<String> get orderedIds => waypoints
       .map((w) => w.id)
       .where((id) => !reservedIds.contains(id))
       .toList(growable: false);
 
-  /// Los identificadores que el servicio reserva para el origen y el destino.
+  /// The identifiers the service reserves for the origin and the destination.
   static const Set<String> reservedIds = <String>{'Origin', 'Destination'};
 
   @override

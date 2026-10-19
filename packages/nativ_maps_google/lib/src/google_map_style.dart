@@ -1,13 +1,13 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Una regla de estilo de Google Maps, tal como sale del Styling Wizard.
+/// A Google Maps style rule, exactly as it comes out of the Styling Wizard.
 ///
-/// El formato es una lista de objetos con esta forma:
+/// The format is a list of objects with this shape:
 ///
 /// ```json
 /// [
@@ -19,18 +19,18 @@ import 'package:flutter/material.dart';
 /// ]
 /// ```
 ///
-/// Los valores válidos están en la referencia de Google: 27 `featureType`,
-/// 9 `elementType` y 8 *stylers*.
+/// The valid values are in Google's reference: 27 `featureType`s,
+/// 9 `elementType`s and 8 *stylers*.
 @immutable
 class GoogleStyleRule {
-  /// Crea la regla.
+  /// Creates the rule.
   const GoogleStyleRule({
     this.featureType = 'all',
     this.elementType = 'all',
     this.stylers = const <GoogleStyler>[],
   });
 
-  /// Lee la regla de un objeto del JSON de Google.
+  /// Reads the rule from an object in Google's JSON.
   factory GoogleStyleRule.fromJson(Map<String, dynamic> json) =>
       GoogleStyleRule(
         featureType: json['featureType'] as String? ?? 'all',
@@ -42,36 +42,36 @@ class GoogleStyleRule {
         ],
       );
 
-  /// A qué se aplica: `water`, `road.highway`, `poi.park`, `all`…
+  /// What it applies to: `water`, `road.highway`, `poi.park`, `all`…
   final String featureType;
 
-  /// A qué parte de eso: `geometry.fill`, `labels.text.stroke`, `all`…
+  /// Which part of that: `geometry.fill`, `labels.text.stroke`, `all`…
   final String elementType;
 
-  /// Qué se le hace.
+  /// What is done to it.
   final List<GoogleStyler> stylers;
 
   @override
   String toString() => 'GoogleStyleRule($featureType/$elementType)';
 }
 
-/// Una transformación de estilo de Google.
+/// A Google style transformation.
 ///
-/// Los ocho que define Google, con sus rangos:
+/// The eight that Google defines, with their ranges:
 ///
-/// | Styler | Rango | Qué hace |
+/// | Styler | Range | What it does |
 /// |---|---|---|
-/// | `color` | `#RRGGBB` | fija el color, absoluto |
-/// | `hue` | `#RRGGBB` | tiñe conservando la luminosidad |
-/// | `saturation` | −100 a 100 | cambia la saturación |
-/// | `lightness` | −100 a 100 | cambia el brillo |
-/// | `gamma` | 0,01 a 10 | ajuste no lineal del brillo |
-/// | `invert_lightness` | booleano | invierte el brillo |
-/// | `visibility` | `on`/`off`/`simplified` | si se dibuja |
-/// | `weight` | ≥ 0 | grosor en píxeles |
+/// | `color` | `#RRGGBB` | sets the color, absolute |
+/// | `hue` | `#RRGGBB` | tints while keeping the lightness |
+/// | `saturation` | −100 to 100 | changes the saturation |
+/// | `lightness` | −100 to 100 | changes the brightness |
+/// | `gamma` | 0.01 to 10 | non-linear brightness adjustment |
+/// | `invert_lightness` | boolean | inverts the brightness |
+/// | `visibility` | `on`/`off`/`simplified` | whether it is drawn |
+/// | `weight` | ≥ 0 | thickness in pixels |
 @immutable
 class GoogleStyler {
-  /// Crea el styler.
+  /// Creates the styler.
   const GoogleStyler({
     this.color,
     this.hue,
@@ -83,7 +83,7 @@ class GoogleStyler {
     this.weight,
   });
 
-  /// Lee el styler de un objeto del JSON de Google.
+  /// Reads the styler from an object in Google's JSON.
   factory GoogleStyler.fromJson(Map<String, dynamic> json) => GoogleStyler(
     color: _parseColor(json['color']),
     hue: _parseColor(json['hue']),
@@ -95,44 +95,44 @@ class GoogleStyler {
     weight: _parseDouble(json['weight']),
   );
 
-  /// El color absoluto.
+  /// The absolute color.
   final Color? color;
 
-  /// El tinte que se aplica conservando la luminosidad.
+  /// The tint, applied while keeping the lightness.
   final Color? hue;
 
-  /// Cambio de saturación, de −100 a 100.
+  /// Saturation change, from −100 to 100.
   final double? saturation;
 
-  /// Cambio de brillo, de −100 a 100.
+  /// Brightness change, from −100 to 100.
   final double? lightness;
 
-  /// Corrección gamma, de 0,01 a 10.
+  /// Gamma correction, from 0.01 to 10.
   final double? gamma;
 
-  /// ¿Se invierte el brillo?
+  /// Is the brightness inverted?
   final bool? invertLightness;
 
-  /// `on`, `off` o `simplified`.
+  /// `on`, `off` or `simplified`.
   final String? visibility;
 
-  /// Grosor en píxeles.
+  /// Thickness in pixels.
   final double? weight;
 
-  /// ¿Este styler oculta lo que toca?
+  /// Does this styler hide what it touches?
   bool get hidesFeature => visibility == 'off';
 
-  /// Aplica esta transformación a [base] y devuelve el color resultante.
+  /// Applies this transformation to [base] and returns the resulting color.
   ///
-  /// El orden es el que documenta Google: primero el color absoluto, luego el
-  /// tinte, después saturación, brillo, gamma e inversión. Cambiar el orden da
-  /// resultados distintos, y notablemente distintos con gamma.
+  /// The order is the one Google documents: first the absolute color, then the
+  /// tint, then saturation, brightness, gamma and inversion. Changing the order
+  /// gives different results, and noticeably different with gamma.
   Color applyTo(Color base) {
     var result = color ?? base;
 
     if (hue != null) {
-      // El tinte de Google cambia el matiz y conserva luminosidad y
-      // saturación. Es la diferencia con `color`, que las pisa todas.
+      // Google's tint changes the hue and keeps lightness and saturation.
+      // That is the difference from `color`, which overrides all of them.
       final target = HSLColor.fromColor(hue!);
       final current = HSLColor.fromColor(result);
       result = current.withHue(target.hue).toColor();
@@ -178,39 +178,39 @@ class GoogleStyler {
   };
 }
 
-/// Un estilo completo de Google Maps, ya leído.
+/// A complete Google Maps style, already parsed.
 ///
-/// ## Para qué existe
+/// ## Why it exists
 ///
-/// Los proyectos que vienen de `google_maps_flutter` casi siempre traen un
-/// estilo JSON: un tema oscuro sacado de Snazzy Maps, un mapa con los puntos
-/// de interés apagados, una paleta corporativa. Sin esto, migrar significaría
-/// rehacer ese estilo desde cero contra la especificación de MapLibre.
+/// Projects coming from `google_maps_flutter` almost always bring a JSON
+/// style: a dark theme taken from Snazzy Maps, a map with the points of
+/// interest turned off, a corporate palette. Without this, migrating would
+/// mean redoing that style from scratch against the MapLibre specification.
 ///
-/// ## ⚠️ Es una traducción, no una equivalencia
+/// ## ⚠️ It is a translation, not an equivalence
 ///
-/// Google y MapLibre organizan las capas de forma distinta y con nombres
-/// distintos. Esta traducción va **por coincidencia de nombre de capa**: busca
-/// en el estilo de Amazon Location las capas cuyo identificador contiene la
-/// palabra del `featureType` de Google.
+/// Google and MapLibre organize layers differently and with different names.
+/// This translation works **by matching layer names**: it looks in the Amazon
+/// Location style for the layers whose id contains the word from Google's
+/// `featureType`.
 ///
-/// Funciona bien para lo que se usa el 95 % de las veces —agua, vías,
-/// etiquetas, puntos de interés, terreno— y no puede funcionar para las
-/// distinciones finas de Google, como separar `road.highway.controlled_access`
-/// de `road.highway`.
+/// It works well for what is used 95 % of the time —water, roads, labels,
+/// points of interest, terrain— and cannot work for Google's fine
+/// distinctions, such as separating `road.highway.controlled_access` from
+/// `road.highway`.
 ///
-/// Por eso [GoogleStyleReport] existe: la aplicación **dice qué reglas
-/// aplicó y cuáles no encontraron capa**, en vez de fallar en silencio. La
-/// alternativa —tragarse las reglas que no encajan— es la compatibilidad de
-/// mentira que la Regla 2 del diseño prohíbe.
+/// That is why [GoogleStyleReport] exists: applying the style **says which
+/// rules it applied and which found no layer**, instead of failing silently.
+/// The alternative —swallowing the rules that don't fit— is the fake
+/// compatibility that Rule 2 of the design forbids.
 @immutable
 class GoogleMapStyle {
-  /// Crea el estilo a partir de sus reglas.
+  /// Creates the style from its rules.
   const GoogleMapStyle(this.rules);
 
-  /// Lee un estilo del JSON del Styling Wizard de Google.
+  /// Reads a style from the JSON of Google's Styling Wizard.
   ///
-  /// Lanza [FormatException] si no es una lista de objetos.
+  /// Throws [FormatException] if it is not a list of objects.
   factory GoogleMapStyle.parse(String json) {
     final decoded = jsonDecode(json);
     if (decoded is! List) {
@@ -226,17 +226,17 @@ class GoogleMapStyle {
     ]);
   }
 
-  /// Las reglas, en el orden en que se aplican.
+  /// The rules, in the order they are applied.
   ///
-  /// El orden importa: una regla posterior sobre la misma capa gana.
+  /// The order matters: a later rule on the same layer wins.
   final List<GoogleStyleRule> rules;
 
-  /// Las palabras que identifican cada `featureType` de Google dentro de los
-  /// identificadores de capa de un estilo MapLibre.
+  /// The words that identify each Google `featureType` inside the layer ids
+  /// of a MapLibre style.
   ///
-  /// Esta tabla **es** la traducción, y es donde está toda su imprecisión. Se
-  /// deja visible a propósito: quien necesite afinar para un estilo concreto
-  /// puede leerla y saber exactamente qué se está buscando.
+  /// This table **is** the translation, and it is where all its imprecision
+  /// lives. It is left visible on purpose: anyone who needs to fine-tune for a
+  /// specific style can read it and know exactly what is being searched for.
   static const Map<String, List<String>>
   featureKeywords = <String, List<String>>{
     'all': <String>[],
@@ -274,10 +274,10 @@ class GoogleMapStyle {
     'water': <String>['water', 'ocean', 'sea', 'river', 'lake'],
   };
 
-  /// ¿Coincide [layerId] con el `featureType` de esta regla?
+  /// Does [layerId] match this rule's `featureType`?
   ///
-  /// `all` coincide con todo. Un `featureType` desconocido no coincide con
-  /// nada, y eso se refleja en el informe.
+  /// `all` matches everything. An unknown `featureType` matches nothing, and
+  /// that shows up in the report.
   static bool matchesFeature(String featureType, String layerId) {
     if (featureType == 'all') return true;
     final keywords = featureKeywords[featureType];
@@ -286,10 +286,10 @@ class GoogleMapStyle {
     return keywords.any(lower.contains);
   }
 
-  /// ¿Es [layerId] una capa de etiquetas?
+  /// Is [layerId] a label layer?
   ///
-  /// Hace falta para separar `geometry` de `labels`, que es la distinción de
-  /// `elementType` que más se usa: casi todos los temas oscuros la necesitan.
+  /// It is needed to separate `geometry` from `labels`, which is the most used
+  /// `elementType` distinction: almost every dark theme needs it.
   static bool isLabelLayer(String layerId) {
     final lower = layerId.toLowerCase();
     return lower.contains('label') ||
@@ -299,7 +299,7 @@ class GoogleMapStyle {
         lower.contains('icon');
   }
 
-  /// ¿Se aplica esta regla a [layerId]?
+  /// Does this rule apply to [layerId]?
   static bool appliesTo(GoogleStyleRule rule, String layerId) {
     if (!matchesFeature(rule.featureType, layerId)) return false;
     final isLabel = isLabelLayer(layerId);
@@ -319,14 +319,15 @@ class GoogleMapStyle {
   String toString() => 'GoogleMapStyle(${rules.length} reglas)';
 }
 
-/// Qué pasó al aplicar un estilo de Google.
+/// What happened when applying a Google style.
 ///
-/// Existe porque una traducción que se traga en silencio lo que no entiende es
-/// peor que ninguna: quien migra cree que su tema está aplicado y no sabe qué
-/// falta. Con esto sabe exactamente qué reglas no encontraron capa.
+/// It exists because a translation that silently swallows what it doesn't
+/// understand is worse than none: whoever migrates believes their theme is
+/// applied and doesn't know what is missing. With this they know exactly which
+/// rules found no layer.
 @immutable
 class GoogleStyleReport {
-  /// Crea el informe.
+  /// Creates the report.
   const GoogleStyleReport({
     required this.appliedRules,
     required this.unmatchedRules,
@@ -334,26 +335,26 @@ class GoogleStyleReport {
     required this.totalLayers,
   });
 
-  /// Cuántas reglas encontraron al menos una capa.
+  /// How many rules found at least one layer.
   final int appliedRules;
 
-  /// Las reglas que no encontraron ninguna capa, con su descripción.
+  /// The rules that found no layer, with their description.
   ///
-  /// **Esto es lo que hay que leer.** Cada entrada es una parte del tema que
-  /// no se aplicó y que, si importa, hay que resolver a mano contra el estilo
-  /// de MapLibre.
+  /// **This is what you need to read.** Each entry is a part of the theme that
+  /// was not applied and that, if it matters, has to be solved by hand against
+  /// the MapLibre style.
   final List<String> unmatchedRules;
 
-  /// Cuántas capas se modificaron.
+  /// How many layers were modified.
   final int touchedLayers;
 
-  /// Cuántas capas tenía el estilo.
+  /// How many layers the style had.
   final int totalLayers;
 
-  /// ¿Se aplicó todo?
+  /// Was everything applied?
   bool get isComplete => unmatchedRules.isEmpty;
 
-  /// Qué fracción de las reglas encontró destino.
+  /// What fraction of the rules found a target.
   double get coverage {
     final total = appliedRules + unmatchedRules.length;
     return total == 0 ? 1.0 : appliedRules / total;

@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:nativ_maps_example/config.dart';
 import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
 import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
+import 'package:nativ_maps_google/nativ_maps_google.dart'
+    show GoogleLookApplier;
 import 'package:flutter/material.dart';
 
 /// El mapa, sus cuatro estilos y los rasgos que Google no tiene.
@@ -18,6 +20,8 @@ import 'package:flutter/material.dart';
 ///    una segunda petición ni una capa superpuesta.
 /// 5. `GetStaticMap`: una miniatura que pinta el servidor, útil donde no hay
 ///    widget —una notificación, un PDF—.
+/// 6. El aspecto de Google Maps sobre el estilo estándar, con
+///    `applyGoogleLook` de `nativ_maps_google`.
 class MapaBasicoDemo extends StatefulWidget {
   /// Crea la demostración.
   const MapaBasicoDemo({super.key});
@@ -35,6 +39,7 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
   MapTerrain? _relieve;
   MapBuildings? _edificios;
   MapPoiDensity? _densidadPoi;
+  bool _aspectoGoogle = false;
 
   /// La URL del descriptor de estilo.
   ///
@@ -70,6 +75,8 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
         zoom: 13,
       ),
       onMapCreated: (controller) => _mapa = controller,
+      // Cada carga del estilo deshace los retoques: se repiten aquí.
+      onStyleLoaded: _aplicarAspecto,
       // Merece la pena engancharlo siempre: sin esto, un estilo que no
       // carga deja un rectángulo gris sin ninguna explicación.
       onStyleError: (error) {
@@ -101,6 +108,18 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
         valores: MapColorScheme.values,
         nombre: (v) => v.wireName,
         onChanged: (v) => setState(() => _esquema = v),
+      ),
+      _Selector<bool>(
+        etiqueta: 'Aspecto',
+        valor: _aspectoGoogle,
+        valores: const <bool>[false, true],
+        nombre: (v) => v ? 'google' : 'aws',
+        onChanged: (v) {
+          setState(() => _aspectoGoogle = v);
+          // Recargar devuelve los colores de AWS; si toca, onStyleLoaded
+          // vuelve a poner los de Google.
+          _mapa?.setMapStyle(_styleUrl);
+        },
       ),
       _SelectorOpcional<MapTraffic>(
         etiqueta: 'Tráfico',
@@ -135,11 +154,24 @@ class _MapaBasicoDemoState extends State<MapaBasicoDemo> {
         'Tráfico, relieve, edificios 3D y densidad de puntos de interés '
         'los dibuja el servidor dentro del mismo estilo. En '
         'google_maps_flutter, el tráfico es un interruptor y el resto no '
-        'existe.',
+        'existe. El aspecto google solo se aplica al estilo standard en '
+        'tono light.',
         style: TextStyle(fontSize: 11),
       ),
     ],
   );
+
+  Future<void> _aplicarAspecto() async {
+    final mapa = _mapa;
+    if (mapa == null ||
+        !_aspectoGoogle ||
+        _estilo != MapStyle.standard ||
+        _esquema != MapColorScheme.light) {
+      return;
+    }
+    final informe = await mapa.applyGoogleLook();
+    if (!informe.isComplete) debugPrint('$informe');
+  }
 
   /// Enseña una miniatura pintada por el servidor.
   ///

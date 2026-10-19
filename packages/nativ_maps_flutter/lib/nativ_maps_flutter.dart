@@ -1,10 +1,10 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
-/// Amazon Location Service con la forma de Google Maps.
+/// Amazon Location Service, shaped like Google Maps.
 ///
-/// Un widget de mapa sobre MapLibre con marcadores, polilíneas, polígonos,
-/// círculos, clústeres, mapas de calor y **regiones sin conexión**, más las
-/// 17 operaciones de Places, Routes y Maps reexportadas del núcleo.
+/// A MapLibre map widget with markers, polylines, polygons, circles,
+/// clusters, heatmaps and **offline regions**, plus the 17 operations of
+/// Places, Routes and Maps re-exported from the core.
 ///
 /// ```dart
 /// import 'package:nativ_maps_flutter/nativ_maps_flutter.dart';
@@ -24,14 +24,15 @@
 /// );
 /// ```
 ///
-/// **Instalando solo este paquete ya tienes las 17 operaciones**: reexporta
-/// `nativ_maps` entero.
+/// **Installing just this package already gets you the 17 operations**: it
+/// re-exports all of `nativ_maps`.
 ///
-/// ## La regla que lo resume
+/// ## The rule that sums it up
 ///
-/// Si sabes usar `google_maps_flutter`, ya sabes usar la mitad de esto sin
-/// leer nada. Y la otra mitad es lo que Google no te daba: isócronas, pegado a
-/// carretera, optimización de paradas, coste de peajes y mapas sin conexión.
+/// If you know how to use `google_maps_flutter`, you already know how to use
+/// half of this without reading anything. And the other half is what Google
+/// didn't give you: isochrones, snap to roads, stop optimization, toll costs
+/// and offline maps.
 library;
 
 export 'package:nativ_maps/nativ_maps.dart';

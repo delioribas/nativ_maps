@@ -1,21 +1,21 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/places/place.dart';
 
-/// Una sugerencia de autocompletado.
+/// An autocomplete suggestion.
 ///
-/// Es deliberadamente más pobre que [Place]: `Autocomplete` es la operación
-/// más barata y no devuelve posición. Para tener la coordenada hay que llamar
-/// a `getPlace` con el [placeId] — una segunda petición, que solo se paga por
-/// la sugerencia que el usuario **elige** en vez de por las veinte que ve.
+/// It's deliberately leaner than [Place]: `Autocomplete` is the cheapest
+/// operation and returns no position. To get the coordinate you have to call
+/// `getPlace` with the [placeId] — a second request, which you only pay for
+/// the suggestion the user **picks** instead of for the twenty they see.
 ///
-/// Ese es todo el diseño de la barra de búsqueda: escribir es barato, elegir
-/// cuesta una vez.
+/// That's the whole design of the search bar: typing is cheap, picking costs
+/// once.
 @immutable
 class AutocompleteSuggestion {
-  /// Crea la sugerencia.
+  /// Creates the suggestion.
   const AutocompleteSuggestion({
     required this.title,
     this.placeId,
@@ -25,7 +25,7 @@ class AutocompleteSuggestion {
     this.highlights = const <Highlight>[],
   });
 
-  /// Lee la sugerencia de la respuesta del servicio.
+  /// Reads the suggestion from the service response.
   factory AutocompleteSuggestion.fromJson(Map<String, dynamic> json) {
     final place = Place.fromJson(json);
     return AutocompleteSuggestion(
@@ -38,53 +38,53 @@ class AutocompleteSuggestion {
     );
   }
 
-  /// El texto que se enseña en la lista.
+  /// The text shown in the list.
   final String title;
 
-  /// El identificador para pedir la ficha con `getPlace`.
+  /// The identifier to fetch the details with `getPlace`.
   final String? placeId;
 
-  /// Qué clase de sitio es.
+  /// What kind of place it is.
   final PlaceType? placeType;
 
-  /// La dirección en una línea, si la trae.
+  /// The address on one line, if it includes one.
   final String? address;
 
-  /// Distancia en línea recta desde el sesgo, si se dio uno.
+  /// Straight-line distance from the bias, if one was given.
   final double? distanceMeters;
 
-  /// Los tramos del título que coinciden con lo escrito, para resaltarlos.
+  /// The spans of the title that match what was typed, to highlight them.
   final List<Highlight> highlights;
 
   @override
   String toString() => 'AutocompleteSuggestion($title)';
 }
 
-/// Qué clase de sugerencia devolvió `suggest`.
+/// What kind of suggestion `suggest` returned.
 enum SuggestResultType {
-  /// Un sitio concreto, en [SuggestResult.place].
+  /// A specific place, in [SuggestResult.place].
   place('Place'),
 
-  /// Una consulta refinada para volver a buscar, en [SuggestResult.queryId].
+  /// A refined query to search again with, in [SuggestResult.queryId].
   ///
-  /// Es lo que pasa al escribir «restaurante»: no hay un sitio que se llame
-  /// así, hay una búsqueda que hacer.
+  /// It's what happens when you type «restaurante»: there's no place called
+  /// that, there's a search to run.
   query('Query');
 
   const SuggestResultType(this.wireName);
 
-  /// El literal que devuelve el servicio.
+  /// The literal the service returns.
   final String wireName;
 }
 
-/// Un elemento de la respuesta de `suggest`.
+/// An item in the `suggest` response.
 ///
-/// `Suggest` es la operación barata: mezcla sitios concretos con consultas
-/// para refinar, y por eso un elemento puede ser una cosa u otra. Se comprueba
-/// con [type] antes de leer [place] o [queryId].
+/// `Suggest` is the cheap operation: it mixes specific places with queries to
+/// refine, which is why an item can be one thing or the other. Check [type]
+/// before reading [place] or [queryId].
 @immutable
 class SuggestResult {
-  /// Crea el resultado.
+  /// Creates the result.
   const SuggestResult({
     required this.title,
     required this.type,
@@ -94,7 +94,7 @@ class SuggestResult {
     this.highlights = const <Highlight>[],
   });
 
-  /// Lee el resultado de la respuesta del servicio.
+  /// Reads the result from the service response.
   factory SuggestResult.fromJson(Map<String, dynamic> json) {
     final placeJson = Json.object(json, 'Place');
     final queryJson = Json.object(json, 'Query');
@@ -120,38 +120,38 @@ class SuggestResult {
     );
   }
 
-  /// El texto que se enseña.
+  /// The text shown.
   final String title;
 
-  /// Si esto es un sitio o una consulta.
+  /// Whether this is a place or a query.
   final SuggestResultType type;
 
-  /// El sitio, cuando [type] es [SuggestResultType.place].
+  /// The place, when [type] is [SuggestResultType.place].
   final Place? place;
 
-  /// El identificador de consulta, cuando [type] es [SuggestResultType.query].
+  /// The query identifier, when [type] is [SuggestResultType.query].
   ///
-  /// Se pasa a `searchText` como `queryId` para ejecutar la búsqueda refinada
-  /// sin volver a mandar el texto.
+  /// Pass it to `searchText` as `queryId` to run the refined search without
+  /// sending the text again.
   final String? queryId;
 
-  /// Qué clase de consulta es.
+  /// What kind of query it is.
   final String? queryType;
 
-  /// Los tramos del título que coinciden con lo escrito.
+  /// The spans of the title that match what was typed.
   final List<Highlight> highlights;
 
   @override
   String toString() => 'SuggestResult($title, ${type.name})';
 }
 
-/// Una propuesta de reescritura de lo que se buscó.
+/// A proposed rewrite of what was searched for.
 ///
-/// «pizzeria en quito» se descompone en el término original y el refinado, con
-/// las posiciones dentro del texto para poder subrayarlo.
+/// «pizzeria en quito» is broken down into the original term and the refined
+/// one, with the positions inside the text so it can be underlined.
 @immutable
 class QueryRefinement {
-  /// Crea la propuesta.
+  /// Creates the proposal.
   const QueryRefinement({
     this.refinedTerm,
     this.originalTerm,
@@ -159,7 +159,7 @@ class QueryRefinement {
     this.endIndex,
   });
 
-  /// Lee la propuesta de la respuesta del servicio.
+  /// Reads the proposal from the service response.
   factory QueryRefinement.fromJson(Map<String, dynamic> json) =>
       QueryRefinement(
         refinedTerm: Json.string(json, 'RefinedTerm'),
@@ -168,30 +168,30 @@ class QueryRefinement {
         endIndex: Json.integer(json, 'EndIndex'),
       );
 
-  /// El término tal como lo entiende el servicio.
+  /// The term as the service understands it.
   final String? refinedTerm;
 
-  /// El término tal como lo escribió el usuario.
+  /// The term as the user typed it.
   final String? originalTerm;
 
-  /// Dónde empieza dentro del texto original.
+  /// Where it starts inside the original text.
   final int? startIndex;
 
-  /// Dónde acaba dentro del texto original.
+  /// Where it ends inside the original text.
   final int? endIndex;
 }
 
-/// La respuesta de `suggest`, con sus refinamientos.
+/// The `suggest` response, with its refinements.
 @immutable
 class SuggestResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const SuggestResponse({
     this.results = const <SuggestResult>[],
     this.queryRefinements = const <QueryRefinement>[],
     this.pricingBucket,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory SuggestResponse.fromJson(Map<String, dynamic> json) =>
       SuggestResponse(
         results: Json.objects(
@@ -205,37 +205,37 @@ class SuggestResponse {
         pricingBucket: Json.string(json, 'PricingBucket'),
       );
 
-  /// Las sugerencias, en el orden que las dio el servicio.
+  /// The suggestions, in the order the service gave them.
   final List<SuggestResult> results;
 
-  /// Propuestas para reescribir la consulta.
+  /// Proposals for rewriting the query.
   final List<QueryRefinement> queryRefinements;
 
-  /// El tramo de precio que aplicó AWS a esta llamada.
+  /// The pricing bucket AWS applied to this call.
   ///
-  /// Sirve para cuadrar la factura contra lo que la app cree que gastó, que es
-  /// la única forma de detectar que una pantalla está pidiendo de más.
+  /// It lets you reconcile the bill against what the app thinks it spent,
+  /// which is the only way to detect that a screen is over-requesting.
   final String? pricingBucket;
 
   @override
   String toString() => 'SuggestResponse(${results.length} sugerencias)';
 }
 
-/// Una página de resultados de búsqueda.
+/// A page of search results.
 ///
-/// Lleva el [nextToken] dentro porque paginar es la parte que más se olvida:
-/// una lista que solo enseña los primeros diez resultados y nunca los
-/// siguientes parece que funciona.
+/// It carries the [nextToken] inside because pagination is the part that
+/// gets forgotten the most: a list that only shows the first ten results and
+/// never the next ones looks like it works.
 @immutable
 class PlaceSearchResponse {
-  /// Crea la página.
+  /// Creates the page.
   const PlaceSearchResponse({
     this.places = const <Place>[],
     this.nextToken,
     this.pricingBucket,
   });
 
-  /// Lee la página de la respuesta del servicio.
+  /// Reads the page from the service response.
   factory PlaceSearchResponse.fromJson(Map<String, dynamic> json) =>
       PlaceSearchResponse(
         places: Json.objects(
@@ -246,25 +246,25 @@ class PlaceSearchResponse {
         pricingBucket: Json.string(json, 'PricingBucket'),
       );
 
-  /// Los resultados de esta página.
+  /// The results on this page.
   final List<Place> places;
 
-  /// El testigo para pedir la siguiente página, o `null` si no hay más.
+  /// The token to request the next page, or `null` if there are no more.
   final String? nextToken;
 
-  /// El tramo de precio que aplicó AWS.
+  /// The pricing bucket AWS applied.
   final String? pricingBucket;
 
-  /// ¿Hay más páginas?
+  /// Are there more pages?
   bool get hasMore => nextToken != null;
 
-  /// Cuántos resultados trae esta página.
+  /// How many results this page has.
   int get length => places.length;
 
-  /// ¿Vino vacía?
+  /// Did it come back empty?
   bool get isEmpty => places.isEmpty;
 
-  /// ¿Trae algo?
+  /// Does it contain anything?
   bool get isNotEmpty => places.isNotEmpty;
 
   @override

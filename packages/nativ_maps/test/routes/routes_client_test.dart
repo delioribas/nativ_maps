@@ -186,6 +186,61 @@ void main() {
       );
     });
 
+    test('peajes a pie lanzan antes de enviar', () async {
+      // AWS respondió 400: «'LegAdditionalFeatures[0]' must not have value
+      // Tolls when 'TravelMode' has value Pedestrian».
+      expect(
+        () => maps.routes.calculateRoutes(
+          origin: LatLng(0, 0),
+          destination: LatLng(1, 1),
+          travelMode: TravelMode.pedestrian,
+          legAdditionalFeatures: const <RouteFeature>[RouteFeature.tolls],
+        ),
+        throwsArgumentError,
+      );
+      expect(service.requests, isEmpty);
+    });
+
+    test('instrucciones escritas con pasos turnByTurn lanzan', () async {
+      // AWS respondió 400: «must not have value TravelStepInstructions when
+      // 'TravelStepType' has value TurnByTurn».
+      expect(
+        () => maps.routes.calculateRoutes(
+          origin: LatLng(0, 0),
+          destination: LatLng(1, 1),
+          legAdditionalFeatures: const <RouteFeature>[
+            RouteFeature.travelStepInstructions,
+          ],
+        ),
+        throwsArgumentError,
+      );
+      expect(service.requests, isEmpty);
+    });
+
+    test('instrucciones escritas con pasos standard sí se piden', () async {
+      service.stub('/v2/routes', _rutaDeDosTramos());
+      await maps.routes.calculateRoutes(
+        origin: LatLng(0, 0),
+        destination: LatLng(1, 1),
+        travelStepType: TravelStepType.standard,
+        legAdditionalFeatures: const <RouteFeature>[
+          RouteFeature.travelStepInstructions,
+        ],
+      );
+      expect(service.lastRequest.body['TravelStepType'], 'Default');
+    });
+
+    test('peajes en moto sí se piden', () async {
+      service.stub('/v2/routes', _rutaDeDosTramos());
+      await maps.routes.calculateRoutes(
+        origin: LatLng(0, 0),
+        destination: LatLng(1, 1),
+        travelMode: TravelMode.scooter,
+        legAdditionalFeatures: const <RouteFeature>[RouteFeature.tolls],
+      );
+      expect(service.requests, hasLength(1));
+    });
+
     test('las opciones de camión se anidan bajo su modo', () async {
       service.stub('/v2/routes', _rutaDeDosTramos());
       await maps.routes.calculateRoutes(

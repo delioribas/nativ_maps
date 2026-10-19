@@ -1,0 +1,18 @@
+{
+  "GeofenceId": "carolina",
+  "Geometry": {
+    "Circle": {
+      "Center": [
+        -78.484,
+        -0.1825
+      ],
+      "Radius": 400
+    }
+  },
+  "Status": "ACTIVE",
+  "CreateTime": "2026-10-19T06:49:38.797Z",
+  "UpdateTime": "2026-10-19T06:49:38.837Z",
+  "GeofenceProperties": {
+    "zona": "parque"
+  }
+}

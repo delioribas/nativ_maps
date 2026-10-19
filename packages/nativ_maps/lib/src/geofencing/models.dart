@@ -1,23 +1,25 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
+import 'package:nativ_maps/src/core/rings.dart';
 
-/// La forma de una geovalla: un círculo, un polígono o varios polígonos.
+/// The shape of a geofence: a circle, a polygon or several polygons.
 ///
-/// ## Cuidado con el orden de las coordenadas
+/// ## Watch the coordinate order
 ///
-/// Como en todo Amazon Location, en el JSON van `[lon, lat]`. Este tipo lo
-/// absorbe: se construye con [LatLng] y el orden se invierte en la frontera.
+/// As everywhere in Amazon Location, the JSON carries `[lon, lat]`. This type
+/// absorbs that: you build it with [LatLng] and the order is flipped at the
+/// boundary.
 @immutable
 class GeofenceGeometry {
   const GeofenceGeometry._({this.circle, this.polygon, this.multiPolygon});
 
-  /// Una geovalla circular: un centro y un radio **en metros**.
+  /// A circular geofence: a center and a radius **in meters**.
   ///
-  /// Es la forma más barata de expresar «a 500 m de la bodega», y la que el
-  /// servicio evalúa más rápido.
+  /// It's the cheapest way to express "within 500 m of the warehouse", and the
+  /// one the service evaluates fastest.
   factory GeofenceGeometry.circle({
     required LatLng center,
     required double radiusMeters,
@@ -34,13 +36,13 @@ class GeofenceGeometry {
     );
   }
 
-  /// Una geovalla poligonal.
+  /// A polygonal geofence.
   ///
-  /// El primer anillo es el contorno; los siguientes son agujeros. **El
-  /// máximo son 1 000 vértices en total**, contando todos los anillos: por
-  /// encima, el servicio rechaza la petición.
+  /// The first ring is the outline; the following ones are holes. **The
+  /// maximum is 1,000 vertices in total**, counting every ring: above that,
+  /// the service rejects the request.
   ///
-  /// El anillo se cierra solo si no venía cerrado.
+  /// The ring is closed automatically if it didn't come closed.
   factory GeofenceGeometry.polygon(List<List<LatLng>> rings) {
     if (rings.isEmpty || rings.first.length < 3) {
       throw ArgumentError.value(
@@ -60,10 +62,10 @@ class GeofenceGeometry {
     return GeofenceGeometry._(polygon: rings);
   }
 
-  /// Varios polígonos independientes en una sola geovalla.
+  /// Several independent polygons in a single geofence.
   ///
-  /// Sirve para una zona que son varias manchas separadas —tres sucursales,
-  /// por ejemplo— sin tener que crear tres geovallas.
+  /// It's for a zone made of several separate patches —three branches, for
+  /// example— without having to create three geofences.
   factory GeofenceGeometry.multiPolygon(List<List<List<LatLng>>> polygons) {
     if (polygons.isEmpty) {
       throw ArgumentError.value(polygons, 'polygons', 'no puede estar vacío');
@@ -71,7 +73,7 @@ class GeofenceGeometry {
     return GeofenceGeometry._(multiPolygon: polygons);
   }
 
-  /// Lee la geometría de la respuesta del servicio.
+  /// Reads the geometry from the service response.
   factory GeofenceGeometry.fromJson(Map<String, dynamic> json) {
     final circle = Json.object(json, 'Circle');
     if (circle != null) {
@@ -99,8 +101,8 @@ class GeofenceGeometry {
       );
     }
 
-    // Geobuf: se reconoce y se marca como no soportado en lugar de fingir que
-    // la geovalla no tiene forma. Ver `isGeobuf`.
+    // Geobuf: it's recognized and flagged as unsupported instead of
+    // pretending the geofence has no shape. See `isGeobuf`.
     return const GeofenceGeometry._();
   }
 
@@ -114,27 +116,27 @@ class GeofenceGeometry {
         ],
   ];
 
-  /// El círculo, si es circular.
+  /// The circle, if it's circular.
   final ({LatLng center, double radiusMeters})? circle;
 
-  /// Los anillos, si es poligonal. El primero es el contorno.
+  /// The rings, if it's polygonal. The first one is the outline.
   final List<List<LatLng>>? polygon;
 
-  /// Los polígonos, si son varios.
+  /// The polygons, if there are several.
   final List<List<List<LatLng>>>? multiPolygon;
 
-  /// ¿Vino codificada en Geobuf?
+  /// Did it come encoded in Geobuf?
   ///
-  /// Este paquete **no decodifica Geobuf**: es un formato de protocol buffers
-  /// que exigiría una dependencia entera para un caso poco frecuente. Una
-  /// geovalla en Geobuf se lee con las tres formas vacías, y esto lo dice
-  /// explícitamente en vez de aparentar que la geovalla no tiene forma.
+  /// This package **doesn't decode Geobuf**: it's a protocol buffers format
+  /// that would require a whole dependency for a rare case. A Geobuf geofence
+  /// is read with all three shapes empty, and this says so explicitly instead
+  /// of pretending the geofence has no shape.
   bool get isGeobuf =>
       circle == null && polygon == null && multiPolygon == null;
 
-  /// El contorno principal, sea cual sea la forma.
+  /// The main outline, whatever the shape.
   ///
-  /// Un círculo se convierte en un polígono de 72 lados para poder pintarlo.
+  /// A circle is turned into a 72-sided polygon so it can be drawn.
   List<LatLng> get outerRing {
     final c = circle;
     if (c != null) return _circleToRing(c.center, c.radiusMeters);
@@ -145,14 +147,14 @@ class GeofenceGeometry {
     return const <LatLng>[];
   }
 
-  /// ¿Contiene este punto?
+  /// Does it contain this point?
   ///
-  /// **Se calcula aquí, sin llamar al servicio.** Es exacto para el círculo y
-  /// una aproximación por rayo para el polígono, y basta para pintar el estado
-  /// en la interfaz sin gastar una petición.
+  /// **It's computed here, without calling the service.** It's exact for the
+  /// circle and a ray-casting approximation for the polygon, and it's enough
+  /// to draw the state in the UI without spending a request.
   ///
-  /// La evaluación **oficial** —la que dispara los eventos de EventBridge— la
-  /// hace `batchEvaluateGeofences`, y puede diferir en los bordes.
+  /// The **official** evaluation —the one that fires the EventBridge events—
+  /// is done by `batchEvaluateGeofences`, and it may differ at the edges.
   bool contains(LatLng point) {
     final c = circle;
     if (c != null) return c.center.distanceTo(point) <= c.radiusMeters;
@@ -161,15 +163,15 @@ class GeofenceGeometry {
     if (rings == null || rings.isEmpty) return false;
 
     var inside = _pointInRing(point, rings.first);
-    // Los anillos siguientes son agujeros: caer dentro de uno saca del
-    // polígono.
+    // The following rings are holes: falling inside one takes you out of the
+    // polygon.
     for (final hole in rings.skip(1)) {
       if (_pointInRing(point, hole)) inside = false;
     }
     return inside;
   }
 
-  /// La geometría en la forma que espera el servicio.
+  /// The geometry in the shape the service expects.
   Map<String, dynamic> toJson() {
     final c = circle;
     if (c != null) {
@@ -193,16 +195,11 @@ class GeofenceGeometry {
     throw StateError('una geovalla sin forma no se puede enviar');
   }
 
-  /// Convierte anillos a JSON, cerrándolos si hace falta.
+  /// Converts rings to JSON: closed, the outline counterclockwise and the
+  /// holes clockwise, which is what the service requires.
   static List<dynamic> _ringsToJson(List<List<LatLng>> rings) => <dynamic>[
-    for (final ring in rings)
-      <dynamic>[
-        for (final point in ring) point.toLonLat(),
-        // El servicio exige el anillo cerrado. Sin esto responde un 400
-        // que dice «LinearRing must be closed», que al menos es claro,
-        // pero es un viaje de ida perdido.
-        if (ring.isNotEmpty && ring.first != ring.last) ring.first.toLonLat(),
-      ],
+    for (var i = 0; i < rings.length; i++)
+      ringToLonLat(rings[i], counterClockwise: i == 0),
   ];
 
   static bool _pointInRing(LatLng point, List<LatLng> ring) {
@@ -244,10 +241,10 @@ class GeofenceGeometry {
   }
 }
 
-/// Una geovalla guardada.
+/// A stored geofence.
 @immutable
 class Geofence {
-  /// Crea la geovalla.
+  /// Creates the geofence.
   const Geofence({
     required this.geofenceId,
     required this.geometry,
@@ -257,7 +254,7 @@ class Geofence {
     this.properties = const <String, String>{},
   });
 
-  /// Lee la geovalla de la respuesta del servicio.
+  /// Reads the geofence from the service response.
   factory Geofence.fromJson(Map<String, dynamic> json) {
     final geometry = Json.object(json, 'Geometry');
     return Geofence(
@@ -281,43 +278,43 @@ class Geofence {
     };
   }
 
-  /// El identificador dentro de la colección.
+  /// The identifier within the collection.
   final String geofenceId;
 
-  /// La forma.
+  /// The shape.
   final GeofenceGeometry geometry;
 
-  /// `ACTIVE`, `PENDING`, `FAILED` o `DELETING`.
+  /// `ACTIVE`, `PENDING`, `FAILED` or `DELETING`.
   ///
-  /// Una geovalla recién creada tarda un momento en pasar a `ACTIVE`, y hasta
-  /// entonces **no dispara eventos**. Evaluar posiciones contra una en
-  /// `PENDING` no falla: simplemente no salta nada, que es peor.
+  /// A freshly created geofence takes a moment to become `ACTIVE`, and until
+  /// then it **fires no events**. Evaluating positions against one in
+  /// `PENDING` doesn't fail: nothing triggers at all, which is worse.
   final String? status;
 
-  /// Cuándo se creó.
+  /// When it was created.
   final DateTime? createTime;
 
-  /// Cuándo se cambió por última vez.
+  /// When it was last changed.
   final DateTime? updateTime;
 
-  /// Hasta **tres** propiedades que viajan dentro de cada evento que dispare.
+  /// Up to **three** properties that travel inside every event it fires.
   ///
-  /// Es donde se mete el identificador del cliente o el tipo de zona, para no
-  /// tener que consultarlo al recibir el evento. Las claves admiten 20
-  /// caracteres y los valores 40.
+  /// It's where you put the client identifier or the zone type, so you don't
+  /// have to look it up when the event arrives. Keys accept 20 characters and
+  /// values 40.
   final Map<String, String> properties;
 
-  /// ¿Está lista para disparar eventos?
+  /// Is it ready to fire events?
   bool get isActive => status == 'ACTIVE';
 
   @override
   String toString() => 'Geofence($geofenceId, ${status ?? '?'})';
 }
 
-/// La posición de un dispositivo, tal como se envía al servicio.
+/// A device's position, as it's sent to the service.
 @immutable
 class DevicePositionUpdate {
-  /// Crea la actualización.
+  /// Creates the update.
   const DevicePositionUpdate({
     required this.deviceId,
     required this.position,
@@ -326,32 +323,32 @@ class DevicePositionUpdate {
     this.properties = const <String, String>{},
   });
 
-  /// El identificador del dispositivo.
+  /// The device identifier.
   ///
-  /// Para geovallas **no hace falta que exista un rastreador asociado**: es
-  /// una cadena libre.
+  /// For geofences **an associated tracker doesn't need to exist**: it's a
+  /// free-form string.
   final String deviceId;
 
-  /// Dónde estaba.
+  /// Where it was.
   final LatLng position;
 
-  /// Cuándo se tomó la medida.
+  /// When the reading was taken.
   ///
-  /// **No es la hora de envío.** Mandar la hora actual en vez de la del GPS
-  /// desordena el histórico y engaña al filtrado por tiempo del rastreador.
+  /// **It's not the send time.** Sending the current time instead of the GPS
+  /// time scrambles the history and fools the tracker's time-based filtering.
   final DateTime sampleTime;
 
-  /// La precisión horizontal del GPS en metros.
+  /// The GPS horizontal accuracy in meters.
   ///
-  /// Con un rastreador en modo `AccuracyBased`, este valor decide si la
-  /// posición se guarda: no darlo equivale a decir «precisión perfecta», y
-  /// entonces se guarda todo.
+  /// With a tracker in `AccuracyBased` mode, this value decides whether the
+  /// position is stored: leaving it out amounts to saying "perfect accuracy",
+  /// and then everything is stored.
   final double? horizontalAccuracyMeters;
 
-  /// Hasta tres propiedades que viajan con la posición.
+  /// Up to three properties that travel with the position.
   final Map<String, String> properties;
 
-  /// La actualización en la forma que espera el servicio.
+  /// The update in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'DeviceId': deviceId,
     'Position': position.toLonLat(),
@@ -365,14 +362,14 @@ class DevicePositionUpdate {
   String toString() => 'DevicePositionUpdate($deviceId @ $position)';
 }
 
-/// Un error por elemento en una operación por lotes.
+/// A per-item error in a batch operation.
 ///
-/// Existe porque estas operaciones **no fallan enteras**: procesan lo que
-/// pueden y devuelven los fallos uno a uno. Ignorar esta lista es perder
-/// posiciones sin enterarse.
+/// It exists because these operations **don't fail as a whole**: they process
+/// what they can and return the failures one by one. Ignoring this list means
+/// losing positions without noticing.
 @immutable
 class BatchItemError {
-  /// Crea el error.
+  /// Creates the error.
   const BatchItemError({
     required this.itemId,
     this.code,
@@ -380,7 +377,7 @@ class BatchItemError {
     this.sampleTime,
   });
 
-  /// Lee el error de la respuesta del servicio.
+  /// Reads the error from the service response.
   factory BatchItemError.fromJson(Map<String, dynamic> json, String idField) {
     final error = Json.object(json, 'Error');
     return BatchItemError(
@@ -391,74 +388,74 @@ class BatchItemError {
     );
   }
 
-  /// El identificador del elemento que falló.
+  /// The identifier of the item that failed.
   final String itemId;
 
-  /// El código de AWS: `AccessDeniedError`, `ValidationError`…
+  /// The AWS code: `AccessDeniedError`, `ValidationError`…
   final String? code;
 
-  /// La explicación.
+  /// The explanation.
   final String? message;
 
-  /// La hora de la muestra, en los errores de posición.
+  /// The sample time, on position errors.
   final DateTime? sampleTime;
 
   @override
   String toString() => 'BatchItemError($itemId, ${code ?? '?'}): $message';
 }
 
-/// El resultado de una operación por lotes.
+/// The result of a batch operation.
 @immutable
 class BatchResult {
-  /// Crea el resultado.
+  /// Creates the result.
   const BatchResult({
     required this.total,
     this.errors = const <BatchItemError>[],
   });
 
-  /// Cuántos elementos se enviaron.
+  /// How many items were sent.
   final int total;
 
-  /// Los que fallaron. **Hay que mirarla**: la operación devuelve 200 aunque
-  /// falle la mitad.
+  /// The ones that failed. **You have to check it**: the operation returns 200
+  /// even if half of them fail.
   final List<BatchItemError> errors;
 
-  /// Cuántos salieron bien.
+  /// How many succeeded.
   int get succeeded => total - errors.length;
 
-  /// ¿Salió todo bien?
+  /// Did everything succeed?
   bool get isCompleteSuccess => errors.isEmpty;
 
   @override
   String toString() => 'BatchResult($succeeded/$total)';
 }
 
-/// Qué le va a pasar a un dispositivo respecto a una geovalla.
+/// What's going to happen to a device with respect to a geofence.
 enum ForecastedEventType {
-  /// Va a entrar en la zona.
+  /// It's going to enter the zone.
   enter('ENTER'),
 
-  /// Va a salir de la zona.
+  /// It's going to leave the zone.
   exit('EXIT'),
 
-  /// Está dentro y va a seguir dentro.
+  /// It's inside and will stay inside.
   idle('IDLE');
 
   const ForecastedEventType(this.wireName);
 
-  /// El literal que devuelve el servicio.
+  /// The literal the service returns.
   final String wireName;
 }
 
-/// Un evento de geovalla **que todavía no ha pasado**.
+/// A geofence event **that hasn't happened yet**.
 ///
-/// Esto es lo que hace única a `forecastGeofenceEvents`: no dice dónde está el
-/// dispositivo, dice **dónde va a estar** si mantiene la velocidad. Para una
-/// app de rastreo es la diferencia entre avisar cuando el vehículo ya salió de
-/// la zona permitida y avisar seis minutos antes.
+/// This is what makes `forecastGeofenceEvents` unique: it doesn't tell you
+/// where the device is, it tells you **where it's going to be** if it keeps
+/// its speed. For a tracking app it's the difference between warning when the
+/// vehicle has already left the allowed zone and warning six minutes before.
 @immutable
 class ForecastedGeofenceEvent {
-  /// Crea el evento previsto.
+  /// Creates the forecasted event.
   const ForecastedGeofenceEvent({
     required this.eventId,
     required this.geofenceId,
@@ -469,7 +466,7 @@ class ForecastedGeofenceEvent {
     this.geofenceProperties = const <String, String>{},
   });
 
-  /// Lee el evento de la respuesta del servicio.
+  /// Reads the event from the service response.
   factory ForecastedGeofenceEvent.fromJson(Map<String, dynamic> json) =>
       ForecastedGeofenceEvent(
         eventId: Json.string(json, 'EventId') ?? '',
@@ -490,37 +487,39 @@ class ForecastedGeofenceEvent {
         ),
       );
 
-  /// El identificador del evento previsto.
+  /// The identifier of the forecasted event.
   final String eventId;
 
-  /// La geovalla implicada.
+  /// The geofence involved.
   final String geofenceId;
 
-  /// Qué va a pasar.
+  /// What's going to happen.
   final ForecastedEventType eventType;
 
-  /// ¿Está ahora dentro de la geovalla?
+  /// Is it inside the geofence right now?
   final bool isDeviceInGeofence;
 
-  /// Distancia al borde más cercano.
+  /// Distance to the nearest edge.
   ///
-  /// ⚠️ **En la unidad que se pidió**, y el valor por defecto de la API es
-  /// **kilómetros**, no metros. Es la única magnitud de todo el paquete que no
-  /// llega en metros, y no por decisión propia: esta familia de operaciones es
-  /// de la generación anterior, la que sí tiene `DistanceUnit`.
+  /// ⚠️ **In the unit that was requested**, and the API's default is
+  /// **kilometers**, not meters. It's the only quantity in the whole package
+  /// that doesn't arrive in meters, and not by choice: this family of
+  /// operations is from the previous generation, the one that does have
+  /// `DistanceUnit`.
   ///
-  /// `GeofencingClient.forecastGeofenceEvents` pide kilómetros y lo convierte,
-  /// así que **este campo sí llega en metros**. Se documenta el detalle porque
-  /// quien lea la respuesta cruda de AWS verá otra cosa.
+  /// `GeofencingClient.forecastGeofenceEvents` requests kilometers and
+  /// converts them, so **this field does arrive in meters**. The detail is
+  /// documented because anyone reading the raw AWS response will see
+  /// something else.
   final double nearestDistance;
 
-  /// Cuándo se prevé que cruce el borde.
+  /// When it's expected to cross the edge.
   final DateTime? forecastedBreachTime;
 
-  /// Las propiedades de la geovalla, para no tener que consultarla.
+  /// The geofence's properties, so you don't have to look it up.
   final Map<String, String> geofenceProperties;
 
-  /// Cuánto falta para que cruce, desde ahora.
+  /// How long until it crosses, from now.
   Duration? get timeUntilBreach {
     final breach = forecastedBreachTime;
     if (breach == null) return null;
@@ -534,16 +533,16 @@ class ForecastedGeofenceEvent {
       '$geofenceId en ${timeUntilBreach?.inMinutes ?? '?'} min)';
 }
 
-/// La respuesta de `forecastGeofenceEvents`.
+/// The `forecastGeofenceEvents` response.
 @immutable
 class ForecastGeofenceEventsResponse {
-  /// Crea la respuesta.
+  /// Creates the response.
   const ForecastGeofenceEventsResponse({
     this.events = const <ForecastedGeofenceEvent>[],
     this.nextToken,
   });
 
-  /// Lee la respuesta del servicio.
+  /// Reads the service response.
   factory ForecastGeofenceEventsResponse.fromJson(Map<String, dynamic> json) =>
       ForecastGeofenceEventsResponse(
         events: Json.objects(
@@ -553,16 +552,16 @@ class ForecastGeofenceEventsResponse {
         nextToken: Json.string(json, 'NextToken'),
       );
 
-  /// Los eventos previstos.
+  /// The forecasted events.
   final List<ForecastedGeofenceEvent> events;
 
-  /// El testigo de la siguiente página.
+  /// The token for the next page.
   final String? nextToken;
 
-  /// Solo los que suponen cruzar un borde: entrar o salir.
+  /// Only the ones that mean crossing an edge: entering or leaving.
   ///
-  /// Es lo que hay que enseñar. Los [ForecastedEventType.idle] dicen «sigue
-  /// donde estaba», que casi nunca es una alerta.
+  /// It's what you should show. The [ForecastedEventType.idle] ones say "still
+  /// where it was", which is almost never an alert.
   List<ForecastedGeofenceEvent> get breaches => events
       .where((e) => e.eventType != ForecastedEventType.idle)
       .toList(growable: false);
@@ -573,10 +572,10 @@ class ForecastGeofenceEventsResponse {
       '${breaches.length} cruce(s))';
 }
 
-/// Una colección de geovallas.
+/// A geofence collection.
 @immutable
 class GeofenceCollection {
-  /// Crea la colección.
+  /// Creates the collection.
   const GeofenceCollection({
     required this.collectionName,
     this.collectionArn,
@@ -588,7 +587,7 @@ class GeofenceCollection {
     this.tags = const <String, String>{},
   });
 
-  /// Lee la colección de la respuesta del servicio.
+  /// Reads the collection from the service response.
   factory GeofenceCollection.fromJson(Map<String, dynamic> json) =>
       GeofenceCollection(
         collectionName: Json.string(json, 'CollectionName') ?? '',
@@ -601,47 +600,47 @@ class GeofenceCollection {
         tags: Geofence._readProperties(json['Tags']),
       );
 
-  /// El nombre, que es su identificador.
+  /// The name, which is its identifier.
   final String collectionName;
 
-  /// El ARN completo. Es lo que hace falta para enlazarla con un rastreador.
+  /// The full ARN. It's what you need to link it to a tracker.
   final String? collectionArn;
 
-  /// La descripción.
+  /// The description.
   final String? description;
 
-  /// Cuántas geovallas tiene.
+  /// How many geofences it has.
   final int? geofenceCount;
 
-  /// La clave de KMS con la que se cifra, si se configuró.
+  /// The KMS key it's encrypted with, if one was configured.
   final String? kmsKeyId;
 
-  /// Cuándo se creó.
+  /// When it was created.
   final DateTime? createTime;
 
-  /// Cuándo se cambió.
+  /// When it was changed.
   final DateTime? updateTime;
 
-  /// Las etiquetas de AWS.
+  /// The AWS tags.
   final Map<String, String> tags;
 
   @override
   String toString() => 'GeofenceCollection($collectionName)';
 }
 
-/// Una página de geovallas o de colecciones.
+/// A page of geofences or collections.
 @immutable
 class GeofencePage<T> {
-  /// Crea la página.
+  /// Creates the page.
   const GeofencePage({required this.items, this.nextToken});
 
-  /// Los elementos de esta página.
+  /// The items on this page.
   final List<T> items;
 
-  /// El testigo para la siguiente, o `null` si no hay más.
+  /// The token for the next one, or `null` if there are no more.
   final String? nextToken;
 
-  /// ¿Hay más páginas?
+  /// Are there more pages?
   bool get hasMore => nextToken != null;
 
   @override

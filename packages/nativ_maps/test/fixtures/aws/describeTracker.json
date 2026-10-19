@@ -1,0 +1,11 @@
+{
+  "TrackerName": "flota",
+  "TrackerArn": "arn:aws:geo:us-east-1:123456789012:tracker/flota",
+  "Description": "nativ_maps: prueba en vivo",
+  "PricingPlan": "RequestBasedUsage",
+  "Tags": {},
+  "CreateTime": "2026-10-19T06:49:40.142Z",
+  "UpdateTime": "2026-10-19T06:49:40.142Z",
+  "PositionFiltering": "DistanceBased",
+  "EventBridgeEnabled": false
+}

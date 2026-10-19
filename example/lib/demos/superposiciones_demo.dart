@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:nativ_maps_example/config.dart';
 import 'package:nativ_maps_example/widgets/demo_scaffold.dart';
@@ -20,6 +22,9 @@ import 'package:flutter/material.dart';
 /// | `Circle` | radio en **metros**, geodésico |
 /// | `ClusterManager` | **agrupado nativo**, en el motor y no en Dart |
 /// | `Heatmap` | **capa nativa**, con rampa de color propia |
+/// | `Marker.draggable` | se arrastra con el dedo, y el mapa no se mueve |
+/// | `GroundOverlay` | una imagen anclada a un rectángulo: un plano |
+/// | `TileOverlay` | teselas propias encima del mapa |
 ///
 /// ## Y una cosa que no se ve pero importa
 ///
@@ -70,6 +75,9 @@ class _SuperposicionesDemoState extends State<SuperposicionesDemo> {
             _Boton('300 vehículos', _anadirMuchos),
             _Boton('Mapa de calor', _anadirMapaDeCalor),
             _Boton('Animar', () async => _animar()),
+            _Boton('Arrastrable', _anadirArrastrable),
+            _Boton('Imagen anclada', _anadirImagen),
+            _Boton('Teselas propias', _anadirTeselas),
             _Boton('Limpiar', _limpiar),
           ],
         ),
@@ -310,10 +318,105 @@ class _SuperposicionesDemoState extends State<SuperposicionesDemo> {
     });
   }
 
+  // ── Arrastrar, imagen anclada y teselas propias ────────────────────────
+
+  /// Un marcador que se arrastra.
+  ///
+  /// Mantener el dedo sobre él y moverlo lo lleva consigo; el mapa no se
+  /// desplaza. El controlador se queda con la posición nueva.
+  Future<void> _anadirArrastrable() async {
+    await _mapa?.addMarker(
+      Marker(
+        markerId: const MarkerId('arrastrable'),
+        position: Config.defaultCenter.offset(400, 135),
+        icon: BitmapDescriptor.defaultMarkerWithHue(MarkerHue.hueAzure),
+        draggable: true,
+        infoWindow: const InfoWindow(title: 'Arrástrame'),
+        onDragStart: (_) => setState(() => _ultimoToque = 'arrastrando…'),
+        onDragEnd: (posicion) =>
+            setState(() => _ultimoToque = 'soltado en ${_fmt(posicion)}'),
+      ),
+    );
+    _contar();
+  }
+
+  /// Un plano de 1,3 km de lado, generado aquí mismo y pasado como `data:`.
+  Future<void> _anadirImagen() async {
+    final centro = Config.defaultCenter;
+    await _mapa?.addGroundOverlay(
+      GroundOverlay(
+        groundOverlayId: const GroundOverlayId('plano'),
+        bounds: LatLngBounds(
+          southwest: centro.offset(920, 225),
+          northeast: centro.offset(920, 45),
+        ),
+        imageUrl: await _plano(),
+        opacity: 0.7,
+      ),
+    );
+  }
+
+  /// La imagen de satélite de AWS al 50 % encima del mapa normal.
+  ///
+  /// Las teselas de Amazon Location son de 512 px; las de casi todos los
+  /// demás proveedores, de 256, que es el valor por defecto.
+  Future<void> _anadirTeselas() async {
+    final plantilla = Config.maps.maps.tileUrlTemplate('raster.satellite');
+    if (plantilla == null) return;
+    await _mapa?.addTileOverlay(
+      TileOverlay(
+        tileOverlayId: const TileOverlayId('satelite'),
+        urlTemplate: plantilla,
+        tileSize: 512,
+        opacity: 0.5,
+        attribution: '© AWS',
+      ),
+    );
+  }
+
+  /// Un plano cuadriculado con un rótulo, en PNG y como `data:` URI.
+  static Future<String> _plano() async {
+    const lado = 256.0;
+    final grabadora = ui.PictureRecorder();
+    final lienzo = Canvas(grabadora);
+    lienzo.drawRect(
+      const Rect.fromLTWH(0, 0, lado, lado),
+      Paint()..color = const Color(0xCCFFF3E0),
+    );
+    final linea = Paint()
+      ..color = const Color(0xFFE65100)
+      ..strokeWidth = 2;
+    for (var i = 0.0; i <= lado; i += 32) {
+      lienzo
+        ..drawLine(Offset(i, 0), Offset(i, lado), linea)
+        ..drawLine(Offset(0, i), Offset(lado, i), linea);
+    }
+    final texto = TextPainter(
+      text: const TextSpan(
+        text: 'PLANO',
+        style: TextStyle(
+          color: Color(0xFFBF360C),
+          fontSize: 44,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    texto.paint(
+      lienzo,
+      Offset((lado - texto.width) / 2, (lado - texto.height) / 2),
+    );
+    final imagen = await grabadora.endRecording().toImage(256, 256);
+    final bytes = await imagen.toByteData(format: ui.ImageByteFormat.png);
+    return 'data:image/png;base64,${base64Encode(bytes!.buffer.asUint8List())}';
+  }
+
   Future<void> _limpiar() async {
     _animacion?.cancel();
     final mapa = _mapa;
     if (mapa == null) return;
+    await mapa.clearGroundOverlays();
+    await mapa.clearTileOverlays();
     await mapa.clearMarkers();
     await mapa.clearPolylines();
     await mapa.clearPolygons();

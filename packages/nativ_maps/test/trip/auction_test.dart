@@ -1,10 +1,5 @@
 // Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
 
-// `FareAdvisor` está obsoleto en favor de `PriceAdvisor`, pero sigue
-// funcionando hasta la 1.0.0 y por tanto sigue probándose: retirar las pruebas
-// de algo que aún se puede llamar es cómo se rompe a quien todavía lo usa.
-// ignore_for_file: deprecated_member_use_from_same_package
-
 import 'package:nativ_maps/nativ_maps.dart';
 import 'package:test/test.dart';
 
@@ -268,66 +263,6 @@ void main() {
       );
       // 5 + 6 + 5 de vuelta = 16 km
       expect(r.drivingCost, 320);
-    });
-  });
-
-  group('FareAdvisor', () {
-    const advisor = FareAdvisor(
-      tariff: Tariff(
-        currency: 'EUR',
-        baseFare: 250,
-        perKilometer: 110,
-        perMinute: 35,
-      ),
-    );
-
-    test('sugiere un rango alrededor de la referencia', () {
-      final s = advisor.suggest(
-        distanceMeters: 10000,
-        duration: const Duration(minutes: 20),
-        departure: DateTime(2026, 8, 23, 12),
-      );
-      expect(s.reference, 2050);
-      expect(s.recommended, 2050);
-      expect(s.minimum, lessThan(s.recommended));
-      expect(s.maximum, greaterThan(s.recommended));
-    });
-
-    test('la demanda sube todo el rango', () {
-      final baseline = advisor.suggest(
-        distanceMeters: 10000,
-        duration: const Duration(minutes: 20),
-        departure: DateTime(2026, 8, 23, 12),
-      );
-      final peak = advisor.suggest(
-        distanceMeters: 10000,
-        duration: const Duration(minutes: 20),
-        departure: DateTime(2026, 8, 23, 12),
-        demandFactor: 1.5,
-      );
-      expect(peak.recommended, (baseline.reference * 1.5).round());
-      expect(peak.minimum, greaterThan(baseline.minimum));
-    });
-
-    test('la probabilidad de aceptación crece con el importe', () {
-      double p(int amount) =>
-          advisor.acceptanceProbability(offered: amount, reference: 2000);
-
-      expect(p(1200), lessThan(p(2000)));
-      expect(p(2000), lessThan(p(3000)));
-      expect(p(2000), greaterThan(0.5));
-      expect(p(3000), lessThan(1.0));
-    });
-
-    test('rechaza una demanda no positiva', () {
-      expect(
-        () => advisor.suggest(
-          distanceMeters: 1000,
-          duration: const Duration(minutes: 5),
-          demandFactor: 0,
-        ),
-        throwsArgumentError,
-      );
     });
   });
 }

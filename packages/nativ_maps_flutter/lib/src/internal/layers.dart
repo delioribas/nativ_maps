@@ -1,120 +1,146 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:flutter/foundation.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as ml;
-// `meta` importado explícitamente, aunque en Flutter 3.44+ el linter lo marque
-// como redundante: `package:flutter/foundation.dart` **no reexporta
-// `@internal`** hasta versiones recientes, y este paquete declara suelo en
-// Flutter 3.32. Sin este import, quien lo use en 3.32 se encuentra doce
-// errores de `undefined_annotation`.
+// `meta` is imported explicitly, even though on Flutter 3.44+ the linter flags
+// it as redundant: `package:flutter/foundation.dart` **does not re-export
+// `@internal`** until recent versions, and this package declares Flutter 3.32
+// as its floor. Without this import, anyone using it on 3.32 runs into twelve
+// `undefined_annotation` errors.
 // ignore: unnecessary_import
 import 'package:meta/meta.dart';
 import 'package:nativ_maps_flutter/src/internal/geojson.dart';
 import 'package:nativ_maps_flutter/src/types/overlays.dart';
 
-/// Instala y mantiene las fuentes y capas del estilo.
+/// Installs and maintains the style's sources and layers.
 ///
-/// Es donde vive todo el conocimiento de la especificación de estilo de
-/// MapLibre, para que el resto del paquete no tenga que saber nada de ella.
+/// It's where all the knowledge of the MapLibre style specification lives, so
+/// the rest of the package doesn't have to know anything about it.
 ///
-/// ## El orden de las capas importa
+/// ## Layer order matters
 ///
-/// Se instalan en el orden en que se dibujan: primero las áreas —abajo del
-/// todo—, luego las líneas, y los símbolos encima. Una polilínea instalada
-/// después de los marcadores les pasaría por encima, y una ruta tapando los
-/// vehículos que la recorren es exactamente lo que no se quiere.
+/// They're installed in the order they're drawn: first the areas —at the very
+/// bottom—, then the lines, and the symbols on top. A polyline installed after
+/// the markers would run over them, and a route covering the vehicles driving
+/// along it is exactly what you don't want.
 @internal
 class LayerInstaller {
-  /// Crea el instalador sobre un controlador nativo.
+  /// Creates the installer on top of a native controller.
   LayerInstaller(this._native);
 
   final ml.MapLibreMapController _native;
 
-  /// Las polilíneas discontinuas instaladas, por patrón.
+  /// The installed dashed polylines, by pattern.
   ///
-  /// Cada patrón distinto necesita **su propia capa**: `line-dasharray` no
-  /// admite expresiones basadas en datos en la especificación de MapLibre, así
-  /// que el patrón es literal por capa. Sin esta separación, todas las líneas
-  /// discontinuas de un mapa saldrían con el mismo patrón.
+  /// Each different pattern needs **its own layer**: `line-dasharray` doesn't
+  /// accept data-driven expressions in the MapLibre specification, so the
+  /// pattern is a literal per layer. Without this split, every dashed line on
+  /// a map would come out with the same pattern.
   final Map<String, String> _dashLayers = <String, String>{};
 
-  /// Ninguna capa del paquete es interactiva para `maplibre_gl`.
+  /// Areas and lines are not interactive for `maplibre_gl`.
   ///
-  /// El plugin marca toda capa como interactiva por defecto, y un toque sobre
-  /// una capa interactiva sale por `onFeatureTapped` y **no** por
-  /// `onMapClick`. Como el paquete resuelve él mismo qué hay bajo el dedo
-  /// —`markerAt`, `clusterAt`, `polylineAt`—, con las capas interactivas ni
-  /// `onMarkerTap` ni los globos ni `onTap` sobre un polígono llegaban nunca.
+  /// The plugin marks every layer as interactive by default, and a tap on an
+  /// interactive layer comes out through `onFeatureTapped` and **not** through
+  /// `onMapClick`. Since the package works out by itself what's under the
+  /// finger —`markerAt`, `clusterAt`, `polylineAt`—, with interactive layers
+  /// neither `onMarkerTap` nor the info windows nor `onTap` on a polygon ever
+  /// arrived.
   static const bool _interactive = false;
 
-  // ─── Identificadores ──────────────────────────────────────────────────
+  /// Marker layers are the exception: they have to be interactive.
+  ///
+  /// The native side only starts dragging a feature that sits on an
+  /// interactive layer and carries `draggable: true`; on any other layer a
+  /// press just pans the map. Taps on them still reach `onMapClick` because
+  /// the widget sets `featureTapsTriggersMapClick`, which is what keeps
+  /// `onMarkerTap` and the info windows working.
+  static const bool _markersInteractive = true;
 
-  /// Fuente de los marcadores sin agrupar.
+  // ─── Identifiers ─────────────────────────────────────────────────────
+
+  /// Source of the unclustered markers.
   static const String markerSourceId = 'nativ-markers-src';
 
-  /// Capa de los marcadores sin agrupar que miran a la pantalla.
+  /// Layer of the unclustered markers that face the screen.
   static const String markerLayerId = 'nativ-markers-layer';
 
-  /// Capa de los marcadores planos (`Marker.flat`), que giran con el mapa.
+  /// Layer of the flat markers (`Marker.flat`), which rotate with the map.
   ///
-  /// Es la más baja de las dos: lo que tenga que quedar debajo de los
-  /// marcadores —un mapa de calor, una línea discontinua— va debajo de esta.
+  /// It's the lower of the two: whatever has to stay under the markers —a
+  /// heatmap, a dashed line— goes under this one.
   static const String markerFlatLayerId = 'nativ-markers-flat-layer';
 
-  /// Las dos capas de marcadores, para el hit-test.
+  /// The two marker layers, for the hit-test.
   static const List<String> markerLayerIds = <String>[
     markerLayerId,
     markerFlatLayerId,
   ];
 
-  /// Fuente de las polilíneas continuas.
+  /// Source of the solid polylines.
   static const String lineSourceId = 'nativ-lines-src';
 
-  /// Capa de las polilíneas continuas.
+  /// Layer of the solid polylines.
   static const String lineLayerId = 'nativ-lines-layer';
 
-  /// Capa base de las polilíneas discontinuas.
+  /// Base layer of the dashed polylines.
   static const String dashedLineLayerId = 'nativ-lines-dashed-layer';
 
-  /// Fuente de polígonos y círculos.
+  /// Source of polygons and circles.
   static const String areaSourceId = 'nativ-areas-src';
 
-  /// Capa de relleno de las áreas.
+  /// Fill layer of the areas.
   static const String areaFillLayerId = 'nativ-areas-fill';
 
-  /// Capa de borde de las áreas.
+  /// Outline layer of the areas.
   static const String areaOutlineLayerId = 'nativ-areas-outline';
 
-  /// La fuente de un agrupador.
+  /// The source of a cluster manager.
   static String clusterSourceId(ClusterManagerId id) =>
       'nativ-cluster-src-${id.value}';
 
-  /// La capa del círculo de un grupo.
+  /// The layer of a cluster's circle.
   static String clusterCircleLayerId(ClusterManagerId id) =>
       'nativ-cluster-circle-${id.value}';
 
-  /// La capa del número de un grupo.
+  /// The layer of a cluster's number.
   static String clusterCountLayerId(ClusterManagerId id) =>
       'nativ-cluster-count-${id.value}';
 
-  /// La capa de los marcadores sueltos de un agrupador.
+  /// The layer of a cluster manager's standalone markers.
   static String clusterMarkerLayerId(ClusterManagerId id) =>
       'nativ-cluster-marker-${id.value}';
 
-  /// La fuente de un mapa de calor.
+  /// The source of a heatmap.
   static String heatmapSourceId(HeatmapId id) =>
       'nativ-heatmap-src-${id.value}';
 
-  /// La capa de un mapa de calor.
+  /// The layer of a heatmap.
   static String heatmapLayerId(HeatmapId id) =>
       'nativ-heatmap-layer-${id.value}';
 
-  // ─── Instalación ──────────────────────────────────────────────────────
+  /// The source of a ground overlay.
+  static String groundOverlaySourceId(GroundOverlayId id) =>
+      'nativ-ground-src-${id.value}';
 
-  /// Instala las fuentes y capas base.
+  /// The layer of a ground overlay.
+  static String groundOverlayLayerId(GroundOverlayId id) =>
+      'nativ-ground-layer-${id.value}';
+
+  /// The source of a tile overlay.
+  static String tileOverlaySourceId(TileOverlayId id) =>
+      'nativ-tiles-src-${id.value}';
+
+  /// The layer of a tile overlay.
+  static String tileOverlayLayerId(TileOverlayId id) =>
+      'nativ-tiles-layer-${id.value}';
+
+  // ─── Installation ────────────────────────────────────────────────────
+
+  /// Installs the base sources and layers.
   ///
-  /// Es idempotente: volver a llamarlo tras un cambio de estilo reinstala lo
-  /// que el cambio borró y no duplica lo que sobrevivió.
+  /// It's idempotent: calling it again after a style change reinstalls what
+  /// the change deleted and doesn't duplicate what survived.
   Future<void> installBaseLayers() async {
     _dashLayers.clear();
 
@@ -122,7 +148,7 @@ class LayerInstaller {
     await _addSource(lineSourceId);
     await _addSource(markerSourceId);
 
-    // 1 · Áreas, abajo del todo.
+    // 1 · Areas, at the very bottom.
     await _tryAdd(
       () => _native.addFillLayer(
         areaSourceId,
@@ -147,7 +173,7 @@ class LayerInstaller {
       ),
     );
 
-    // 2 · Líneas continuas.
+    // 2 · Solid lines.
     await _tryAdd(
       () => _native.addLineLayer(
         lineSourceId,
@@ -165,14 +191,14 @@ class LayerInstaller {
       ),
     );
 
-    // 3 · Marcadores, encima: primero los planos y encima los que miran a la
-    // pantalla.
+    // 3 · Markers, on top: first the flat ones, and on top of them the ones
+    // that face the screen.
     //
-    // Son dos capas porque `icon-rotation-alignment` **no admite
-    // expresiones** en la especificación de estilos: con un `case` sobre
-    // `flat`, MapLibre rechaza la propiedad y la capa entera se queda sin
-    // dibujar —sin un error que llegue a Dart—. Una capa por valor, cada una
-    // con su filtro, es la forma que admite.
+    // They're two layers because `icon-rotation-alignment` **does not accept
+    // expressions** in the style specification: with a `case` on `flat`,
+    // MapLibre rejects the property and the whole layer goes undrawn —with no
+    // error reaching Dart—. One layer per value, each with its own filter, is
+    // the form it accepts.
     await _tryAdd(
       () => _native.addSymbolLayer(
         markerSourceId,
@@ -183,7 +209,7 @@ class LayerInstaller {
           <Object>['get', 'flat'],
           true,
         ],
-        enableInteraction: _interactive,
+        enableInteraction: _markersInteractive,
       ),
     );
     await _tryAdd(
@@ -196,15 +222,15 @@ class LayerInstaller {
           <Object>['get', 'flat'],
           true,
         ],
-        enableInteraction: _interactive,
+        enableInteraction: _markersInteractive,
       ),
     );
   }
 
-  /// Las propiedades de una capa de marcadores.
+  /// The properties of a marker layer.
   ///
-  /// [rotationAlignment] es `map` para los planos —el icono de un vehículo
-  /// gira con el mapa— y `viewport` para los demás.
+  /// [rotationAlignment] is `map` for the flat ones —a vehicle's icon rotates
+  /// with the map— and `viewport` for the rest.
   static ml.SymbolLayerProperties _markerProperties({
     required String rotationAlignment,
   }) => ml.SymbolLayerProperties(
@@ -232,11 +258,11 @@ class LayerInstaller {
     textOptional: true,
   );
 
-  /// Instala las capas de un agrupador.
+  /// Installs the layers of a cluster manager.
   ///
-  /// La fuente lleva `cluster: true`, que es lo que hace que **el motor**
-  /// agrupe. En `google_maps_flutter` esto lo hace una clase en Dart que
-  /// recalcula en cada movimiento de cámara.
+  /// The source carries `cluster: true`, which is what makes **the engine** do
+  /// the clustering. In `google_maps_flutter` this is done by a Dart class that
+  /// recomputes on every camera move.
   Future<void> installCluster(ClusterManager manager) async {
     final id = manager.clusterManagerId;
     await _tryAdd(
@@ -251,7 +277,7 @@ class LayerInstaller {
       ),
     );
 
-    // Círculo del grupo.
+    // The cluster's circle.
     await _tryAdd(
       () => _native.addCircleLayer(
         clusterSourceId(id),
@@ -267,7 +293,7 @@ class LayerInstaller {
       ),
     );
 
-    // Número dentro del grupo.
+    // The number inside the cluster.
     await _tryAdd(
       () => _native.addSymbolLayer(
         clusterSourceId(id),
@@ -284,24 +310,24 @@ class LayerInstaller {
       ),
     );
 
-    // Los que no llegaron a agruparse, como marcadores normales.
+    // The ones that didn't end up clustered, as regular markers.
     await _tryAdd(
       () => _native.addSymbolLayer(
         clusterSourceId(id),
         clusterMarkerLayerId(id),
-        // Las mismas propiedades que los marcadores sin agrupar: sin ellas,
-        // un marcador perdía el texto y el ancla al salir de un grupo.
+        // The same properties as the unclustered markers: without them, a
+        // marker lost its text and its anchor when it left a cluster.
         _markerProperties(rotationAlignment: 'viewport'),
         filter: <Object>[
           '!',
           <Object>['has', 'point_count'],
         ],
-        enableInteraction: _interactive,
+        enableInteraction: _markersInteractive,
       ),
     );
   }
 
-  /// Quita las capas y la fuente de un agrupador.
+  /// Removes the layers and the source of a cluster manager.
   Future<void> removeCluster(ClusterManagerId id) async {
     await _tryRemoveLayer(clusterMarkerLayerId(id));
     await _tryRemoveLayer(clusterCountLayerId(id));
@@ -309,7 +335,7 @@ class LayerInstaller {
     await _tryRemoveSource(clusterSourceId(id));
   }
 
-  /// Instala la fuente y la capa de un mapa de calor.
+  /// Installs the source and the layer of a heatmap.
   Future<void> installHeatmap(Heatmap heatmap) async {
     final source = heatmapSourceId(heatmap.heatmapId);
     await _tryAdd(() => _native.addGeoJsonSource(source, GeoJson.empty));
@@ -327,28 +353,165 @@ class LayerInstaller {
         ),
         minzoom: heatmap.minZoom,
         maxzoom: heatmap.maxZoom,
-        // Debajo de los marcadores: un mapa de calor encima los taparía.
+        // Under the markers: a heatmap on top would cover them.
         belowLayerId: markerFlatLayerId,
-        // Sin `enableInteraction`: el plugin no hace interactivo un mapa de
-        // calor.
+        // No `enableInteraction`: the plugin doesn't make a heatmap
+        // interactive.
       ),
     );
   }
 
-  /// Quita un mapa de calor.
+  /// Removes a heatmap.
   Future<void> removeHeatmap(HeatmapId id) async {
     await _tryRemoveLayer(heatmapLayerId(id));
     await _tryRemoveSource(heatmapSourceId(id));
   }
 
-  // ─── Empuje de datos ──────────────────────────────────────────────────
+  // ─── Raster overlays ──────────────────────────────────────────────────
 
-  /// Empuja una colección GeoJSON a una fuente.
+  /// The raster layers and sources installed, to remove them next time.
+  final List<(String layer, String source)> _rasters =
+      <(String layer, String source)>[];
+
+  /// Installs every ground and tile overlay again, lowest `zIndex` first.
   ///
-  /// Si la fuente no existe —porque un cambio de estilo la borró—, se
-  /// reinstalan las capas base y se reintenta una vez. Es la diferencia entre
-  /// un mapa que se recupera solo y uno que se queda vacío tras cambiar a modo
-  /// oscuro.
+  /// They all go **below the package's areas**: an image or a tile layer is
+  /// background, and a polygon, a route or a marker has to stay readable on
+  /// top of it. Each one is added right under the areas, so the last one
+  /// added ends up on top — hence the order.
+  ///
+  /// Reinstalling everything is simpler than diffing, and these change rarely:
+  /// a plan of a building, a coverage layer.
+  Future<void> installRasterOverlays(
+    Iterable<GroundOverlay> grounds,
+    Iterable<TileOverlay> tiles,
+  ) async {
+    for (final (layer, source) in _rasters) {
+      await _tryRemoveLayer(layer);
+      await _tryRemoveSource(source);
+    }
+    _rasters.clear();
+
+    final ordered = <(double, Future<void> Function())>[
+      for (final g in grounds)
+        if (g.visible) (g.zIndex, () => _installGround(g)),
+      for (final t in tiles)
+        if (t.visible) (t.zIndex, () => _installTiles(t)),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    for (final (_, install) in ordered) {
+      await install();
+    }
+  }
+
+  Future<void> _installGround(GroundOverlay overlay) async {
+    final source = groundOverlaySourceId(overlay.groundOverlayId);
+    final layer = groundOverlayLayerId(overlay.groundOverlayId);
+    final b = overlay.bounds;
+    final (n, s, e, w) = (
+      b.northeast.latitude,
+      b.southwest.latitude,
+      b.northeast.longitude,
+      b.southwest.longitude,
+    );
+    final url = overlay.imageUrl;
+    if (url.startsWith('data:')) {
+      // MapLibre downloads an image source by URL and doesn't understand
+      // `data:`; the bytes are decoded here and handed over directly.
+      await _tryAdd(
+        () => _native.addImageSource(
+          source,
+          UriData.parse(url).contentAsBytes(),
+          ml.LatLngQuad(
+            topLeft: ml.LatLng(n, w),
+            topRight: ml.LatLng(n, e),
+            bottomRight: ml.LatLng(s, e),
+            bottomLeft: ml.LatLng(s, w),
+          ),
+        ),
+      );
+    } else {
+      await _tryAdd(
+        () => _native.addSource(
+          source,
+          ml.ImageSourceProperties(
+            url: url,
+            // Clockwise from the top-left corner, as `[lon, lat]`.
+            coordinates: <List<double>>[
+              <double>[w, n],
+              <double>[e, n],
+              <double>[e, s],
+              <double>[w, s],
+            ],
+          ),
+        ),
+      );
+    }
+    await _addRasterLayer(source, layer, overlay.opacity);
+  }
+
+  Future<void> _installTiles(TileOverlay overlay) async {
+    final source = tileOverlaySourceId(overlay.tileOverlayId);
+    final layer = tileOverlayLayerId(overlay.tileOverlayId);
+    await _tryAdd(
+      () => _native.addSource(
+        source,
+        ml.RasterSourceProperties(
+          tiles: <String>[overlay.urlTemplate],
+          tileSize: overlay.tileSize.toDouble(),
+          minzoom: overlay.minZoom,
+          maxzoom: overlay.maxZoom,
+          attribution: overlay.attribution,
+        ),
+      ),
+    );
+    await _addRasterLayer(source, layer, overlay.opacity);
+  }
+
+  Future<void> _addRasterLayer(
+    String source,
+    String layer,
+    double opacity,
+  ) async {
+    await _tryAdd(
+      () => _native.addRasterLayer(
+        source,
+        layer,
+        ml.RasterLayerProperties(
+          rasterOpacity: opacity,
+          // Without this, every pan fades the tiles in again.
+          rasterFadeDuration: 0,
+        ),
+        belowLayerId: areaFillLayerId,
+      ),
+    );
+    _rasters.add((layer, source));
+  }
+
+  // ─── Pushing data ────────────────────────────────────────────────────
+
+  /// Replaces one feature of a source, leaving the rest as they are.
+  ///
+  /// It's how a dragged marker follows the finger: sending the whole marker
+  /// collection on every frame of a drag would stutter with a few hundred.
+  Future<void> pushFeature(
+    String sourceId,
+    Map<String, dynamic> feature,
+  ) async {
+    try {
+      await _native.setGeoJsonFeature(sourceId, feature);
+    } on Object catch (error) {
+      debugPrint(
+        'nativ_maps: could not update a feature of "$sourceId" — $error',
+      );
+    }
+  }
+
+  /// Pushes a GeoJSON collection to a source.
+  ///
+  /// If the source doesn't exist —because a style change deleted it—, the base
+  /// layers are reinstalled and it retries once. It's the difference between a
+  /// map that recovers on its own and one that stays empty after switching to
+  /// dark mode.
   Future<void> push(String sourceId, Map<String, dynamic> data) async {
     try {
       await _native.setGeoJsonSource(sourceId, data);
@@ -361,7 +524,7 @@ class LayerInstaller {
     }
   }
 
-  /// Empuja las polilíneas discontinuas, una capa por patrón.
+  /// Pushes the dashed polylines, one layer per pattern.
   Future<void> pushDashed(Iterable<Polyline> lines) async {
     final byPattern = <String, List<Polyline>>{};
     for (final line in lines) {
@@ -369,8 +532,8 @@ class LayerInstaller {
       byPattern.putIfAbsent(dash.join(','), () => <Polyline>[]).add(line);
     }
 
-    // Vacía las capas de patrones que ya no se usan, en vez de borrarlas:
-    // quitar y volver a crear una capa provoca un parpadeo visible.
+    // Empties the layers of patterns no longer in use, instead of deleting
+    // them: removing and recreating a layer causes a visible flicker.
     for (final key in _dashLayers.keys) {
       if (!byPattern.containsKey(key)) {
         await push('$dashedLineLayerId-src-$key', GeoJson.empty);
@@ -408,17 +571,17 @@ class LayerInstaller {
     }
   }
 
-  // ─── Auxiliares ───────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────
 
   Future<void> _addSource(String id) =>
       _tryAdd(() => _native.addGeoJsonSource(id, GeoJson.empty));
 
-  /// Ejecuta algo que puede fallar porque ya existe.
+  /// Runs something that may fail because it already exists.
   ///
-  /// MapLibre lanza al añadir una capa o fuente repetida, y tras un cambio de
-  /// estilo no hay forma barata de saber cuáles sobrevivieron. Intentarlo y
-  /// tragarse el error de duplicado es más simple y más rápido que consultar
-  /// la lista de capas antes de cada una.
+  /// MapLibre throws when a repeated layer or source is added, and after a
+  /// style change there's no cheap way to know which ones survived. Trying it
+  /// and swallowing the duplicate error is simpler and faster than checking the
+  /// layer list before each one.
   Future<void> _tryAdd(Future<void> Function() action) async {
     try {
       await action();
@@ -438,7 +601,7 @@ class LayerInstaller {
     try {
       await _native.removeLayer(id);
     } on Object {
-      // No existía. No hay nada que hacer.
+      // It didn't exist. There's nothing to do.
     }
   }
 
@@ -446,7 +609,7 @@ class LayerInstaller {
     try {
       await _native.removeSource(id);
     } on Object {
-      // No existía.
+      // It didn't exist.
     }
   }
 }

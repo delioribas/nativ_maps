@@ -4,6 +4,72 @@ Este proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 Mientras la versión mayor sea `0`, una versión menor puede romper la API; a
 partir de `1.0.0`, no.
 
+## 0.9.0
+
+**Release candidate for 1.0.0.** All 44 operations have now run against Amazon
+Location for real —17 with an API key, 27 with IAM credentials signed with
+SigV4— and every enum value that travels in a request has been checked against
+the service, in 111 checks. The API has been reviewed for freezing: what never
+worked is gone, and what was declared but did nothing now works. The API docs
+are now in English.
+
+### Breaking changes
+
+- **`FareAdvisor` and `FareSuggestion` are gone.** They were deprecated in favor
+  of `PriceAdvisor`.
+- **`RouteFeature.tollSystems` is gone.** AWS never accepted it in a request:
+  it always answered 400. The toll systems come with `RouteFeature.tolls`.
+- **`TravelStepType.general` is gone** —it isn't an AWS value; always 400— and
+  **`TravelStepType.none` is now `TravelStepType.standard`.** It is AWS's
+  `Default` steps, the only ones that carry written instructions; the old name
+  and docs said the opposite.
+- **The calculation layer is `@experimental`**: `Tariff`, `TripRecorder`,
+  `PriceAdvisor`, `RideAuction`, `DispatchPlanner`, `TelemetryAnalyzer`,
+  `RouteTracker` and the path geometry functions stay outside the 1.0
+  stability promise until they have been used charging real rides.
+
+### New
+
+- **Draggable markers.** `Marker.draggable` now works, with `onDragStart`,
+  `onDrag` and `onDragEnd` —the names `google_maps_flutter` uses—. The marker
+  follows the finger instead of the map panning, and the controller keeps the
+  new position.
+- **`GroundOverlay` and `TileOverlay` can be drawn**:
+  `addGroundOverlay`/`removeGroundOverlay`/`setGroundOverlays`/
+  `clearGroundOverlays`, and the same for tile overlays. They were exported
+  types with no way to put them on a map. Both go under the package's polygons,
+  lines and markers; an image accepts `https` and `data:` URLs.
+- **`applyGoogleLook()`** in `nativ_maps_google`: the palette of the current
+  Google Maps over `MapStyle.standard`, measured in the Google Maps app.
+- **Live tests for the 27 IAM operations** (`dart test -P live` in
+  `nativ_maps_sigv4`, or `melos run test:live:iam`) and for every enum value
+  (`test/live/enums_live_test.dart` in `nativ_maps`).
+
+### Fixed
+
+| What | What happened |
+|---|---|
+| Geofence polygons and the `listDevicePositions` filter | AWS rejected a clockwise outer ring with a 400 —"must be oriented counter-clockwise"—, and that's how a zone comes out when drawn NW, NE, SE, SW. Rings are now closed and oriented automatically |
+| SigV4 with anything encoded in the path: `disassociateConsumer`, or a `deviceId` with `:` | **403**, "signature does not match": the canonical path was encoded once and AWS encodes it twice |
+| `StyleEditor.setColor`, `setLineWidth`, `setOpacity`, `setPaintProperties` | **wiped the rest of the layer**: `maplibre_gl` sends every untouched property as `null`, which resets it. Changing a label's color erased its text; a road's, its width. Also fixes `setGoogleMapStyle` |
+| `NativMap.onCameraIdle` | never fired for the initial camera —`google_maps_flutter` does—, and a debounced `onCameraMove` could land after it, leaving the app thinking the camera was still moving. Now: once for the initial camera, then once per new resting place, always after the last move |
+| The info window of a removed or hidden marker | stayed open, pointing at nothing |
+| Tolls on a pedestrian route; written instructions with turn-by-turn steps | a billed 400 from AWS. Now an `ArgumentError` before sending |
+| `GetStaticMap` | documented as JPEG; AWS returns PNG |
+
+### Documented
+
+- Which `PlaceFeature` values each Places operation accepts, measured against
+  the service: anything outside its row is a 400.
+
+### Tested
+
+- Every response shape from geofencing and tracking, with the real AWS
+  responses as fixtures.
+- The example app, demo by demo, on an Android emulator and the iOS simulator,
+  with real taps and drags; and the two apps that use the package, ryvell and
+  xyntar, compile and pass their tests against this version.
+
 ## 0.5.3
 
 **Tocar el mapa, probado por fin en un dispositivo.** La 0.5.1 probó que los

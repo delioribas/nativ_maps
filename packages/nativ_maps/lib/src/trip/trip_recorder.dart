@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -6,39 +6,41 @@ import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/trip/position_filter.dart';
 
-/// Un periodo en el que el vehículo estuvo parado.
+/// A period during which the vehicle was stopped.
 ///
-/// Es lo que alimenta el cargo por espera de un taxímetro, y lo que responde a
-/// «¿por qué me cobraste ocho minutos de espera?» con una hora y un sitio.
+/// It is what feeds a taximeter's waiting charge, and what answers "why did
+/// you charge me eight minutes of waiting?" with a time and a place.
 @immutable
+@experimental
 class StopPeriod {
-  /// Crea un periodo de parada.
+  /// Creates a stop period.
   const StopPeriod({
     required this.position,
     required this.start,
     required this.end,
   });
 
-  /// Dónde se paró.
+  /// Where it stopped.
   final LatLng position;
 
-  /// Cuándo empezó la parada.
+  /// When the stop started.
   final DateTime start;
 
-  /// Cuándo se reanudó la marcha.
+  /// When it got moving again.
   final DateTime end;
 
-  /// Cuánto duró.
+  /// How long it lasted.
   Duration get duration => end.difference(start);
 
   @override
   String toString() => 'StopPeriod(${duration.inSeconds} s at $position)';
 }
 
-/// El estado del viaje después de procesar una lectura.
+/// The state of the trip after processing a fix.
 @immutable
+@experimental
 class TripUpdate {
-  /// Crea una actualización.
+  /// Creates an update.
   const TripUpdate({
     required this.filter,
     required this.distanceMeters,
@@ -49,25 +51,25 @@ class TripUpdate {
     required this.speedKmh,
   });
 
-  /// Qué hizo el filtro con la lectura.
+  /// What the filter did with the fix.
   final FilterResult filter;
 
-  /// Distancia acumulada del viaje, en metros.
+  /// Accumulated trip distance, in meters.
   final double distanceMeters;
 
-  /// Tiempo total desde la primera lectura.
+  /// Total time since the first fix.
   final Duration duration;
 
-  /// Tiempo en movimiento.
+  /// Time spent moving.
   final Duration movingDuration;
 
-  /// Tiempo detenido, contando solo las paradas ya confirmadas.
+  /// Time spent stopped, counting only stops already confirmed.
   final Duration stoppedDuration;
 
-  /// ¿Está parado ahora mismo?
+  /// Is it stopped right now?
   final bool stopped;
 
-  /// La velocidad estimada en este instante, en km/h.
+  /// The estimated speed at this instant, in km/h.
   final double speedKmh;
 
   @override
@@ -76,10 +78,11 @@ class TripUpdate {
       '${speedKmh.toStringAsFixed(0)} km/h${stopped ? ', stopped' : ''})';
 }
 
-/// Un viaje terminado, con todo lo necesario para cobrarlo y para defenderlo.
+/// A finished trip, with everything needed to charge for it and to defend it.
 @immutable
+@experimental
 class TripSummary {
-  /// Crea un resumen.
+  /// Creates a summary.
   const TripSummary({
     required this.start,
     required this.end,
@@ -93,59 +96,60 @@ class TripSummary {
     required this.maxSpeedKmh,
   });
 
-  /// Hora de la primera lectura aceptada.
+  /// Time of the first accepted fix.
   final DateTime start;
 
-  /// Hora de la última lectura procesada.
+  /// Time of the last processed fix.
   final DateTime end;
 
-  /// Distancia recorrida, en metros, ya descontado el ruido.
+  /// Distance covered, in meters, with the noise already discounted.
   final double distanceMeters;
 
-  /// Tiempo en movimiento.
+  /// Time spent moving.
   final Duration movingDuration;
 
-  /// Tiempo detenido en paradas confirmadas.
+  /// Time spent stopped in confirmed stops.
   final Duration stoppedDuration;
 
-  /// Las paradas, en orden.
+  /// The stops, in order.
   final List<StopPeriod> stops;
 
-  /// El recorrido, solo con las posiciones que pasaron el filtro.
+  /// The path, with only the positions that passed the filter.
   ///
-  /// Está vacío si el registrador se creó con `keepTrack: false`.
+  /// It is empty if the recorder was created with `keepTrack: false`.
   final List<LatLng> track;
 
-  /// Cuántas lecturas se aceptaron.
+  /// How many fixes were accepted.
   final int acceptedFixes;
 
-  /// Cuántas se descartaron, por motivo.
+  /// How many were discarded, by reason.
   ///
-  /// Una proporción alta de [FixRejection.poorAccuracy] señala un rastreador
-  /// con la antena mal puesta; una de [FixRejection.outOfOrder], un problema
-  /// de reenvío por cobertura.
+  /// A high share of [FixRejection.poorAccuracy] points to a tracker with a
+  /// badly placed antenna; one of [FixRejection.outOfOrder], to a problem
+  /// with resending after losing coverage.
   final Map<FixRejection, int> rejections;
 
-  /// La velocidad punta observada, en km/h.
+  /// The top speed observed, in km/h.
   final double maxSpeedKmh;
 
-  /// Duración total del viaje.
+  /// Total duration of the trip.
   Duration get duration => end.difference(start);
 
-  /// Distancia en kilómetros.
+  /// Distance in kilometers.
   double get distanceKm => distanceMeters / 1000;
 
-  /// Velocidad media contando solo el tiempo en movimiento, en km/h.
+  /// Average speed counting only the time spent moving, in km/h.
   ///
-  /// Es la que describe cómo se condujo. La media sobre el tiempo total
-  /// mezcla la conducción con los semáforos y no significa gran cosa.
+  /// It is the one that describes how the vehicle was driven. The average
+  /// over the total time mixes driving with traffic lights and does not mean
+  /// much.
   double get averageMovingSpeedKmh {
     final seconds = movingDuration.inMicroseconds / 1e6;
     if (seconds <= 0) return 0;
     return distanceMeters / seconds * 3.6;
   }
 
-  /// Cuántas lecturas se descartaron en total.
+  /// How many fixes were discarded in total.
   int get rejectedFixes =>
       rejections.values.fold(0, (sum, howMany) => sum + howMany);
 
@@ -155,44 +159,44 @@ class TripSummary {
       '${duration.inMinutes} min, ${stops.length} stop(s))';
 }
 
-/// Convierte un chorro de posiciones de GPS en un viaje medible.
+/// Turns a stream of GPS positions into a measurable trip.
 ///
-/// Junta tres cosas que en la práctica no se pueden separar: el filtrado del
-/// ruido, la suma de la distancia y la detección de paradas.
+/// It combines three things that in practice cannot be separated: filtering
+/// the noise, adding up the distance and detecting stops.
 ///
 /// ```dart
-/// final registrador = TripRecorder();
-/// for (final lectura in flujoDelGps) {
-///   final estado = registrador.add(lectura);
-///   mostrar(estado.distanceMeters, estado.speedKmh);
+/// final recorder = TripRecorder();
+/// for (final fix in gpsStream) {
+///   final state = recorder.add(fix);
+///   show(state.distanceMeters, state.speedKmh);
 /// }
-/// final viaje = registrador.finish();
+/// final trip = recorder.finish();
 /// ```
 ///
-/// ## Lo que casi todo el mundo hace mal
+/// ## What almost everyone gets wrong
 ///
-/// Cuando el vehículo está parado, el filtro **descarta** casi todas las
-/// lecturas por ruido. Si el registrador ignorase los descartes, el reloj se
-/// quedaría congelado durante las paradas: un taxi esperando media hora
-/// aparecería como un viaje de dos minutos.
+/// When the vehicle is stopped, the filter **discards** almost every fix as
+/// noise. If the recorder ignored the discards, the clock would freeze during
+/// stops: a taxi waiting half an hour would show up as a two-minute trip.
 ///
-/// Aquí un descarte por [FixRejection.withinNoise] no es un dato perdido, es
-/// **la prueba de que el vehículo no se ha movido**. El tiempo avanza con
-/// todas las lecturas; solo la distancia depende de que se acepten.
+/// Here a discard because of [FixRejection.withinNoise] is not lost data, it
+/// is **proof that the vehicle has not moved**. Time advances with every fix;
+/// only the distance depends on fixes being accepted.
 ///
-/// ## Histéresis en la detección de paradas
+/// ## Hysteresis in stop detection
 ///
-/// Con un solo umbral, un coche oscilando alrededor de él entra y sale de
-/// «parado» varias veces por minuto y genera decenas de paradas de dos
-/// segundos. Por eso hay dos umbrales, [stopSpeedKmh] para entrar y
-/// [resumeSpeedKmh] para salir, y una duración mínima antes de dar la parada
-/// por buena.
+/// With a single threshold, a car hovering around it goes in and out of
+/// "stopped" several times a minute and generates dozens of two-second stops.
+/// That is why there are two thresholds, [stopSpeedKmh] to enter and
+/// [resumeSpeedKmh] to leave, and a minimum duration before the stop is
+/// accepted.
+@experimental
 class TripRecorder {
-  /// Crea un registrador.
+  /// Creates a recorder.
   ///
-  /// Los valores por defecto sirven para un taxi urbano: se considera parado
-  /// por debajo de 3 km/h, en marcha por encima de 8, y una parada cuenta a
-  /// partir de 45 segundos, que deja fuera los semáforos cortos.
+  /// The defaults suit an urban taxi: it counts as stopped below 3 km/h, as
+  /// moving above 8, and a stop counts from 45 seconds on, which leaves out
+  /// short traffic lights.
   TripRecorder({
     PositionFilter? filter,
     this.stopSpeedKmh = 3,
@@ -210,22 +214,22 @@ class TripRecorder {
     }
   }
 
-  /// El filtro que decide qué lecturas cuentan.
+  /// The filter that decides which fixes count.
   final PositionFilter filter;
 
-  /// Por debajo de esta velocidad se considera detenido, en km/h.
+  /// Below this speed it counts as stopped, in km/h.
   final double stopSpeedKmh;
 
-  /// Por encima de esta velocidad se considera en marcha, en km/h.
+  /// Above this speed it counts as moving, in km/h.
   final double resumeSpeedKmh;
 
-  /// Cuánto tiene que durar una detención para contar como parada.
+  /// How long a halt has to last to count as a stop.
   final Duration minStopDuration;
 
-  /// ¿Se guarda el recorrido completo?
+  /// Is the full path kept?
   ///
-  /// Ponerlo a `false` ahorra memoria en un servidor que procesa flotas
-  /// enteras y solo necesita los totales.
+  /// Setting it to `false` saves memory on a server that processes whole
+  /// fleets and only needs the totals.
   final bool keepTrack;
 
   final List<LatLng> _track = <LatLng>[];
@@ -243,20 +247,20 @@ class TripRecorder {
   bool _stopConfirmed = false;
   Duration _stopped = Duration.zero;
 
-  /// Distancia acumulada, en metros.
+  /// Accumulated distance, in meters.
   double get distanceMeters => _distance;
 
-  /// Las paradas confirmadas hasta ahora.
+  /// The stops confirmed so far.
   List<StopPeriod> get stops => List<StopPeriod>.unmodifiable(_stops);
 
-  /// ¿Está parado ahora mismo?
+  /// Is it stopped right now?
   bool get isStopped => _stopConfirmed;
 
-  /// Procesa una lectura y devuelve el estado del viaje.
+  /// Processes a fix and returns the state of the trip.
   TripUpdate add(PositionFix fix) {
     final result = filter.add(fix);
     if (result.rejection == FixRejection.outOfOrder) {
-      // Una lectura vieja no puede mover el reloj hacia atrás.
+      // An old fix cannot move the clock backwards.
       _rejections.update(
         FixRejection.outOfOrder,
         (n) => n + 1,
@@ -284,11 +288,11 @@ class TripRecorder {
     return _snapshot(result, speed);
   }
 
-  /// La velocidad que se usa para decidir si está parado.
+  /// The speed used to decide whether it is stopped.
   ///
-  /// Se prefiere la del receptor —viene del Doppler y es más fiable—; si no
-  /// está, se calcula. Un descarte por ruido significa cero: es exactamente
-  /// lo que el filtro acaba de determinar.
+  /// The receiver's is preferred —it comes from Doppler and is more
+  /// reliable—; if it is missing, it is computed. A discard as noise means
+  /// zero: that is exactly what the filter has just determined.
   double _speedFrom(PositionFix fix, FilterResult result) {
     if (result.rejection == FixRejection.withinNoise) return 0;
     final declared = fix.speedKmh;
@@ -298,8 +302,8 @@ class TripRecorder {
 
   void _updateStops(PositionFix fix, double speed, DateTime? previous) {
     if (speed <= stopSpeedKmh) {
-      // La parada empezó en la lectura anterior, no en esta: cuando se detecta
-      // ya llevaba parado todo el intervalo.
+      // The stop started at the previous fix, not at this one: by the time it
+      // is detected it had been stopped for the whole interval.
       _stopCandidate ??= previous ?? fix.timestamp;
       _stopPosition ??= fix.position;
       if (!_stopConfirmed &&
@@ -325,8 +329,8 @@ class TripRecorder {
       _stopPosition = null;
       _stopConfirmed = false;
     }
-    // Entre los dos umbrales no se cambia de estado: esa banda es la
-    // histéresis, y es lo que evita cien paradas de dos segundos.
+    // Between the two thresholds the state does not change: that band is the
+    // hysteresis, and it is what prevents a hundred two-second stops.
   }
 
   TripUpdate _snapshot(FilterResult result, double speed) {
@@ -354,16 +358,16 @@ class TripRecorder {
     return _lastTime!.difference(_stopCandidate!);
   }
 
-  /// Cierra el viaje y devuelve el resumen.
+  /// Closes the trip and returns the summary.
   ///
-  /// Si el vehículo terminó parado, esa parada se cierra aquí: sin esto, un
-  /// taxi que acaba el trayecto esperando a que el pasajero pague perdería
-  /// esos minutos de espera.
+  /// If the vehicle ended up stopped, that stop is closed here: without this,
+  /// a taxi that ends the trip waiting for the passenger to pay would lose
+  /// those minutes of waiting.
   TripSummary finish() {
-    // `_stopPosition` se pone a la vez que `_stopConfirmed`, así que aquí no
-    // puede faltar. Se comprueba igual: la alternativa sería inventar un
-    // `LatLng(0, 0)` —el Golfo de Guinea— y este paquete no hace eso en
-    // ningún sitio.
+    // `_stopPosition` is set at the same time as `_stopConfirmed`, so it
+    // cannot be missing here. It is checked anyway: the alternative would be
+    // to make up a `LatLng(0, 0)` —the Gulf of Guinea— and this package does
+    // not do that anywhere.
     final finalPosition = _stopPosition ?? filter.last?.position;
     if (_stopConfirmed &&
         _stopCandidate != null &&
@@ -402,7 +406,7 @@ class TripRecorder {
     );
   }
 
-  /// Vuelve al estado inicial para empezar otro viaje.
+  /// Returns to the initial state to start another trip.
   void reset() {
     filter.reset();
     _track.clear();

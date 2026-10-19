@@ -1,13 +1,13 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 
-/// La posición de un dispositivo, tal como la devuelve el servicio.
+/// A device's position, as returned by the service.
 @immutable
 class DevicePosition {
-  /// Crea la posición.
+  /// Creates the position.
   const DevicePosition({
     required this.position,
     required this.sampleTime,
@@ -17,11 +17,11 @@ class DevicePosition {
     this.properties = const <String, String>{},
   });
 
-  /// Lee la posición de la respuesta del servicio.
+  /// Reads the position from the service response.
   ///
-  /// Lanza [FormatException] si la coordenada no se puede leer: una posición
-  /// de dispositivo **es** el dato, y sustituirla por `LatLng(0, 0)` pondría
-  /// el vehículo en el golfo de Guinea con toda la apariencia de ser correcto.
+  /// Throws [FormatException] if the coordinate can't be read: a device
+  /// position **is** the data, and replacing it with `LatLng(0, 0)` would put
+  /// the vehicle in the Gulf of Guinea while looking perfectly correct.
   factory DevicePosition.fromJson(Map<String, dynamic> json) => DevicePosition(
     position: Json.requiredLatLng(json, 'Position', 'DevicePosition'),
     sampleTime:
@@ -45,30 +45,30 @@ class DevicePosition {
     };
   }
 
-  /// Dónde estaba.
+  /// Where it was.
   final LatLng position;
 
-  /// Cuándo lo midió el GPS.
+  /// When the GPS measured it.
   final DateTime sampleTime;
 
-  /// Qué dispositivo era.
+  /// Which device it was.
   final String? deviceId;
 
-  /// Cuándo lo recibió AWS.
+  /// When AWS received it.
   ///
-  /// La diferencia con [sampleTime] es **el retraso de la red**, y en un
-  /// localizador con cobertura mala puede ser de minutos. Enseñar
-  /// [receivedTime] como «última posición» hace creer que el vehículo estaba
-  /// ahí hace un momento cuando la medida es de hace un cuarto de hora.
+  /// The difference from [sampleTime] is **the network delay**, and on a
+  /// tracking device with poor coverage it can be minutes. Showing
+  /// [receivedTime] as the "last position" makes people believe the vehicle
+  /// was there a moment ago when the reading is a quarter of an hour old.
   final DateTime? receivedTime;
 
-  /// La precisión horizontal declarada, en metros.
+  /// The reported horizontal accuracy, in meters.
   final double? horizontalAccuracyMeters;
 
-  /// Las propiedades que viajaron con la posición.
+  /// The properties that traveled with the position.
   final Map<String, String> properties;
 
-  /// Cuánto tardó en llegar la posición desde que se midió.
+  /// How long the position took to arrive after it was measured.
   Duration? get networkDelay {
     final recibida = receivedTime;
     if (recibida == null) return null;
@@ -76,14 +76,14 @@ class DevicePosition {
     return retraso.isNegative ? Duration.zero : retraso;
   }
 
-  /// Cuánto hace que se midió.
+  /// How long ago it was measured.
   Duration get age => DateTime.now().toUtc().difference(sampleTime.toUtc());
 
-  /// ¿Es lo bastante reciente para tratarla como «dónde está ahora»?
+  /// Is it recent enough to treat as "where it is now"?
   ///
-  /// Un vehículo cuya última posición es de hace media hora **no está** ahí:
-  /// está en algún punto de un círculo de veinte kilómetros. Para dibujar ese
-  /// círculo está `RoutesClient.calculateIsolines`.
+  /// A vehicle whose last position is half an hour old **is not** there: it
+  /// is somewhere inside a twenty-kilometer circle. To draw that circle there
+  /// is `RoutesClient.calculateIsolines`.
   bool isFresh({Duration maxAge = const Duration(minutes: 5)}) => age <= maxAge;
 
   @override
@@ -92,47 +92,48 @@ class DevicePosition {
       'hace ${age.inMinutes} min)';
 }
 
-/// Cómo decide el rastreador qué posiciones guarda.
+/// How the tracker decides which positions to store.
 ///
-/// ## Por qué esto es lo primero que hay que elegir
+/// ## Why this is the first thing to choose
 ///
-/// Es lo que separa una factura razonable de una desagradable, y lo que decide
-/// si el histórico sirve. Un localizador que reporta cada cinco segundos y un
-/// rastreador en [timeBased] guardan **una de cada seis** posiciones.
+/// It is what separates a reasonable bill from an unpleasant one, and what
+/// decides whether the history is useful. A tracking device that reports
+/// every five seconds and a tracker in [timeBased] store **one in six**
+/// positions.
 enum PositionFiltering {
-  /// Una posición cada 30 segundos como mucho. **El valor por defecto.**
+  /// One position every 30 seconds at most. **The default.**
   ///
-  /// Con un vehículo parado guarda igual, así que el histórico se llena de
-  /// puntos idénticos.
+  /// It keeps storing while the vehicle is parked, so the history fills up
+  /// with identical points.
   timeBased('TimeBased'),
 
-  /// Solo si se movió más de 30 metros.
+  /// Only if it moved more than 30 meters.
   ///
-  /// **Es el correcto para rastreo de vehículos**: un vehículo parado deja de
-  /// generar puntos, y el histórico de un día pasa de miles de posiciones a
-  /// cientos, sin perder nada del recorrido.
+  /// **This is the right one for vehicle tracking**: a parked vehicle stops
+  /// generating points, and a day's history goes from thousands of positions
+  /// to hundreds without losing anything of the route.
   distanceBased('DistanceBased'),
 
-  /// Solo si se movió más que el margen de error del GPS.
+  /// Only if it moved more than the GPS margin of error.
   ///
-  /// El más conservador: con dos medidas de precisión 5 m y 10 m, descarta la
-  /// segunda si el movimiento fue menor de 15 m. Evita el «temblor» de un
-  /// vehículo parado entre edificios altos.
+  /// The most conservative: with two readings of 5 m and 10 m accuracy, it
+  /// discards the second if the movement was less than 15 m. It avoids the
+  /// "jitter" of a vehicle parked between tall buildings.
   ///
-  /// Exige mandar `horizontalAccuracyMeters` en cada posición; sin él, el
-  /// servicio asume precisión perfecta y guarda todo.
+  /// It requires sending `horizontalAccuracyMeters` with every position;
+  /// without it, the service assumes perfect accuracy and stores everything.
   accuracyBased('AccuracyBased');
 
   const PositionFiltering(this.wireName);
 
-  /// El literal que viaja en el JSON.
+  /// The literal that travels in the JSON.
   final String wireName;
 }
 
-/// Un rastreador: el recurso donde se guardan las posiciones.
+/// A tracker: the resource where positions are stored.
 @immutable
 class Tracker {
-  /// Crea el rastreador.
+  /// Creates the tracker.
   const Tracker({
     required this.trackerName,
     this.trackerArn,
@@ -145,7 +146,7 @@ class Tracker {
     this.tags = const <String, String>{},
   });
 
-  /// Lee el rastreador de la respuesta del servicio.
+  /// Reads the tracker from the service response.
   factory Tracker.fromJson(Map<String, dynamic> json) => Tracker(
     trackerName: Json.string(json, 'TrackerName') ?? '',
     trackerArn: Json.string(json, 'TrackerArn'),
@@ -163,48 +164,47 @@ class Tracker {
     tags: DevicePosition._readProperties(json['Tags']),
   );
 
-  /// El nombre, que es su identificador.
+  /// The name, which is its identifier.
   final String trackerName;
 
-  /// El ARN completo.
+  /// The full ARN.
   final String? trackerArn;
 
-  /// La descripción.
+  /// The description.
   final String? description;
 
-  /// Qué posiciones guarda. Ver [PositionFiltering].
+  /// Which positions it stores. See [PositionFiltering].
   final PositionFiltering? positionFiltering;
 
-  /// ¿Publica los cambios de posición en EventBridge?
+  /// Does it publish position changes to EventBridge?
   ///
-  /// Es distinto de los eventos de geovalla: esto emite un evento por **cada
-  /// posición guardada**, y con una flota grande son muchos.
+  /// This is different from geofence events: it emits one event for **every
+  /// stored position**, and with a large fleet that is a lot of them.
   final bool? eventBridgeEnabled;
 
-  /// La clave de KMS con la que se cifra el histórico.
+  /// The KMS key the history is encrypted with.
   final String? kmsKeyId;
 
-  /// Cuándo se creó.
+  /// When it was created.
   final DateTime? createTime;
 
-  /// Cuándo se cambió.
+  /// When it was changed.
   final DateTime? updateTime;
 
-  /// Las etiquetas de AWS.
+  /// The AWS tags.
   final Map<String, String> tags;
 
   @override
   String toString() => 'Tracker($trackerName)';
 }
 
-/// El resultado de comprobar si una posición es de fiar.
+/// The result of checking whether a position can be trusted.
 ///
-/// Lo devuelve `TrackingClient.verifyDevicePosition`, y responde a una
-/// pregunta que ninguna otra operación responde: **¿me está mintiendo el
-/// dispositivo?**
+/// It is returned by `TrackingClient.verifyDevicePosition`, and it answers a
+/// question no other operation answers: **is the device lying to me?**
 @immutable
 class PositionVerification {
-  /// Crea el resultado.
+  /// Creates the result.
   const PositionVerification({
     required this.deviceId,
     required this.proxyDetected,
@@ -215,10 +215,10 @@ class PositionVerification {
     this.receivedTime,
   });
 
-  /// Lee el resultado de la respuesta del servicio.
+  /// Reads the result from the service response.
   ///
-  /// La desviación llega en la unidad pedida —kilómetros por defecto—;
-  /// `TrackingClient` la convierte a metros antes de construir esto.
+  /// The deviation arrives in the requested unit —kilometers by default—;
+  /// `TrackingClient` converts it to meters before building this.
   factory PositionVerification.fromJson(Map<String, dynamic> json) {
     final inferido = Json.object(json, 'InferredState');
     return PositionVerification(
@@ -235,39 +235,40 @@ class PositionVerification {
     );
   }
 
-  /// Qué dispositivo se comprobó.
+  /// Which device was checked.
   final String deviceId;
 
-  /// **¿La posición llegó a través de un proxy o una VPN?**
+  /// **Did the position arrive through a proxy or a VPN?**
   ///
-  /// Es la señal más fuerte de que alguien está falseando la ubicación: un
-  /// localizador honesto conectado por la red móvil no pasa por un proxy.
+  /// It is the strongest signal that someone is faking the location: an
+  /// honest tracking device connected over the mobile network doesn't go
+  /// through a proxy.
   final bool proxyDetected;
 
-  /// Dónde cree el servicio que estaba de verdad, deducido de la IP, las
-  /// antenas de telefonía y los puntos Wi-Fi vistos.
+  /// Where the service believes it really was, inferred from the IP, the cell
+  /// towers and the Wi-Fi access points seen.
   final LatLng? inferredPosition;
 
-  /// Cuánto se separa la posición declarada de la deducida, **en metros**.
+  /// How far the reported position is from the inferred one, **in meters**.
   ///
-  /// Una desviación de decenas de metros es normal. Una de decenas de
-  /// kilómetros con `proxyDetected` en `true` es alguien mintiendo.
+  /// A deviation of tens of meters is normal. One of tens of kilometers with
+  /// `proxyDetected` set to `true` is someone lying.
   final double? deviationMeters;
 
-  /// La precisión de la posición deducida.
+  /// The accuracy of the inferred position.
   final double? inferredAccuracyMeters;
 
-  /// Cuándo se midió.
+  /// When it was measured.
   final DateTime? sampleTime;
 
-  /// Cuándo llegó.
+  /// When it arrived.
   final DateTime? receivedTime;
 
-  /// ¿Hay motivos para desconfiar de esta posición?
+  /// Is there reason to distrust this position?
   ///
-  /// El umbral por defecto —10 km— es deliberadamente generoso: la
-  /// localización por antenas de telefonía tiene un error de kilómetros en
-  /// zona rural, y un umbral apretado marcaría como sospechoso a medio campo.
+  /// The default threshold —10 km— is deliberately generous: cell-tower
+  /// location has an error of kilometers in rural areas, and a tight
+  /// threshold would flag half the countryside as suspicious.
   bool isSuspicious({double maxDeviationMeters = 10000}) =>
       proxyDetected ||
       (deviationMeters != null && deviationMeters! > maxDeviationMeters);
@@ -278,38 +279,38 @@ class PositionVerification {
       'proxy: $proxyDetected, desvío: ${deviationMeters?.round()} m)';
 }
 
-/// Un punto Wi-Fi visto por el dispositivo, para verificar su posición.
+/// A Wi-Fi access point seen by the device, to verify its position.
 @immutable
 class WiFiAccessPoint {
-  /// Crea el punto.
+  /// Creates the access point.
   const WiFiAccessPoint({required this.macAddress, required this.rss});
 
-  /// La MAC del punto de acceso.
+  /// The MAC address of the access point.
   final String macAddress;
 
-  /// La potencia de la señal recibida, en dBm. Es negativa.
+  /// The received signal strength, in dBm. It is negative.
   final int rss;
 
-  /// El punto en la forma que espera el servicio.
+  /// The access point in the shape the service expects.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'MacAddress': macAddress,
     'Rss': rss,
   };
 }
 
-/// Una página de posiciones o de rastreadores.
+/// A page of positions or trackers.
 @immutable
 class TrackingPage<T> {
-  /// Crea la página.
+  /// Creates the page.
   const TrackingPage({required this.items, this.nextToken});
 
-  /// Los elementos.
+  /// The items.
   final List<T> items;
 
-  /// El testigo de la siguiente página.
+  /// The token for the next page.
   final String? nextToken;
 
-  /// ¿Hay más?
+  /// Are there more?
   bool get hasMore => nextToken != null;
 
   @override

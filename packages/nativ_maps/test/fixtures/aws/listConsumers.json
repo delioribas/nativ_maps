@@ -1,0 +1,5 @@
+{
+  "ConsumerArns": [
+    "arn:aws:geo:us-east-1:123456789012:geofence-collection/zonas"
+  ]
+}

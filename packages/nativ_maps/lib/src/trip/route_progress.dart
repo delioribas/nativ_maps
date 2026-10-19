@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'dart:math' as math;
 
@@ -7,10 +7,11 @@ import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/routes/models.dart';
 import 'package:nativ_maps/src/trip/geodesy.dart';
 
-/// Dónde va el vehículo dentro de una ruta calculada.
+/// Where the vehicle is along a calculated route.
 @immutable
+@experimental
 class RouteProgress {
-  /// Crea un progreso.
+  /// Creates a progress.
   const RouteProgress({
     required this.match,
     required this.traveledMeters,
@@ -24,43 +25,44 @@ class RouteProgress {
     required this.distanceToNextManeuverMeters,
   });
 
-  /// El punto de la ruta al que se enganchó la posición.
+  /// The point on the route the position was snapped to.
   final PathMatch match;
 
-  /// Cuánta ruta queda por detrás, en metros.
+  /// How much route lies behind, in meters.
   final double traveledMeters;
 
-  /// Cuánta ruta queda por delante, en metros.
+  /// How much route lies ahead, in meters.
   final double remainingMeters;
 
-  /// Cuánto falta, según los tiempos que dio el servicio por cada maniobra.
+  /// How much time is left, based on the times the service gave for each
+  /// maneuver.
   final Duration remainingDuration;
 
-  /// La hora estimada de llegada.
+  /// The estimated time of arrival.
   final DateTime eta;
 
-  /// ¿Está fuera de la ruta?
+  /// Is it off the route?
   ///
-  /// No se activa con una sola lectura mala: hace falta que varias seguidas
-  /// caigan lejos. Ver `RouteTracker.offRouteStrikes`.
+  /// A single bad reading does not trigger it: several in a row have to land
+  /// far away. See `RouteTracker.offRouteStrikes`.
   final bool offRoute;
 
-  /// El índice de la maniobra en curso dentro de `Route.steps`.
+  /// The index of the current maneuver within `Route.steps`.
   final int stepIndex;
 
-  /// La maniobra en curso, si la ruta trae indicaciones.
+  /// The current maneuver, if the route carries instructions.
   final TravelStep? currentStep;
 
-  /// La maniobra siguiente.
+  /// The next maneuver.
   final TravelStep? nextStep;
 
-  /// Cuántos metros faltan para la maniobra siguiente.
+  /// How many meters are left until the next maneuver.
   final double? distanceToNextManeuverMeters;
 
-  /// Cuánta ruta se lleva hecha, entre 0 y 1.
+  /// How much of the route has been covered, between 0 and 1.
   double get fraction => match.fraction;
 
-  /// A qué distancia de la ruta está el vehículo, en metros.
+  /// How far the vehicle is from the route, in meters.
   double get deviationMeters => match.distanceMeters;
 
   @override
@@ -71,39 +73,40 @@ class RouteProgress {
       '${offRoute ? ', FUERA DE RUTA' : ''})';
 }
 
-/// Sigue a un vehículo a lo largo de una ruta, **sin gastar peticiones**.
+/// Follows a vehicle along a route, **without spending requests**.
 ///
 /// ```dart
-/// final seguimiento = RouteTracker(respuesta.best!);
-/// // ...por cada posición del GPS:
-/// final progreso = seguimiento.update(posicion);
-/// if (progreso.offRoute) await recalcularRuta();
+/// final tracker = RouteTracker(response.best!);
+/// // ...for each GPS position:
+/// final progress = tracker.update(position);
+/// if (progress.offRoute) await recalculateRoute();
 /// ```
 ///
-/// ## Por qué el tiempo restante no es proporcional a la distancia
+/// ## Why the remaining time is not proportional to the distance
 ///
-/// La forma fácil de estimar lo que falta es `duración × (1 − fracción)`. Está
-/// mal en cuanto la ruta mezcla tipos de vía: si quedan 20 km de los 25, pero
-/// esos 20 son autopista y los 5 recorridos eran ciudad, esa cuenta dice el
-/// doble de lo que va a tardar.
+/// The easy way to estimate what is left is `duration × (1 − fraction)`. It is
+/// wrong as soon as the route mixes road types: if 20 of the 25 km are left,
+/// but those 20 are highway and the 5 already covered were city, that formula
+/// says twice as long as it will actually take.
 ///
-/// Aquí se usa el tiempo que el servicio dio **para cada maniobra**: se
-/// consume la parte proporcional de la maniobra en curso y se suman enteras
-/// las que quedan. Si la ruta viene sin indicaciones —no se pidió
-/// `RouteFeature.travelStepInstructions`— se cae al reparto proporcional, que
-/// es lo único que queda.
+/// Here the time the service gave **for each maneuver** is used: the
+/// proportional part of the current maneuver is consumed and the remaining
+/// ones are added in full. If the route comes without instructions
+/// —`RouteFeature.travelStepInstructions` was not requested— it falls back to
+/// the proportional split, which is all that is left.
 ///
-/// ## Por qué hay histéresis en el desvío
+/// ## Why there is hysteresis on the deviation
 ///
-/// Una sola lectura mala coloca el coche a 80 m de su carril. Recalcular la
-/// ruta ahí es una petición facturada tirada, y en una calle con edificios
-/// altos ocurre varias veces por minuto. Hacen falta [offRouteStrikes]
-/// lecturas seguidas lejos de la ruta para darlo por bueno.
+/// A single bad reading puts the car 80 m from its lane. Recalculating the
+/// route there is a billed request thrown away, and on a street with tall
+/// buildings it happens several times a minute. It takes [offRouteStrikes]
+/// readings in a row far from the route to accept it.
+@experimental
 class RouteTracker {
-  /// Crea un seguimiento sobre una ruta.
+  /// Creates a tracker over a route.
   ///
-  /// Lanza [ArgumentError] si la ruta no tiene geometría: sin puntos no hay
-  /// nada sobre lo que proyectar.
+  /// Throws [ArgumentError] if the route has no geometry: without points there
+  /// is nothing to project onto.
   RouteTracker(
     this.route, {
     this.offRouteThresholdMeters = 45,
@@ -122,23 +125,23 @@ class RouteTracker {
     _stepEnds = _accumulateSteps();
   }
 
-  /// La ruta que se sigue.
+  /// The route being followed.
   final Route route;
 
-  /// A partir de cuántos metros se considera que el vehículo se salió.
+  /// How many meters away the vehicle has to be to count as having left.
   ///
-  /// 45 m deja pasar el ancho de una avenida con laterales y el error típico
-  /// de un móvil en ciudad. Para autopista se puede subir a 80.
+  /// 45 m allows for the width of an avenue with side lanes and the typical
+  /// error of a phone in a city. For highways it can be raised to 80.
   final double offRouteThresholdMeters;
 
-  /// Cuántas lecturas seguidas lejos hacen falta para dar el desvío por bueno.
+  /// How many readings in a row far away it takes to accept the deviation.
   final int offRouteStrikes;
 
-  /// Cuántos segmentos se miran por delante del último emparejamiento.
+  /// How many segments are looked at ahead of the last match.
   ///
-  /// Evita recorrer una ruta de miles de puntos en cada posición. Si el mejor
-  /// resultado dentro de la ventana queda lejos, se repite la búsqueda sobre
-  /// la ruta entera: es lo que rescata al vehículo tras un túnel.
+  /// It avoids walking a route of thousands of points on every position. If
+  /// the best result within the window is far away, the search is repeated
+  /// over the whole route: that is what rescues the vehicle after a tunnel.
   final int searchWindowSegments;
 
   final List<LatLng> _path;
@@ -149,23 +152,23 @@ class RouteTracker {
   int _strikes = 0;
   bool _offRoute = false;
 
-  /// ¿Está fuera de ruta ahora mismo?
+  /// Is it off the route right now?
   bool get isOffRoute => _offRoute;
 
-  /// La longitud de la geometría de la ruta, en metros.
+  /// The length of the route geometry, in meters.
   double get pathLengthMeters => _cumulative.last;
 
-  /// Vuelve a buscar en toda la ruta en la próxima llamada.
+  /// Searches the whole route again on the next call.
   ///
-  /// Hay que llamarlo tras una pausa larga sin posiciones, o al reanudar la
-  /// aplicación: la ventana de búsqueda supone continuidad.
+  /// Call it after a long pause without positions, or when the app resumes:
+  /// the search window assumes continuity.
   void resync() {
     _lastSegment = 0;
     _strikes = 0;
     _offRoute = false;
   }
 
-  /// Calcula el progreso para una posición.
+  /// Computes the progress for a position.
   RouteProgress update(LatLng position, {DateTime? now}) {
     var match = nearestPointOnPath(
       _path,
@@ -175,9 +178,9 @@ class RouteTracker {
       cumulative: _cumulative,
     );
 
-    // Si dentro de la ventana no hay nada cerca, puede ser un desvío de verdad
-    // o que el vehículo reapareciese lejos. Se comprueba mirando toda la ruta
-    // antes de declarar nada.
+    // If there is nothing close within the window, it may be a real deviation
+    // or the vehicle may have reappeared far away. Check the whole route
+    // before declaring anything.
     if (match.distanceMeters > offRouteThresholdMeters) {
       final fullScan = nearestPointOnPath(
         _path,
@@ -219,11 +222,11 @@ class RouteTracker {
     );
   }
 
-  /// Distancia acumulada al final de cada maniobra.
+  /// Cumulative distance at the end of each maneuver.
   ///
-  /// Se escala para que la suma coincida con la longitud real de la
-  /// geometría: las dos cifras vienen del servicio y difieren en unos metros
-  /// por redondeo, y sin escalar el progreso se descuadra al final.
+  /// It is scaled so the sum matches the real length of the geometry: both
+  /// figures come from the service and differ by a few meters due to
+  /// rounding, and without scaling the progress goes out of step at the end.
   List<double> _accumulateSteps() {
     final steps = route.steps;
     if (steps.isEmpty) return const <double>[];
@@ -242,7 +245,7 @@ class RouteTracker {
   Duration _remainingFrom(double travelled) {
     final steps = route.steps;
     if (steps.isEmpty || _stepEnds.isEmpty) {
-      // Sin indicaciones no queda más que el reparto proporcional.
+      // Without instructions, the proportional split is all that is left.
       final total = _cumulative.last;
       if (total <= 0) return Duration.zero;
       final fraction = 1 - (travelled / total).clamp(0.0, 1.0);

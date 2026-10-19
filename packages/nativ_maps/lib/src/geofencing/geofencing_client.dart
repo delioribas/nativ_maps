@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Delio Ribas. Licencia MIT — ver LICENSE.
+// Copyright (c) 2026 Delio Ribas. MIT License — see LICENSE.
 
 import 'package:meta/meta.dart';
 import 'package:nativ_maps/src/client/transport.dart';
@@ -7,43 +7,46 @@ import 'package:nativ_maps/src/core/json.dart';
 import 'package:nativ_maps/src/core/lat_lng.dart';
 import 'package:nativ_maps/src/geofencing/models.dart';
 
-/// Las **12 operaciones** de geovallas de Amazon Location.
+/// The **12 Amazon Location geofencing operations**.
 ///
-/// | Método | Endpoint | Para qué |
+/// | Method | Endpoint | What for |
 /// |---|---|---|
-/// | [putGeofence] | `PUT /collections/{c}/geofences/{g}` | crear o cambiar una zona |
-/// | [batchPutGeofence] | `POST …/put-geofences` | hasta 10 de golpe |
-/// | [getGeofence] | `GET …/geofences/{g}` | leer una |
-/// | [listGeofences] | `POST …/list-geofences` | listarlas |
-/// | [batchDeleteGeofence] | `POST …/delete-geofences` | borrar varias |
-/// | [batchEvaluateGeofences] | `POST …/positions` | **¿entró o salió?** |
-/// | [forecastGeofenceEvents] | `POST …/forecast-geofence-events` | **¿va a entrar?** |
-/// | [createCollection] | `POST /collections` | crear la colección |
-/// | [describeCollection] | `GET /collections/{c}` | leerla |
-/// | [updateCollection] | `PATCH /collections/{c}` | cambiarla |
-/// | [deleteCollection] | `DELETE /collections/{c}` | borrarla |
-/// | [listCollections] | `POST /list-collections` | listarlas |
+/// | [putGeofence] | `PUT /collections/{c}/geofences/{g}` | create or change a zone |
+/// | [batchPutGeofence] | `POST …/put-geofences` | up to 10 at once |
+/// | [getGeofence] | `GET …/geofences/{g}` | read one |
+/// | [listGeofences] | `POST …/list-geofences` | list them |
+/// | [batchDeleteGeofence] | `POST …/delete-geofences` | delete several |
+/// | [batchEvaluateGeofences] | `POST …/positions` | **entered or exited?** |
+/// | [forecastGeofenceEvents] | `POST …/forecast-geofence-events` | **is it about to enter?** |
+/// | [createCollection] | `POST /collections` | create the collection |
+/// | [describeCollection] | `GET /collections/{c}` | read it |
+/// | [updateCollection] | `PATCH /collections/{c}` | change it |
+/// | [deleteCollection] | `DELETE /collections/{c}` | delete it |
+/// | [listCollections] | `POST /list-collections` | list them |
 ///
-/// ## ⚠️ Tres cosas que no son como en Places, Routes y Maps
+/// ## ⚠️ Three things that aren't like in Places, Routes and Maps
 ///
-/// Esta familia es de la **generación anterior**, y se nota en tres sitios:
+/// This family belongs to the **previous generation**, and it shows in three
+/// places:
 ///
-/// 1. **Hay que crear un recurso.** Una colección de geovallas se crea con
-///    [createCollection] o en la consola. No es como v2, donde no se crea nada.
-/// 2. **No admite clave de API.** Las claves de Amazon Location solo cubren
-///    Places, Routes y Maps. Aquí hacen falta credenciales SigV4 — un proxy o
-///    `nativ_maps_sigv4`. Intentarlo con clave se corta antes de enviar, con
-///    un mensaje que lo dice.
-/// 3. **El plano de control va a otro host**, con el prefijo `cp.`. Se resuelve
-///    solo, pero explica por qué hay dos valores en `AlsService`.
+/// 1. **You have to create a resource.** A geofence collection is created
+///    with [createCollection] or in the console. It's not like v2, where you
+///    create nothing.
+/// 2. **It doesn't accept an API key.** Amazon Location keys only cover
+///    Places, Routes and Maps. Here you need SigV4 credentials — a proxy or
+///    `nativ_maps_sigv4`. Trying it with a key is cut off before sending, with
+///    a message that says so.
+/// 3. **The control plane goes to another host**, with the `cp.` prefix. It's
+///    resolved automatically, but it explains why there are two values in
+///    `AlsService`.
 ///
-/// ## Lo que de verdad justifica usarla
+/// ## What really justifies using it
 ///
-/// [forecastGeofenceEvents]. No dice dónde está el vehículo: dice **dónde va a
-/// estar**. Avisar seis minutos antes de que salga de la zona permitida es una
-/// operación distinta de avisar cuando ya salió.
+/// [forecastGeofenceEvents]. It doesn't tell you where the vehicle is: it
+/// tells you **where it's going to be**. Warning six minutes before it leaves
+/// the allowed zone is a different operation from warning once it has left.
 class GeofencingClient {
-  /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
+  /// Builds the client. Internal use: it comes already set up in `NativMaps`.
   @internal
   GeofencingClient({required AlsTransport transport}) : _transport = transport;
 
@@ -52,36 +55,36 @@ class GeofencingClient {
   static const AlsService _data = AlsService.geofencing;
   static const AlsService _control = AlsService.geofencingControl;
 
-  /// Máximo de posiciones por llamada a [batchEvaluateGeofences].
+  /// Maximum positions per call to [batchEvaluateGeofences].
   static const int maxPositionsPerBatch = 10;
 
-  /// Máximo de geovallas por llamada a [batchPutGeofence].
+  /// Maximum geofences per call to [batchPutGeofence].
   static const int maxGeofencesPerBatch = 10;
 
-  // ─── Geovallas ────────────────────────────────────────────────────────
+  // ─── Geofences ────────────────────────────────────────────────────────
 
-  /// Crea o reemplaza una geovalla.
+  /// Creates or replaces a geofence.
   ///
   /// ```dart
   /// await maps.geofencing.putGeofence(
-  ///   collectionName: 'zonas-permitidas',
-  ///   geofenceId: 'bodega-norte',
+  ///   collectionName: 'allowed-zones',
+  ///   geofenceId: 'north-warehouse',
   ///   geometry: GeofenceGeometry.circle(
   ///     center: LatLng(-0.1807, -78.4678),
   ///     radiusMeters: 500,
   ///   ),
-  ///   properties: {'cliente': 'ACME', 'tipo': 'bodega'},
+  ///   properties: {'client': 'ACME', 'type': 'warehouse'},
   /// );
   /// ```
   ///
-  /// [properties] admite **tres** entradas como mucho, con claves de 20
-  /// caracteres y valores de 40. Viajan **dentro de cada evento** que dispare
-  /// la geovalla, así que es donde se mete lo que hará falta al recibirlo sin
-  /// tener que consultarlo.
+  /// [properties] accepts **three** entries at most, with keys of up to 20
+  /// characters and values of up to 40. They travel **inside every event** the
+  /// geofence fires, so that's where you put what you'll need on receiving it
+  /// without having to look it up.
   ///
-  /// Una geovalla recién creada tarda un momento en pasar a `ACTIVE`, y hasta
-  /// entonces **no dispara nada**. Evaluar contra una en `PENDING` no falla:
-  /// simplemente no salta, que es peor.
+  /// A freshly created geofence takes a moment to become `ACTIVE`, and until
+  /// then it **fires nothing**. Evaluating against one in `PENDING` doesn't
+  /// fail: it simply doesn't trigger, which is worse.
   Future<Geofence> putGeofence({
     required String collectionName,
     required String geofenceId,
@@ -110,11 +113,11 @@ class GeofencingClient {
     );
   }
 
-  /// Crea o reemplaza hasta 10 geovallas de una vez.
+  /// Creates or replaces up to 10 geofences at once.
   ///
-  /// **No falla entera**: procesa lo que puede y devuelve los fallos uno a
-  /// uno. Hay que mirar `errors`, porque la respuesta es 200 aunque falle la
-  /// mitad.
+  /// **It doesn't fail as a whole**: it processes what it can and returns the
+  /// failures one by one. You have to check `errors`, because the response is
+  /// 200 even if half of them fail.
   Future<BatchResult> batchPutGeofence({
     required String collectionName,
     required List<Geofence> geofences,
@@ -154,7 +157,7 @@ class GeofencingClient {
     );
   }
 
-  /// Lee una geovalla.
+  /// Reads a geofence.
   Future<Geofence> getGeofence({
     required String collectionName,
     required String geofenceId,
@@ -170,7 +173,7 @@ class GeofencingClient {
     return Geofence.fromJson(json);
   }
 
-  /// Lista las geovallas de una colección.
+  /// Lists the geofences in a collection.
   Future<GeofencePage<Geofence>> listGeofences({
     required String collectionName,
     int? maxResults,
@@ -195,7 +198,7 @@ class GeofencingClient {
     );
   }
 
-  /// Borra varias geovallas.
+  /// Deletes several geofences.
   Future<BatchResult> batchDeleteGeofence({
     required String collectionName,
     required List<String> geofenceIds,
@@ -224,34 +227,34 @@ class GeofencingClient {
     );
   }
 
-  // ─── Evaluación ───────────────────────────────────────────────────────
+  // ─── Evaluation ───────────────────────────────────────────────────────
 
-  /// Evalúa posiciones contra las geovallas de una colección.
+  /// Evaluates positions against the geofences in a collection.
   ///
-  /// ## La respuesta viene vacía a propósito
+  /// ## The response comes back empty on purpose
   ///
-  /// **Esta operación no dice si el dispositivo entró o salió.** La evaluación
-  /// es asíncrona: el servicio publica un evento `ENTER` o `EXIT` en **Amazon
-  /// EventBridge**, y ahí es donde hay que escucharlo — con una Lambda, una
-  /// cola SQS o una notificación SNS.
+  /// **This operation doesn't tell you whether the device entered or
+  /// exited.** Evaluation is asynchronous: the service publishes an `ENTER` or
+  /// `EXIT` event to **Amazon EventBridge**, and that's where you have to
+  /// listen for it — with a Lambda, an SQS queue or an SNS notification.
   ///
-  /// Quien espere una respuesta síncrona se encuentra un `Errors` vacío y
-  /// concluye que no pasó nada. Por eso [BatchResult.errors] es lo único que
-  /// vuelve, y hay que mirarlo: es 200 aunque falle la mitad.
+  /// Anyone expecting a synchronous answer finds an empty `Errors` and
+  /// concludes that nothing happened. That's why [BatchResult.errors] is the
+  /// only thing that comes back, and you have to check it: it's 200 even if
+  /// half of them fail.
   ///
-  /// Para saber ahora mismo si un punto está dentro sin esperar a EventBridge,
-  /// está `GeofenceGeometry.contains`, que se calcula en local y no cuesta
-  /// nada.
+  /// To know right now whether a point is inside without waiting for
+  /// EventBridge, there's `GeofenceGeometry.contains`, which is computed
+  /// locally and costs nothing.
   ///
-  /// ## Detalles que importan
+  /// ## Details that matter
   ///
-  /// - Máximo **10 posiciones** por llamada.
-  /// - **No hace falta que exista un rastreador**: el `deviceId` es una cadena
-  ///   libre.
-  /// - La última geovalla en la que se vio un dispositivo se recuerda **30
-  ///   días**. Pasado ese plazo, la primera posición vuelve a producir un
-  ///   `ENTER`.
-  /// - **Se ignora la precisión**: la evaluación usa la posición tal cual.
+  /// - At most **10 positions** per call.
+  /// - **A tracker doesn't need to exist**: the `deviceId` is a free-form
+  ///   string.
+  /// - The last geofence a device was seen in is remembered for **30 days**.
+  ///   After that, the first position produces an `ENTER` again.
+  /// - **Accuracy is ignored**: the evaluation uses the position as is.
   Future<BatchResult> batchEvaluateGeofences({
     required String collectionName,
     required List<DevicePositionUpdate> positions,
@@ -286,48 +289,49 @@ class GeofencingClient {
     );
   }
 
-  /// **Predice** qué geovallas va a cruzar un dispositivo.
+  /// **Predicts** which geofences a device is going to cross.
   ///
-  /// Esta es la operación que no tiene equivalente en ningún otro sitio, y la
-  /// razón principal para usar esta familia:
+  /// This is the operation that has no equivalent anywhere else, and the main
+  /// reason to use this family:
   ///
   /// ```dart
-  /// final aviso = await maps.geofencing.forecastGeofenceEvents(
-  ///   collectionName: 'zonas-permitidas',
-  ///   position: ultimaPosicion,
+  /// final forecast = await maps.geofencing.forecastGeofenceEvents(
+  ///   collectionName: 'allowed-zones',
+  ///   position: lastPosition,
   ///   speedKmh: 62,
   ///   timeHorizon: const Duration(minutes: 10),
   /// );
   ///
-  /// for (final evento in aviso.breaches) {
-  ///   alertar(
-  ///     'El vehículo ${evento.eventType.name} la zona ${evento.geofenceId} '
-  ///     'en ${evento.timeUntilBreach!.inMinutes} min',
+  /// for (final event in forecast.breaches) {
+  ///   alert(
+  ///     'Vehicle will ${event.eventType.name} zone ${event.geofenceId} '
+  ///     'in ${event.timeUntilBreach!.inMinutes} min',
   ///   );
   /// }
   /// ```
   ///
-  /// **Avisar antes es una operación distinta de avisar después.** Con un
-  /// vehículo robado, seis minutos de margen son la diferencia entre
-  /// interceptarlo y perseguirlo.
+  /// **Warning before is a different operation from warning after.** With a
+  /// stolen vehicle, six minutes of lead time are the difference between
+  /// intercepting it and chasing it.
   ///
-  /// ## Dos cosas que hay que saber
+  /// ## Two things you need to know
   ///
-  /// **Sin [speedKmh] o sin [timeHorizon] no predice nada**: se convierte en
-  /// una simple comprobación de contención y devuelve solo eventos `IDLE` de
-  /// las geovallas en las que ya está. Es útil, pero no es lo que se pedía.
+  /// **Without [speedKmh] or without [timeHorizon] it predicts nothing**: it
+  /// turns into a simple containment check and returns only `IDLE` events for
+  /// the geofences it's already in. It's useful, but it's not what you asked
+  /// for.
   ///
-  /// **No tiene en cuenta el rumbo.** La documentación de AWS lo dice
-  /// explícitamente: es conservador e incluye los cruces posibles en
-  /// *cualquier* dirección. Con un vehículo parado en un cruce, eso son varias
-  /// zonas a la vez.
+  /// **It doesn't take heading into account.** The AWS documentation says so
+  /// explicitly: it's conservative and includes possible crossings in *any*
+  /// direction. With a vehicle stopped at an intersection, that's several
+  /// zones at once.
   ///
-  /// ## La unidad
+  /// ## The unit
   ///
-  /// Esta familia sí tiene `DistanceUnit` —es de la generación anterior—.
-  /// Aquí se pide siempre en kilómetros y **se convierte a metros**, para que
-  /// `nearestDistance` llegue en la misma unidad que todo lo demás del
-  /// paquete.
+  /// This family does have `DistanceUnit` —it's from the previous
+  /// generation—. Here it's always requested in kilometers and **converted to
+  /// meters**, so that `nearestDistance` arrives in the same unit as
+  /// everything else in the package.
   Future<ForecastGeofenceEventsResponse> forecastGeofenceEvents({
     required String collectionName,
     required LatLng position,
@@ -350,8 +354,8 @@ class GeofencingClient {
         },
         if (timeHorizon != null)
           'TimeHorizonMinutes': timeHorizon.inSeconds / 60.0,
-        // Fijos a propósito: se piden en kilómetros y se convierten a metros
-        // al leer, para que el resto del paquete siga en unidades del SI.
+        // Fixed on purpose: requested in kilometers and converted to meters
+        // on read, so the rest of the package stays in SI units.
         'DistanceUnit': 'Kilometers',
         'SpeedUnit': 'KilometersPerHour',
         'MaxResults': ?maxResults,
@@ -368,7 +372,7 @@ class GeofencingClient {
             geofenceId: e.geofenceId,
             eventType: e.eventType,
             isDeviceInGeofence: e.isDeviceInGeofence,
-            // De kilómetros a metros.
+            // From kilometers to meters.
             nearestDistance: e.nearestDistance * 1000,
             forecastedBreachTime: e.forecastedBreachTime,
             geofenceProperties: e.geofenceProperties,
@@ -378,17 +382,17 @@ class GeofencingClient {
     );
   }
 
-  // ─── Colecciones · plano de control ───────────────────────────────────
+  // ─── Collections · control plane ──────────────────────────────────────
 
-  /// Crea una colección de geovallas.
+  /// Creates a geofence collection.
   ///
-  /// Va a **otro host** (`cp.geofencing.geo.…`) y suele hacerse una vez, desde
-  /// una herramienta de administración o desde la consola. Una app móvil casi
-  /// nunca debería tener permiso para esto.
+  /// It goes to **another host** (`cp.geofencing.geo.…`) and is usually done
+  /// once, from an admin tool or from the console. A mobile app should almost
+  /// never have permission for this.
   ///
-  /// [kmsKeyId] cifra las geovallas con una clave propia. Es lo que pide un
-  /// cliente que considere las zonas información sensible — y una zona
-  /// *dibuja* dónde vive alguien, así que a veces lo es.
+  /// [kmsKeyId] encrypts the geofences with your own key. It's what a client
+  /// asks for when they consider the zones sensitive information — and a zone
+  /// *draws* where someone lives, so sometimes it is.
   Future<GeofenceCollection> createCollection({
     required String collectionName,
     String? description,
@@ -410,7 +414,7 @@ class GeofencingClient {
     return GeofenceCollection.fromJson(json);
   }
 
-  /// Lee los datos de una colección, incluido cuántas geovallas tiene.
+  /// Reads a collection's data, including how many geofences it has.
   Future<GeofenceCollection> describeCollection(String collectionName) async {
     final json = await _transport.sendJson(
       operation: 'DescribeGeofenceCollection',
@@ -421,7 +425,7 @@ class GeofencingClient {
     return GeofenceCollection.fromJson(json);
   }
 
-  /// Cambia la descripción de una colección.
+  /// Changes a collection's description.
   Future<GeofenceCollection> updateCollection({
     required String collectionName,
     String? description,
@@ -436,10 +440,10 @@ class GeofencingClient {
     return GeofenceCollection.fromJson(json);
   }
 
-  /// Borra una colección **y todas sus geovallas**.
+  /// Deletes a collection **and all its geofences**.
   ///
-  /// No se puede deshacer, y los rastreadores enlazados dejan de disparar
-  /// eventos sin dar ningún error: simplemente no salta nada.
+  /// It can't be undone, and linked trackers stop firing events without
+  /// raising any error: nothing triggers anymore.
   Future<void> deleteCollection(String collectionName) async {
     await _transport.sendJson(
       operation: 'DeleteGeofenceCollection',
@@ -449,7 +453,7 @@ class GeofencingClient {
     );
   }
 
-  /// Lista las colecciones de la cuenta.
+  /// Lists the account's collections.
   Future<GeofencePage<GeofenceCollection>> listCollections({
     int? maxResults,
     String? nextToken,
@@ -473,7 +477,7 @@ class GeofencingClient {
     );
   }
 
-  // ─── Auxiliares ───────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────
 
   static void _checkProperties(Map<String, String> properties) {
     if (properties.length > 3) {
