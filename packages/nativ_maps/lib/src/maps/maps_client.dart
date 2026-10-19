@@ -18,14 +18,14 @@ import 'package:nativ_maps/src/core/lat_lng.dart';
 /// ## Por qué tres de las cinco no tienen método
 ///
 /// El descriptor de estilo **lleva dentro sus propias URLs** de teselas,
-/// glifos y sprites, ya firmadas o con la clave puesta. MapLibre las sigue
+/// glifos y sprites, con la clave puesta donde hace falta. MapLibre las sigue
 /// solo. Construirlas aparte —como hacía la generación anterior— era una forma
 /// de que se desincronizaran del estilo sin que nadie se enterara: se cambiaba
 /// el estilo y las etiquetas seguían pidiendo los glifos del anterior.
 ///
 /// Están expuestas igual en [tileUrlTemplate], [glyphsUrlTemplate] y
-/// [spritesUrlTemplate] para quien monte su propio renderizador o quiera
-/// precargar teselas, pero no son el camino normal.
+/// [spritesUrl] para quien monte su propio renderizador o quiera precargar
+/// teselas, pero no son el camino normal.
 class MapsClient {
   /// Construye el cliente. Uso interno: llega ya montado en `NativMaps`.
   @internal
@@ -174,7 +174,7 @@ class MapsClient {
 
   // ─── GetStaticMap ─────────────────────────────────────────────────────
 
-  /// Una imagen de mapa ya renderizada. `GET /v2/static-map`.
+  /// Una imagen de mapa ya renderizada, en JPEG. `GET /v2/static/map`.
   ///
   /// **Lo pinta el servidor**, así que sirve donde no hay widget: la miniatura
   /// de una notificación push, el mapa de un PDF, la imagen de un correo, la
@@ -183,7 +183,8 @@ class MapsClient {
   ///
   /// Hay tres formas de encuadrar, **excluyentes** entre sí:
   ///
-  /// - [center] con [zoom]: el encuadre clásico;
+  /// - [center] con [zoom] o con [radiusMeters] —uno de los dos, no ambos—:
+  ///   el encuadre clásico;
   /// - [boundingBox]: el rectángulo que hay que ver;
   /// - [boundedPositions]: los puntos que tienen que caber, y el servicio
   ///   calcula el encuadre. Es la más cómoda para pintar una ruta.
@@ -191,6 +192,10 @@ class MapsClient {
   /// [geoJsonOverlay] dibuja geometría encima: la línea de la ruta, los
   /// marcadores, el polígono de una isócrona. Es lo que convierte esto en una
   /// miniatura útil y no en un mapa vacío.
+  ///
+  /// [width] y [height] van de 64 a 1400 píxeles, y [style] solo admite
+  /// [MapStyle.standard] y [MapStyle.satellite]. Fuera de eso lanza
+  /// `ArgumentError` antes de enviar.
   Future<AlsBytes> staticMap({
     LatLng? center,
     double? zoom,
@@ -231,7 +236,7 @@ class MapsClient {
     return _transport.getBytes(
       operation: 'GetStaticMap',
       service: _service,
-      path: '/v2/static-map',
+      path: _staticMapPath,
       queryParameters: query,
     );
   }
@@ -281,11 +286,16 @@ class MapsClient {
     );
     final base = _transport.credentials.baseUri(_service, region);
     final uri = base.replace(
-      path: '${_trimSlash(base.path)}/v2/static-map',
+      path: '${_trimSlash(base.path)}$_staticMapPath',
       queryParameters: query,
     );
     return _withApiKey(uri).toString();
   }
+
+  /// `map` es el nombre de archivo que exige el servicio; `map@2x` dobla la
+  /// densidad. Con `/v2/static-map` la pasarela responde 403 «Missing
+  /// Authentication Token», que despista: no falta nada, la ruta no existe.
+  static const String _staticMapPath = '/v2/static/map';
 
   Map<String, String> _staticMapQuery({
     required int width,
@@ -312,8 +322,8 @@ class MapsClient {
     ];
     if (framings.isEmpty) {
       throw ArgumentError(
-        'staticMap necesita un encuadre: center (con zoom), boundingBox o '
-        'boundedPositions.',
+        'staticMap necesita un encuadre: center (con zoom o radiusMeters), '
+        'boundingBox o boundedPositions.',
       );
     }
     if (framings.length > 1) {
@@ -322,13 +332,29 @@ class MapsClient {
         '${framings.join(', ')}. La API responde 400 con más de uno.',
       );
     }
-    if (width < 1 || width > 1440 || height < 1 || height > 1440) {
+    if (zoom != null && radiusMeters != null) {
+      throw ArgumentError('zoom y radiusMeters son excluyentes.');
+    }
+    if (center != null && zoom == null && radiusMeters == null) {
+      throw ArgumentError('center necesita zoom o radiusMeters.');
+    }
+    if (width < 64 || width > 1400 || height < 64 || height > 1400) {
       throw ArgumentError(
-        'width y height admiten entre 1 y 1440 píxeles; llegaron '
+        'width y height admiten entre 64 y 1400 píxeles; llegaron '
         '${width}x$height.',
       );
     }
+    if (style != MapStyle.standard && style != MapStyle.satellite) {
+      throw ArgumentError.value(
+        style,
+        'style',
+        'el mapa estático solo admite standard y satellite',
+      );
+    }
 
+    // Los nombres de los parámetros no siguen a los de la API en camelCase:
+    // `lang`, `pois` y `scale-unit`. Un nombre que el servicio no conoce no
+    // da error — se ignora en silencio y la imagen sale sin el ajuste.
     return <String, String>{
       'width': '$width',
       'height': '$height',
@@ -344,10 +370,11 @@ class MapsClient {
       if (colorScheme != null) 'color-scheme': colorScheme.wireName,
       'geojson-overlay': ?geoJsonOverlay,
       if (paddingPixels != null) 'padding': '${paddingPixels.round()}',
-      if (scaleBarUnit != null) 'scale-bar-unit': scaleBarUnit.wireName,
+      if (scaleBarUnit != null) 'scale-unit': scaleBarUnit.wireName,
       if (cropLabels != null) 'crop-labels': '$cropLabels',
-      if (pointsOfInterest != null) 'points-of-interests': '$pointsOfInterest',
-      'language': ?language,
+      if (pointsOfInterest != null)
+        'pois': pointsOfInterest ? 'Enabled' : 'Disabled',
+      'lang': ?language,
       if ((politicalView ?? this.politicalView) != null)
         'political-view': politicalView ?? this.politicalView!,
     };
@@ -361,36 +388,52 @@ class MapsClient {
   /// dentro y MapLibre la sigue sola. Está aquí para quien monte su propio
   /// renderizador o quiera precargar una zona a mano.
   ///
-  /// [tileset] es normalmente `raster.satellite` o el que indique el estilo.
+  /// [tileset] es normalmente `vector.basemap`, `raster.satellite` o el que
+  /// indique el estilo.
   String? tileUrlTemplate(String tileset) {
     if (!_transport.credentials.isConfigured) return null;
     final base = _transport.credentials.baseUri(_service, region);
     final uri = base.replace(
       path: '${_trimSlash(base.path)}/v2/tiles/$tileset/{z}/{x}/{y}',
     );
-    return _withApiKey(uri).toString();
+    return _keepPlaceholders(_withApiKey(uri).toString());
   }
 
   /// La plantilla de URL de glifos, con `{fontstack}` y `{range}`.
   ///
-  /// Igual que [tileUrlTemplate]: el estilo ya la trae.
+  /// Igual que [tileUrlTemplate]: el estilo ya la trae. Va **sin clave**,
+  /// como en el propio estilo: `GetGlyphs` es público.
   String? glyphsUrlTemplate() {
     if (!_transport.credentials.isConfigured) return null;
     final base = _transport.credentials.baseUri(_service, region);
     final uri = base.replace(
       path: '${_trimSlash(base.path)}/v2/glyphs/{fontstack}/{range}.pbf',
     );
-    return _withApiKey(uri).toString();
+    return _keepPlaceholders(uri.toString());
   }
 
-  /// La URL de una hoja de sprites.
-  String? spritesUrlTemplate(String fileName) {
+  /// La URL de los sprites de un estilo, en la forma que espera la propiedad
+  /// `sprite` de MapLibre: **sin extensión**.
+  ///
+  /// MapLibre le añade `.json` y `.png`, o `@2x.json` y `@2x.png` en
+  /// pantallas de alta densidad. Dependen del estilo y del esquema de color:
+  /// los iconos del modo oscuro no son los del claro.
+  ///
+  /// Va **sin clave**: `GetSprites` es público, y un `?key=` al final
+  /// quedaría delante de la extensión que añade MapLibre.
+  String? spritesUrl(
+    MapStyle style, {
+    MapColorScheme colorScheme = MapColorScheme.light,
+  }) {
     if (!_transport.credentials.isConfigured) return null;
     final base = _transport.credentials.baseUri(_service, region);
-    final uri = base.replace(
-      path: '${_trimSlash(base.path)}/v2/sprites/$fileName',
-    );
-    return _withApiKey(uri).toString();
+    return base
+        .replace(
+          path:
+              '${_trimSlash(base.path)}/v2/styles/${style.wireName}/'
+              '${colorScheme.wireName}/Default/sprites/sprites',
+        )
+        .toString();
   }
 
   // ─── Auxiliares ───────────────────────────────────────────────────────
@@ -412,6 +455,14 @@ class MapsClient {
       },
     );
   }
+
+  /// Devuelve las llaves de una plantilla a su forma literal.
+  ///
+  /// `Uri` las codifica como `%7B` y `%7D`, y entonces ni MapLibre ni un
+  /// `replaceAll('{z}', …)` las encuentran: la petición sale con `{z}` como
+  /// texto y AWS la rechaza.
+  static String _keepPlaceholders(String url) =>
+      url.replaceAll('%7B', '{').replaceAll('%7D', '}');
 
   static String _lonLatParam(LatLng point) =>
       '${_trimNumber(point.longitude)},${_trimNumber(point.latitude)}';

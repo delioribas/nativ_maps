@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.5.0
+
+**Primera pasada contra Amazon Location de verdad.** Las 17 operaciones que
+aceptan clave de API se lanzaron contra AWS en `us-east-1` (Quito, 18 de
+octubre de 2026). Salieron nueve diferencias entre lo que el paquete suponía y
+lo que AWS hace; cuatro de ellas no daban ningún error, solo datos vacíos.
+
+### Corregido
+
+| Operación | Qué pasaba | Cómo se notaba |
+|---|---|---|
+| `getPlace` | `additional-features` iba separado por comas | `400` con cualquier característica |
+| `staticMap` | la ruta era `/v2/static-map` en vez de `/v2/static/map` | `403` «Missing Authentication Token» |
+| `staticMap` | `language`, `points-of-interests` y `scale-bar-unit` no existen: son `lang`, `pois` y `scale-unit` | **nada**: AWS ignora los parámetros que no conoce |
+| `tileUrlTemplate`, `glyphsUrlTemplate` | las llaves salían como `%7B…%7D` | ni MapLibre ni `replaceAll('{z}')` las sustituían |
+| `spritesUrlTemplate` | la ruta no existe | `403` |
+| `optimizeWaypoints` | la duración de cada enlace se leía de `Duration`; es `TravelDuration` | **nada**: `connections[].duration` siempre cero |
+| `optimizeWaypoints` | `orderedIds` incluía `Origin` y `Destination` | `firstWhere` lanzaba al reordenar la lista propia |
+| `calculateRoutes` | ángulo e intensidad del giro se leían de la raíz del paso; van en `TurnStepDetails`, `KeepStepDetails`… | **nada**: `turnAngle` y `turnIntensity` siempre `null` |
+| `calculateRoutes` | `exitNumber` y el sistema del peaje (`systemRef`) se leían con una forma que AWS no usa | **nada**: siempre `null` |
+
+### Cambios que rompen
+
+- `spritesUrlTemplate(String fileName)` pasa a ser
+  `spritesUrl(MapStyle style, {MapColorScheme colorScheme})`. Devuelve la
+  base sin extensión, que es lo que espera MapLibre. La anterior nunca
+  funcionó.
+- `staticMap` y `staticMapUrl` lanzan `ArgumentError` antes de enviar si
+  `width` o `height` salen de **64..1400** (antes se aceptaba 1..1440), si el
+  estilo no es `standard` ni `satellite`, si llegan `zoom` y `radiusMeters` a
+  la vez, o si llega `center` sin ninguno de los dos.
+- `getPlace` lanza `ArgumentError` con `PlaceFeature.core` o
+  `PlaceFeature.intersections`, que esa operación no admite.
+- `optimizeWaypoints` lanza `ArgumentError` si una parada se llama `Origin` o
+  `Destination`.
+- `glyphsUrlTemplate` ya no lleva la clave: `GetGlyphs` es público, igual que
+  `GetSprites`.
+
+### Añadido
+
+- `test/live/`: las 17 operaciones contra AWS de verdad. `dart test` las
+  salta; se lanzan con `dart test -P live` y `ALS_API_KEY` en el entorno.
+  Guardan cada respuesta cruda, sin la clave, en `test/live/respuestas/`.
+- `WaypointOptimizationResponse.reservedIds`.
+
 ## 0.4.0
 
 **Precio sugerido para mercados de puja**, con la forma de inDrive y apoyado

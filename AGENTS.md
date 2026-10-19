@@ -14,7 +14,7 @@ Si eres una persona, [README.md](README.md) es más agradable y
 ```yaml
 dependencies:
   # Lo único que está en pub.dev. Trae el widget y las 44 operaciones.
-  nativ_maps_flutter: ^0.4.0
+  nativ_maps_flutter: ^0.5.0
 
   # Los otros dos NO se publican: se consumen por git, con una ETIQUETA y
   # nunca con una rama. Añádelos solo si los necesitas.
@@ -22,12 +22,12 @@ dependencies:
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_sigv4
-      ref: v0.4.0
+      ref: v0.5.0
   nativ_maps_google:     # SOLO si migras de google_maps_flutter
     git:
       url: https://github.com/delioribas/nativ_maps.git
       path: packages/nativ_maps_google
-      ref: v0.4.0
+      ref: v0.5.0
 ```
 
 ```dart
@@ -255,19 +255,26 @@ String? styleDescriptorUrl(          // devuelve null si no hay credenciales
 
 ({String? light, String? dark}) dayNightStyleUrls(MapStyle style, {...});
 
-Future<AlsBytes> staticMap({         // los bytes de la imagen
-  LatLng? center, double? zoom,      // center+zoom XOR boundingBox XOR
-  LatLngBounds? boundingBox,         // boundedPositions
+Future<AlsBytes> staticMap({         // los bytes de la imagen (JPEG)
+  LatLng? center, double? zoom,      // center+(zoom XOR radiusMeters) XOR
+  LatLngBounds? boundingBox,         // boundingBox XOR boundedPositions
   List<LatLng> boundedPositions = const [],
-  required int width,                // 1..1440
-  required int height,               // 1..1440
-  MapStyle style = MapStyle.standard,
+  double? radiusMeters,
+  required int width,                // 64..1400, LANZA fuera de rango
+  required int height,               // 64..1400
+  MapStyle style = MapStyle.standard,  // SOLO standard | satellite
   MapColorScheme? colorScheme,
   String? geoJsonOverlay,            // geometría encima
   ...
 });
 
 String? staticMapUrl({...});         // ⚠️ la URL LLEVA LA CLAVE: no la registres
+
+// Solo para un renderizador propio: el descriptor de estilo ya las trae.
+String? tileUrlTemplate(String tileset);   // {z}/{x}/{y} literales, con clave
+String? glyphsUrlTemplate();               // {fontstack}/{range}, sin clave
+String? spritesUrl(MapStyle style,         // SIN extensión: MapLibre añade
+    {MapColorScheme colorScheme = MapColorScheme.light});  // .json/.png/@2x
 ```
 
 ### `maps.geofencing` — firmas exactas

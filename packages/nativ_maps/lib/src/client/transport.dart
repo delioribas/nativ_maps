@@ -20,7 +20,7 @@ class TransportOptions {
     this.timeout = const Duration(seconds: 8),
     this.maxRetries = 2,
     this.maxRetryDelay = const Duration(seconds: 30),
-    this.userAgent = 'nativ-maps-dart/0.4.0',
+    this.userAgent = 'nativ-maps-dart/0.5.0',
   });
 
   /// Tiempo máximo de **cada intento**, no del conjunto.
@@ -162,17 +162,27 @@ class AlsTransport {
   }
 
   /// Envía un `GET` y devuelve el objeto de la respuesta.
+  ///
+  /// Una lista va en [repeatedParameters], **un parámetro por elemento**: el
+  /// servicio lee `a=X,Y` como un único valor `X,Y` y responde `400`.
   Future<Map<String, dynamic>> getJson({
     required String operation,
     required AlsService service,
     required String path,
     Map<String, String> queryParameters = const <String, String>{},
+    List<MapEntry<String, String>> repeatedParameters =
+        const <MapEntry<String, String>>[],
     int billingUnits = BillingUnits.single,
   }) async {
     _ensureConfigured(operation);
     budget.charge(operation, billingUnits);
 
-    final uri = _buildUri(service, path, queryParameters);
+    final uri = _buildUri(
+      service,
+      path,
+      queryParameters,
+      repeatedParameters: repeatedParameters,
+    );
     final response = await _send(
       operation: operation,
       service: service,

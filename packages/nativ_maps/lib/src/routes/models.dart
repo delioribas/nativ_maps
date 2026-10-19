@@ -91,18 +91,44 @@ class TravelStep {
   });
 
   /// Lee la indicación de la respuesta del servicio.
-  factory TravelStep.fromJson(Map<String, dynamic> json) => TravelStep(
-    distanceMeters: Json.numberOrZero(json, 'Distance'),
-    duration: Duration(seconds: Json.integer(json, 'Duration') ?? 0),
-    type: Json.string(json, 'Type'),
-    instruction: Json.string(json, 'Instruction'),
-    geometryOffset: Json.integer(json, 'GeometryOffset'),
-    nextRoad: _roadName(Json.object(json, 'NextRoad')),
-    currentRoad: _roadName(Json.object(json, 'CurrentRoad')),
-    turnAngle: Json.number(json, 'TurnAngle'),
-    turnIntensity: Json.string(json, 'TurnIntensity'),
-    exitNumber: Json.strings(json, 'ExitNumber').firstOrNull,
-  );
+  ///
+  /// El ángulo y la intensidad **no están en la raíz del paso**: cada tipo
+  /// de maniobra los trae bajo su propia clave —`TurnStepDetails`,
+  /// `KeepStepDetails`, `UTurnStepDetails`…—. Leídos de la raíz salían
+  /// siempre `null`, sin ningún error.
+  factory TravelStep.fromJson(Map<String, dynamic> json) {
+    final maneuver = _maneuverDetails(json);
+    return TravelStep(
+      distanceMeters: Json.numberOrZero(json, 'Distance'),
+      duration: Duration(seconds: Json.integer(json, 'Duration') ?? 0),
+      type: Json.string(json, 'Type'),
+      instruction: Json.string(json, 'Instruction'),
+      geometryOffset: Json.integer(json, 'GeometryOffset'),
+      nextRoad: _roadName(Json.object(json, 'NextRoad')),
+      currentRoad: _roadName(Json.object(json, 'CurrentRoad')),
+      turnAngle: Json.number(maneuver, 'TurnAngle'),
+      turnIntensity: Json.string(maneuver, 'TurnIntensity'),
+      // `ExitNumber` es el rótulo de la salida en una autopista, como texto
+      // localizado; en una rotonda no viene y la salida es `RelativeExit`.
+      exitNumber:
+          Json.objects(json, 'ExitNumber')
+              .map((e) => Json.string(e, 'Value'))
+              .whereType<String>()
+              .firstOrNull ??
+          Json.integer(maneuver, 'RelativeExit')?.toString(),
+    );
+  }
+
+  /// Los detalles de la maniobra, vengan bajo la clave que vengan.
+  static Map<String, dynamic>? _maneuverDetails(Map<String, dynamic> json) {
+    for (final entry in json.entries) {
+      final value = entry.value;
+      if (entry.key.endsWith('StepDetails') && value is Map<String, dynamic>) {
+        return value;
+      }
+    }
+    return null;
+  }
 
   static String? _roadName(Map<String, dynamic>? road) {
     if (road == null) return null;
@@ -174,15 +200,28 @@ class Toll {
   /// la raíz del peaje: un peaje tiene varias tarifas —por eje, por hora, por
   /// método de pago— y aquí se toma la primera, que es la que aplica al
   /// vehículo consultado.
-  factory Toll.fromJson(Map<String, dynamic> json) {
+  ///
+  /// El peaje no trae el nombre de su sistema, sino su **posición** en la
+  /// lista `TollSystems` del tramo. [systemNames] es esa lista; sin ella,
+  /// [systemRef] queda en `null`.
+  factory Toll.fromJson(
+    Map<String, dynamic> json, {
+    List<String?> systemNames = const <String?>[],
+  }) {
     final rates = Json.objects(json, 'Rates');
     final firstRate = rates.isEmpty ? null : rates.first;
     final price =
         Json.object(firstRate, 'LocalPrice') ??
         Json.object(firstRate, 'ConvertedPrice');
+    final systems = json['Systems'];
+    final systemIndex = systems is List && systems.isNotEmpty
+        ? systems.first
+        : null;
 
     return Toll(
-      systemRef: Json.string(json, 'SystemRef'),
+      systemRef: systemIndex is int && systemIndex < systemNames.length
+          ? systemNames[systemIndex]
+          : null,
       country: Json.string(json, 'Country'),
       paymentMethods: Json.strings(firstRate, 'PaymentMethods'),
       currency: Json.string(price, 'Currency'),
@@ -194,7 +233,9 @@ class Toll {
     );
   }
 
-  /// La referencia del sistema de peaje.
+  /// El nombre del sistema de peaje al que pertenece.
+  ///
+  /// Solo viene si la ruta se pidió con `RouteFeature.tollSystems`.
   final String? systemRef;
 
   /// El país en el que se cobra.
@@ -299,6 +340,10 @@ class RouteLeg {
     final travelOnly = Json.object(summary, 'TravelOnly');
     final departure = Json.object(details, 'Departure');
     final arrival = Json.object(details, 'Arrival');
+    final tollSystems = Json.objects(
+      details,
+      'TollSystems',
+    ).map((s) => Json.string(s, 'Name')).toList(growable: false);
 
     return RouteLeg(
       distanceMeters: Json.numberOrZero(overview, 'Distance'),
@@ -318,10 +363,9 @@ class RouteLeg {
         details,
         'TravelSteps',
       ).map(TravelStep.fromJson).toList(growable: false),
-      tolls: Json.objects(
-        details,
-        'Tolls',
-      ).map(Toll.fromJson).toList(growable: false),
+      tolls: Json.objects(details, 'Tolls')
+          .map((t) => Toll.fromJson(t, systemNames: tollSystems))
+          .toList(growable: false),
       incidents: Json.objects(
         details,
         'Incidents',
@@ -1086,7 +1130,9 @@ class WaypointConnection {
     fromId: Json.string(json, 'From') ?? '',
     toId: Json.string(json, 'To') ?? '',
     distanceMeters: Json.numberOrZero(json, 'Distance'),
-    duration: Duration(seconds: Json.integer(json, 'Duration') ?? 0),
+    // Se llama `TravelDuration`, no `Duration` como en la raíz de la
+    // respuesta. Leída como `Duration` salía siempre cero.
+    duration: Duration(seconds: Json.integer(json, 'TravelDuration') ?? 0),
     restDuration: Duration(seconds: Json.integer(json, 'RestDuration') ?? 0),
     waitDuration: Duration(seconds: Json.integer(json, 'WaitDuration') ?? 0),
   );
@@ -1171,9 +1217,18 @@ class WaypointOptimizationResponse {
   /// El tramo de precio que aplicó AWS.
   final String? pricingBucket;
 
-  /// El orden de los identificadores, listo para reordenar tu propia lista.
-  List<String> get orderedIds =>
-      waypoints.map((w) => w.id).toList(growable: false);
+  /// El orden de **tus** paradas, listo para reordenar tu propia lista.
+  ///
+  /// [waypoints] incluye también el origen y el destino, con los
+  /// identificadores `Origin` y `Destination` y sus horas de salida y
+  /// llegada. Aquí no están: no son tuyos, y buscarlos en tu lista fallaría.
+  List<String> get orderedIds => waypoints
+      .map((w) => w.id)
+      .where((id) => !reservedIds.contains(id))
+      .toList(growable: false);
+
+  /// Los identificadores que el servicio reserva para el origen y el destino.
+  static const Set<String> reservedIds = <String>{'Origin', 'Destination'};
 
   @override
   String toString() =>

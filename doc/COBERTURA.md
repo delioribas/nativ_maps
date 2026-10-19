@@ -60,7 +60,7 @@ coincidencia.
 | `GetStaticMap` | `maps.staticMap` / `staticMapUrl` | ✅ los tres encuadres |
 | `GetTile` | el descriptor la trae; `maps.tileUrlTemplate` | ✅ |
 | `GetGlyphs` | ídem; `maps.glyphsUrlTemplate` | ✅ |
-| `GetSprites` | ídem; `maps.spritesUrlTemplate` | ✅ |
+| `GetSprites` | ídem; `maps.spritesUrl` | ✅ |
 
 ### Geovallas · 12 de 12
 

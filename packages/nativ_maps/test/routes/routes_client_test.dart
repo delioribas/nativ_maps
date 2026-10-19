@@ -34,9 +34,13 @@ Map<String, dynamic> _rutaDeDosTramos() => <String, dynamic>{
               'Overview': <String, dynamic>{'Distance': 6200, 'Duration': 780},
               'TravelOnly': <String, dynamic>{'Duration': 740},
             },
+            'TollSystems': <dynamic>[
+              <String, dynamic>{'Name': 'Peaje Oyacoto'},
+            ],
             'Tolls': <dynamic>[
               <String, dynamic>{
-                'SystemRef': 'peaje-oyacoto',
+                // El sistema llega como índice en `TollSystems`, no por nombre.
+                'Systems': <int>[0],
                 'Country': 'ECU',
                 'Rates': <dynamic>[
                   <String, dynamic>{
@@ -636,6 +640,180 @@ void main() {
         ),
         throwsArgumentError,
       );
+    });
+
+    test('Origin y Destination están reservados', () async {
+      expect(
+        () => maps.routes.optimizeWaypoints(
+          origin: LatLng(0, 0),
+          waypoints: <OptimizationWaypoint>[
+            OptimizationWaypoint(id: 'Origin', position: LatLng(1, 1)),
+          ],
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  // Fragmentos tal cual de las respuestas de AWS en Quito, 18 de octubre de
+  // 2026 (`dart test -P live`). Cada uno es un fallo que las pruebas con
+  // respuestas escritas a mano no podían ver: se escribían con la misma
+  // suposición equivocada que el código.
+  group('respuestas reales', () {
+    test('optimizeWaypoints: la duración de cada enlace es TravelDuration, y '
+        'orderedIds no incluye el origen', () async {
+      service.stub('/v2/optimize-waypoints', <String, dynamic>{
+        'Connections': <dynamic>[
+          <String, dynamic>{
+            'Distance': 2148,
+            'From': 'Origin',
+            'RestDuration': 0,
+            'To': 'quicentro',
+            'TravelDuration': 247,
+            'WaitDuration': 0,
+          },
+          <String, dynamic>{
+            'Distance': 3424,
+            'From': 'quicentro',
+            'RestDuration': 0,
+            'To': 'amazonas',
+            'TravelDuration': 400,
+            'WaitDuration': 0,
+          },
+        ],
+        'Distance': 5572,
+        'Duration': 647,
+        'ImpedingWaypoints': <dynamic>[],
+        'OptimizedWaypoints': <dynamic>[
+          <String, dynamic>{
+            'DepartureTime': '2026-10-19T01:57:57Z',
+            'Id': 'Origin',
+            'Position': <double>[-78.484, -0.1825],
+          },
+          <String, dynamic>{
+            'ArrivalTime': '2026-10-19T02:02:04Z',
+            'DepartureTime': '2026-10-19T02:02:04Z',
+            'Id': 'quicentro',
+            'Position': <double>[-78.4797, -0.1762],
+          },
+          <String, dynamic>{
+            'ArrivalTime': '2026-10-19T02:08:44Z',
+            'Id': 'amazonas',
+            'Position': <double>[-78.4678, -0.1807],
+          },
+        ],
+        'TimeBreakdown': <String, dynamic>{
+          'RestDuration': 0,
+          'ServiceDuration': 0,
+          'TravelDuration': 647,
+          'WaitDuration': 0,
+        },
+      });
+
+      final respuesta = await maps.routes.optimizeWaypoints(
+        origin: LatLng(-0.1825, -78.4840),
+        waypoints: <OptimizationWaypoint>[
+          OptimizationWaypoint(id: 'amazonas', position: LatLng(-0.18, -78.47)),
+          OptimizationWaypoint(
+            id: 'quicentro',
+            position: LatLng(-0.17, -78.48),
+          ),
+        ],
+      );
+
+      // Leída como `Duration`, que no existe en el enlace, salía cero.
+      expect(
+        respuesta.connections.first.duration,
+        const Duration(seconds: 247),
+      );
+      expect(respuesta.connections.last.duration, const Duration(seconds: 400));
+      expect(respuesta.orderedIds, <String>['quicentro', 'amazonas']);
+      // El origen sigue en `waypoints`, con su hora de salida.
+      expect(respuesta.waypoints.first.id, 'Origin');
+      expect(respuesta.waypoints.first.departureTime, isNotNull);
+    });
+
+    test('calculateRoutes: el giro viene dentro de *StepDetails y la salida '
+        'como texto localizado', () async {
+      final ruta = _rutaDeDosTramos();
+      final tramo =
+          ((ruta['Routes'] as List<dynamic>).first
+                  as Map<String, dynamic>)['Legs']
+              as List<dynamic>;
+      ((tramo.first as Map<String, dynamic>)['VehicleLegDetails']
+          as Map<String, dynamic>)['TravelSteps'] = <dynamic>[
+        <String, dynamic>{
+          'CurrentRoad': <String, dynamic>{
+            'RoadName': <dynamic>[
+              <String, dynamic>{
+                'Language': 'es',
+                'Value': 'Calle Núñez de Vela',
+              },
+            ],
+            'RouteNumber': <dynamic>[],
+            'Towards': <dynamic>[],
+          },
+          'Distance': 130,
+          'Duration': 11,
+          'ExitNumber': <dynamic>[],
+          'GeometryOffset': 2,
+          'NextRoad': <String, dynamic>{
+            'RoadName': <dynamic>[
+              <String, dynamic>{'Language': 'es', 'Value': 'Avenida Amazonas'},
+            ],
+            'RouteNumber': <dynamic>[],
+            'Towards': <dynamic>[],
+          },
+          'TurnStepDetails': <String, dynamic>{
+            'Intersection': <dynamic>[],
+            'SteeringDirection': 'Right',
+            'TurnAngle': 86.7656937,
+            'TurnIntensity': 'Typical',
+          },
+          'Type': 'Turn',
+        },
+        <String, dynamic>{
+          'Distance': 2475,
+          'Duration': 186,
+          // Forma del modelo oficial; en Quito no salió ninguna salida
+          // numerada.
+          'ExitNumber': <dynamic>[
+            <String, dynamic>{'Language': 'es', 'Value': '12A'},
+          ],
+          'GeometryOffset': 37,
+          'KeepStepDetails': <String, dynamic>{
+            'Intersection': <dynamic>[],
+            'SteeringDirection': 'Left',
+            'TurnAngle': 2.7751331,
+          },
+          'Type': 'Keep',
+        },
+      ];
+      service.stub('/v2/routes', ruta);
+
+      final respuesta = await maps.routes.calculateRoutes(
+        origin: LatLng(-0.1807, -78.4678),
+        destination: LatLng(-0.1900, -78.4750),
+      );
+      final pasos = respuesta.best!.steps;
+
+      expect(pasos.first.turnAngle, closeTo(86.77, 0.01));
+      expect(pasos.first.turnIntensity, 'Typical');
+      expect(pasos.first.currentRoad, 'Calle Núñez de Vela');
+      expect(pasos.first.exitNumber, isNull);
+      expect(pasos[1].turnAngle, closeTo(2.78, 0.01));
+      expect(pasos[1].exitNumber, '12A');
+    });
+
+    test('calculateRoutes: el peaje señala su sistema por índice', () async {
+      service.stub('/v2/routes', _rutaDeDosTramos());
+
+      final respuesta = await maps.routes.calculateRoutes(
+        origin: LatLng(-0.1807, -78.4678),
+        destination: LatLng(-0.1900, -78.4750),
+      );
+
+      expect(respuesta.best!.tolls.single.systemRef, 'Peaje Oyacoto');
     });
   });
 }

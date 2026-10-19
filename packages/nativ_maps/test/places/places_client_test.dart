@@ -129,10 +129,12 @@ void main() {
 
       expect(service.lastRequest.method, 'GET');
       expect(service.lastRequest.path, '/v2/place/ec-2');
-      expect(
-        service.lastRequest.param('additional-features'),
-        'Contact,Access',
-      );
+      // Un parámetro por característica. Separadas por comas, AWS lee
+      // `Contact,Access` como un único valor y responde 400.
+      expect(service.lastRequest.query['additional-features'], <String>[
+        'Contact',
+        'Access',
+      ]);
       expect(lugar.contacts!.phones.first.value, '+593 2 399 8000');
       // El punto de acceso gana a la posición para navegar.
       expect(lugar.navigationPosition, isNot(equals(lugar.position)));

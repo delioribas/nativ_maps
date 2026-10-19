@@ -577,6 +577,16 @@ class RoutesClient {
         'identificador son indistinguibles al reconstruir la lista.',
       );
     }
+    final reserved = ids.intersection(WaypointOptimizationResponse.reservedIds);
+    if (reserved.isNotEmpty) {
+      throw ArgumentError.value(
+        reserved.join(', '),
+        'waypoints',
+        'Origin y Destination son los identificadores que el servicio da al '
+            'origen y al destino; una parada con ese nombre se confundiría '
+            'con ellos',
+      );
+    }
 
     final json = await _transport.postJson(
       operation: 'OptimizeWaypoints',

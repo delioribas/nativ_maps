@@ -308,6 +308,19 @@ class PlacesClient {
     if (placeId.isEmpty) {
       throw ArgumentError.value(placeId, 'placeId', 'no puede estar vacío');
     }
+    // `core` va siempre incluido y las intersecciones son de otras
+    // operaciones: GetPlace responde 400 a cualquiera de las dos.
+    final unsupported = additionalFeatures.where(
+      (f) => f == PlaceFeature.core || f == PlaceFeature.intersections,
+    );
+    if (unsupported.isNotEmpty) {
+      throw ArgumentError.value(
+        unsupported.map((f) => f.name).join(', '),
+        'additionalFeatures',
+        'getPlace solo admite contact, timeZone, access, phonemes y '
+            'secondaryAddresses',
+      );
+    }
     final use = intendedUse ?? this.intendedUse;
     final cacheKey = _key(<Object?>[
       'place',
@@ -325,11 +338,13 @@ class PlacesClient {
       operation: 'GetPlace',
       service: _service,
       path: '/v2/place/${Uri.encodeComponent(placeId)}',
+      // Uno por característica: con `Contact,TimeZone` el servicio responde
+      // 400 diciendo que `Contact,TimeZone` no es un valor válido.
+      repeatedParameters: <MapEntry<String, String>>[
+        for (final feature in additionalFeatures)
+          MapEntry<String, String>('additional-features', feature.wireName),
+      ],
       queryParameters: <String, String>{
-        if (additionalFeatures.isNotEmpty)
-          'additional-features': additionalFeatures
-              .map((f) => f.wireName)
-              .join(','),
         if ((language ?? this.language) != null)
           'language': language ?? this.language!,
         'political-view': ?politicalView,

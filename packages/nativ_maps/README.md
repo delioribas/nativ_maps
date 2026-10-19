@@ -41,7 +41,7 @@ herramienta de línea de órdenes o un servidor Dart.
 | `searchText` | `calculateRouteMatrix` | `staticMap` |
 | `reverseGeocode` | **`calculateIsolines`** | `tileUrlTemplate` |
 | `getPlace` | **`snapToRoads`** | `glyphsUrlTemplate` |
-| `geocode` | `optimizeWaypoints` | `spritesUrlTemplate` |
+| `geocode` | `optimizeWaypoints` | `spritesUrl` |
 | `searchNearby` | | |
 | `suggest` | | |
 
